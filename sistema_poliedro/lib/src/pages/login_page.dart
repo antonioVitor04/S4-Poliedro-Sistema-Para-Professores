@@ -1,12 +1,35 @@
 import 'package:flutter/material.dart';
+import '../styles/cores.dart';
+import '../styles/fontes.dart';
 
 class LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(title: const Text('Login Page')),
-        body: const Center(child: Text('Welcome to the Login Page!')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset('assets/images/logo.png', width: 139, height: 200),
+              Text(
+                "Poliedro",
+                style: AppTextStyles.fonteUbuntu.copyWith(
+                  fontSize: 40,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                "Educação",
+                style: AppTextStyles.fonteUbuntu.copyWith(
+                  fontSize: 40,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.azulClaro,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -15,7 +38,6 @@ class LoginPageState extends State<LoginPage> {
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
-  State<LoginPage> createState() {
-    return LoginPageState();
-  }
+  @override
+  State<LoginPage> createState() => LoginPageState();
 }
