@@ -128,52 +128,125 @@ class LoginPageState extends State<LoginPage> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    //campo de email
-                    Text(
-                      "Email",
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: 20,
-                        fontWeight: FontWeight.normal,
-                        color: AppColors.preto,
-                      ),
-                    ),
-                    TextField(
-                      decoration: InputDecoration(
-                        hintText: "Digite seu email",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    // campo de email
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Email",
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: 18,
+                            fontWeight: FontWeight.normal,
+                            color: AppColors.preto,
+                          ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
+                        const SizedBox(height: 8), // espaço entre label e campo
+                        TextField(
+                          cursorColor: AppColors.azulClaro,
+                          decoration: InputDecoration(
+                            hintText: paginaAtual == "professor"
+                                ? "exemplo@sistemapoliedro.com"
+                                : "Insira seu RA",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: AppColors.preto,
+                              ), // cor quando não está focado
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: AppColors.azulClaro,
+                                width: 2,
+                              ), // cor quando focado
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 16), // espaço abaixo do campo
+                      ],
                     ),
-                    const SizedBox(height: 16),
                     // Campo de Senha
-                    Text(
-                      "Senha",
-                      style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
-                    ),
-                    TextField(
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        hintText: "Digite sua senha",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Senha",
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: 18,
+                            fontWeight: FontWeight.normal,
+                            color: AppColors.preto,
+                          ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
+
+                        TextField(
+                          obscureText: true,
+                          cursorColor: AppColors.azulClaro,
+
+                          decoration: InputDecoration(
+                            hintText: "Digite sua senha",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                // cor quando não está focado
+                                color: AppColors.preto,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                // cor quando focado
+                                color: AppColors.azulClaro,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                    // Botão "Esqueci minha senha"
+                    Container(
+                      alignment: Alignment.centerLeft,
+                      margin: const EdgeInsets.only(bottom: 15),
+                      child: TextButton(
+                        onPressed: () => {},
+                        child: Text(
+                          "Esqueci minha senha",
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: 16,
+                            fontWeight: FontWeight.normal,
+                            color: AppColors.azulClaro,
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    //Botão de cadastrar email apenas se for aluno
 
                     // Botão de login
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.azulClaro,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
                         onPressed: () {
                           // lógica do login
                         },
@@ -182,6 +255,7 @@ class LoginPageState extends State<LoginPage> {
                           style: AppTextStyles.fonteUbuntu.copyWith(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
+                            color: AppColors.preto,
                           ),
                         ),
                       ),
