@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 class HomeProfessor extends StatelessWidget {
+  const HomeProfessor({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
