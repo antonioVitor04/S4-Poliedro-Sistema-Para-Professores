@@ -3,25 +3,49 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Professor = require("../models/professor.cjs");
 const auth = require("../middleware/auth.cjs");
-
 const router = express.Router();
+const crypto = require("crypto");
 
-// Registro Professor por outro professor
+// Registrar professor (SOMENTE professor pode registrar outro professor)
 router.post("/register", auth("professor"), async (req, res) => {
   try {
-    const { email, nome } = req.body;
+    const { nome, email } = req.body;
 
-    if (!email) return res.status(400).json({ msg: "Email é obrigatório" });
-    if (await Professor.findOne({ email })) return res.status(400).json({ msg: "Email já cadastrado" });
+    if (!nome || !email) {
+      return res.status(400).json({ msg: "Nome e email são obrigatórios" });
+    }
 
-    const senhaAutomatica = Math.random().toString(36).slice(-8); // senha aleatória 8 caracteres
-    const hashedPassword = await bcrypt.hash(senhaAutomatica, 10);
+    // verificar se já existe professor com esse email
+    const existing = await Professor.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ msg: "Esse email já está em uso" });
+    }
 
-    const prof = new Professor({ nome, email, senha: hashedPassword });
-    await prof.save();
+    // gerar senha automática
+    const senhaGerada = crypto.randomBytes(4).toString("hex");
 
-    // Aqui você pode enviar o email com a senha automática posteriormente
-    res.status(201).json({ msg: "Professor registrado com sucesso!", prof, senhaAutomatica });
+    // hashear senha
+    const hashedPassword = await bcrypt.hash(senhaGerada, 10);
+
+    // criar professor
+    const novoProfessor = new Professor({
+      nome,
+      email,
+      senha: hashedPassword
+    });
+
+    await novoProfessor.save();
+
+    res.status(201).json({
+      msg: "Professor cadastrado com sucesso",
+      professor: {
+        id: novoProfessor._id,
+        nome: novoProfessor.nome,
+        email: novoProfessor.email
+      },
+      senhaProvisoria: senhaGerada // futuramente pode ser enviada por email
+    });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -37,7 +61,11 @@ router.post("/login", async (req, res) => {
     const isMatch = await bcrypt.compare(senha, prof.senha);
     if (!isMatch) return res.status(400).json({ msg: "Senha incorreta" });
 
-    const token = jwt.sign({ id: prof._id, role: "professor" }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign(
+      { id: prof._id, role: "professor" },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
 
     res.json({ token, professor: prof });
   } catch (err) {
