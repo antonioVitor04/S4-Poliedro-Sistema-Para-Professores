@@ -6,4 +6,6 @@ class AppColors {
   static const vermelho = Color(0xFFED2152);
   static const verdeConfirmacao = Color(0xFF27AE60);
   static const vermelhoErro = Color(0xFFFE6658);
+  static const branco = Color(0xFFFFFFFF);
+  static const preto = Color(0xFF000000);
 }
