@@ -24,6 +24,7 @@ class LoginPageState extends State<LoginPage> {
                 style: AppTextStyles.fonteUbuntu.copyWith(
                   fontSize: 40,
                   fontWeight: FontWeight.bold,
+                  color: AppColors.azulClaro,
                 ),
               ),
             ],
