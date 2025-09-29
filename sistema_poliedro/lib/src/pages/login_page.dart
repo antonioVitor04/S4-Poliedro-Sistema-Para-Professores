@@ -1,10 +1,97 @@
 import 'package:flutter/material.dart';
 import '../styles/cores.dart';
 import '../styles/fontes.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../components/alerta.dart';
+import 'home_aluno.dart';
+import 'home_professor.dart';
 
 class LoginPageState extends State<LoginPage> {
-  String paginaAtual = "professor"; // agora pode mudar
+  //mostrar alerta
+  void mostrarAlerta(String mensagem, bool sucesso) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent, // Remove o fundo escuro
+      barrierDismissible: true,
+      builder: (context) => AlertaWidget(mensagem: mensagem, sucesso: sucesso),
+    );
 
+    // Fecha automaticamente depois de 3 segundos
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
+
+  String paginaAtual = "professor";
+  // serve para pegar o valor digitado no campo de texto
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController senhaController = TextEditingController();
+
+  //funcao de login
+  Future<void> login() async {
+    final String emailOuRA = emailController.text;
+    final String senha = senhaController.text;
+
+    final String rota = paginaAtual == "professor" ? "professores" : "alunos";
+    final url = Uri.parse('${dotenv.env['API_URL']!}/api/$rota/login');
+
+    final body = paginaAtual == "professor"
+        ? {"email": emailOuRA.trim(), "senha": senha.trim()}
+        : {"ra": emailOuRA.trim(), "senha": senha.trim()};
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${dotenv.env['API_TOKEN']}",
+        },
+
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final token = data['token'];
+        final usuario =
+            data[paginaAtual == "professor" ? 'professor' : 'aluno'];
+
+        // Salva token localmente
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('jwt_token', token);
+
+        mostrarAlerta("Login feito com sucesso! Usuário: $usuario", true);
+        // Navegação condicional entre telas
+        if (!mounted) return; // Sai se o widget não estiver mais na árvore
+        // No seu método login(), substitua:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                paginaAtual == "professor" ? HomeProfessor() : HomeAluno(),
+          ),
+        );
+
+        // Por isso:
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) =>
+                paginaAtual == "professor" ? HomeProfessor() : HomeAluno(),
+          ),
+          (route) => false, // Remove TODAS as rotas anteriores
+        );
+      } else {
+        mostrarAlerta("Erro no login. Verifique suas credenciais.", false);
+      }
+    } catch (e) {
+      mostrarAlerta("Erro na requisição. Tente novamente mais tarde.", false);
+    }
+  }
+
+  // construtor da tela
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -142,6 +229,7 @@ class LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 8), // espaço entre label e campo
                         TextField(
+                          controller: emailController,
                           cursorColor: AppColors.azulClaro,
                           decoration: InputDecoration(
                             hintText: paginaAtual == "professor"
@@ -186,6 +274,7 @@ class LoginPageState extends State<LoginPage> {
                         ),
 
                         TextField(
+                          controller: senhaController,
                           obscureText: true,
                           cursorColor: AppColors.azulClaro,
 
@@ -249,6 +338,7 @@ class LoginPageState extends State<LoginPage> {
                         ),
                         onPressed: () {
                           // lógica do login
+                          login();
                         },
                         child: Text(
                           "Entrar",
