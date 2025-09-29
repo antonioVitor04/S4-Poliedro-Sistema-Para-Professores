@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 class HomeAluno extends StatelessWidget {
+  const HomeAluno({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

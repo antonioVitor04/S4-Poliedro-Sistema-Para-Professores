@@ -5,8 +5,7 @@ class AlertaWidget extends StatelessWidget {
   final String mensagem;
   final bool sucesso;
 
-  const AlertaWidget({Key? key, required this.mensagem, required this.sucesso})
-    : super(key: key);
+  const AlertaWidget({super.key, required this.mensagem, required this.sucesso});
 
   @override
   Widget build(BuildContext context) {
