@@ -11,8 +11,8 @@ router.post("/register", auth("professor"), async (req, res) => {
   try {
     const { nome, email } = req.body;
 
-    if (!nome || !email) {
-      return res.status(400).json({ msg: "Nome e email são obrigatórios" });
+    if ( !email) {
+      return res.status(400).json({ msg: "Email é obrigatório" });
     }
 
     // verificar se já existe professor com esse email
