@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 import 'src/pages/login_page.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'src/pages/aluno/main_aluno_page.dart';
+import 'src/components/auth_guard.dart';
+import 'src/styles/cores.dart';
 
-Future<void> main() async {
-  // garante que o Flutter está inicializado antes de carregar dotenv
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // carrega as variáveis do .env
-  await dotenv.load();
-
-  // inicializa o app
-  runApp(MyApp());
+void main() {
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Poliedro Educação',
-
-      home: LoginPage(), // This is crucial
+      theme: ThemeData(primarySwatch: Colors.blue),
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => const LoginPage(),
+        '/aluno': (context) => const MainAlunoPage(),
+      },
     );
   }
 }
