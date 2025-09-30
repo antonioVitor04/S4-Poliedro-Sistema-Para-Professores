@@ -1,14 +1,13 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const routerSenha = express.Router();
-const authMiddleware = require("../../middleware/auth.cjs");
 
 const Aluno = require("../../models/aluno.cjs");
 const Professor = require("../../models/professor.cjs");
 const CodigoVerificacao = require("../../models/codigoVerificacao.cjs"); // model TTL
 
 // Rota para atualizar a senha usando código
-routerSenha.post("/atualizar-senha", authMiddleware(), async (req, res) => {
+routerSenha.post("/atualizar-senha", async (req, res) => {
   const { email, codigo, novaSenha } = req.body;
 
   if (!email || !codigo || !novaSenha) {
@@ -19,15 +18,18 @@ routerSenha.post("/atualizar-senha", authMiddleware(), async (req, res) => {
 
   try {
     // Verificar o código no MongoDB
-    const registro = await CodigoVerificacao.findOne({ email, codigo });
+    const registro = await CodigoVerificacao.findOne({
+      email,
+      codigo,
+      usado: false,
+    });
 
     if (!registro) {
       return res.status(400).json({ error: "Código inválido ou expirado" });
     }
-
-    // Código válido, remover do MongoDB
-    await CodigoVerificacao.deleteOne({ _id: registro._id });
-
+    // Marca como usado (mas não apaga imediatamente)
+    registro.usado = true;
+    await registro.save();
     // Hash da nova senha
     const hashedPassword = await bcrypt.hash(novaSenha, 10);
 

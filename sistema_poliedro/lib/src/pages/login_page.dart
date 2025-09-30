@@ -58,7 +58,7 @@ class _LoginPageState extends State<LoginPage> {
         // Aguarda que o token seja salvo antes de navegar
         Navigator.pushReplacementNamed(
           context,
-          '/aluno',
+          '/aluno_protected',
           arguments: {'initialRoute': '/disciplinas'},
         );
       } else {

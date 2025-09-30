@@ -17,6 +17,7 @@ class Recuperar_Senha extends StatefulWidget {
 
 class _Recuperar_SenhaState extends State<Recuperar_Senha> {
   final TextEditingController emailController = TextEditingController();
+  bool _carregando = false;
 
   void mostrarAlerta(String mensagem, bool sucesso) {
     showDialog(
@@ -33,7 +34,6 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
     });
   }
 
-  //funcao que verifica o email digitado e envia
   // Função que verifica o email digitado e envia
   Future<void> verificaEmailEEnvia() async {
     final String email = emailController.text.trim();
@@ -44,6 +44,10 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
     }
 
     try {
+      setState(() {
+        _carregando = true;
+      });
+
       final url = Uri.parse(
         'http://localhost:5000/api/enviarEmail/enviar-codigo',
       );
@@ -68,6 +72,12 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
       }
     } catch (e) {
       mostrarAlerta("Erro de conexão: $e", false);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _carregando = false;
+        });
+      }
     }
   }
 
@@ -203,17 +213,26 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
                             side: BorderSide(color: AppColors.preto),
                           ),
                         ),
-                        onPressed: () {
-                          verificaEmailEEnvia();
-                        },
-                        child: Text(
-                          "Enviar",
-                          style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 18,
-                            fontWeight: FontWeight.normal,
-                            color: AppColors.preto,
-                          ),
-                        ),
+                        onPressed: _carregando ? null : verificaEmailEEnvia,
+                        child: _carregando
+                            ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppColors.preto,
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                "Enviar",
+                                style: AppTextStyles.fonteUbuntu.copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.normal,
+                                  color: AppColors.preto,
+                                ),
+                              ),
                       ),
                     ),
                   ],
