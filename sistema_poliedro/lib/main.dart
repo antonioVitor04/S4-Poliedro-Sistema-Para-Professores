@@ -7,6 +7,7 @@ import 'src/styles/cores.dart';
 import 'src/pages/recuperar_senha.dart';
 import 'src/pages/codigo_verificacao.dart'; 
 
+
 void main() {
   runApp(const MyApp());
 }
@@ -32,6 +33,9 @@ class MyApp extends StatelessWidget {
             AuthGuard(child: const HomeProfessor()),
         '/recuperar_senha': (context) => Recuperar_Senha(),
         '/codigo_verificacao': (context) => const CodigoVerificacao(), 
+
+        '/nova_senha': (context) => const NovaSenha(),
+
       },
     );
   }

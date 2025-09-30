@@ -27,7 +27,7 @@ class _LoginPageState extends State<LoginPage> {
       builder: (context) => AlertaWidget(mensagem: mensagem, sucesso: sucesso),
     );
 
-    Future.delayed(const Duration(seconds: 3), () {
+    Future.delayed(const Duration(seconds: 2), () {
       if (mounted) Navigator.of(context).pop();
     });
   }
@@ -95,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 40),
-              
+
               // CONTAINER DO FORMULÁRIO
               Container(
                 margin: const EdgeInsets.all(20),
@@ -160,6 +160,7 @@ class _LoginPageState extends State<LoginPage> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
+                          side: BorderSide(color: AppColors.preto),
                           backgroundColor: AppColors.azulClaro,
                           padding: const EdgeInsets.symmetric(vertical: 18),
                           shape: RoundedRectangleBorder(
@@ -171,7 +172,7 @@ class _LoginPageState extends State<LoginPage> {
                           "Entrar",
                           style: AppTextStyles.fonteUbuntu.copyWith(
                             fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.normal,
                             color: AppColors.preto,
                           ),
                         ),
