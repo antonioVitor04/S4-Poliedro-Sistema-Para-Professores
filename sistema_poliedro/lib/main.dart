@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
         '/recuperar_senha': (context) => Recuperar_Senha(),
 
         // '/codigo_verificacao': (context) => const CodigoVerificacao(),
-        '/nova_senha': (context) => const NovaSenha(),
+        // '/nova_senha': (context) => const NovaSenha(),
       },
     );
   }

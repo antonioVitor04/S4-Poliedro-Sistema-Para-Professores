@@ -77,9 +77,6 @@ routerEmail.post("/verificar-codigo", async (req, res) => {
       return res.status(400).json({ error: "Código inválido ou expirado" });
     }
 
-    // Código válido, remover do MongoDB
-    await CodigoVerificacao.deleteOne({ _id: registro._id });
-
     return res.json({ message: "Código verificado com sucesso" });
   } catch (err) {
     console.error(err);
