@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sistema_poliedro/src/pages/Recuperar_Senha.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sistema_poliedro/src/pages/aluno/main_aluno_page.dart';
 import '../components/alerta.dart';
@@ -145,7 +146,14 @@ class _LoginPageState extends State<LoginPage> {
                       alignment: Alignment.centerLeft,
                       margin: const EdgeInsets.only(bottom: 15),
                       child: TextButton(
-                        onPressed: () => {},
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => Recuperar_Senha(),
+                            ),
+                          );
+                        },
                         child: Text(
                           "Esqueci minha senha",
                           style: AppTextStyles.fonteUbuntu.copyWith(
