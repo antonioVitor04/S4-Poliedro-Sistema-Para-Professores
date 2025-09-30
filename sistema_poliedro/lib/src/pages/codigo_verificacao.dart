@@ -4,15 +4,18 @@ import '../styles/fontes.dart';
 // import 'nova_senha.dart'; // depois você cria essa tela
 
 class CodigoVerificacao extends StatefulWidget {
-  const CodigoVerificacao({super.key});
+  final String email;
+  const CodigoVerificacao({super.key, required this.email});
 
   @override
   State<CodigoVerificacao> createState() => _CodigoVerificacaoState();
 }
 
 class _CodigoVerificacaoState extends State<CodigoVerificacao> {
-  final List<TextEditingController> _controllers =
-      List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _controllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
 
   void _continuar() {
     String codigo = _controllers.map((c) => c.text).join();
@@ -36,9 +39,9 @@ class _CodigoVerificacaoState extends State<CodigoVerificacao> {
       //   MaterialPageRoute(builder: (context) => const NovaSenha()),
       // );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Código incorreto!")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Código incorreto!")));
     }
   }
 

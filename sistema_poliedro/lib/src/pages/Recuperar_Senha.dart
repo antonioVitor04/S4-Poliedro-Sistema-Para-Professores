@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import '../components/alerta.dart';
 import '../styles/cores.dart';
 import '../styles/fontes.dart';
-import 'codigo_verificacao.dart';
+
+import 'package:sistema_poliedro/src/pages/codigo_verificacao.dart';
+import 'package:http/http.dart' as http;
 
 class Recuperar_Senha extends StatefulWidget {
   const Recuperar_Senha({super.key});
@@ -22,43 +26,60 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
       builder: (context) => AlertaWidget(mensagem: mensagem, sucesso: sucesso),
     );
 
-    Future.delayed(const Duration(seconds: 3), () {
+    Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop(); 
+        Navigator.of(context, rootNavigator: true).pop();
       }
     });
   }
 
-  Future<void> recuperarSenha() async {
-  final email = emailController.text.trim();
+  //funcao que verifica o email digitado e envia
+  // Função que verifica o email digitado e envia
+  Future<void> verificaEmailEEnvia() async {
+    final String email = emailController.text.trim();
 
-  if (email.isEmpty) {
-    mostrarAlerta("Digite um e-mail válido.", false);
-    return;
-  }
-
-  // teste de email corretor
-  if (email == "teste@poliedro.com") {
-    mostrarAlerta(
-      "Um código de verificação foi enviado para seu e-mail.",
-      true,
-    );
-
-    await Future.delayed(const Duration(seconds: 2));
-    
-
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
+    if (email.isEmpty) {
+      mostrarAlerta("Por favor, digite um e-mail", false);
+      return;
     }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const CodigoVerificacao()),
-    );
-  } else {
-    mostrarAlerta("E-mail não cadastrado!", false);
+    try {
+      final url = Uri.parse(
+        'http://localhost:5000/api/enviarEmail/enviar-codigo',
+      );
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email}),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        mostrarAlerta("Código enviado para $email", true);
+
+        // Redireciona após o alerta fechar
+        Future.delayed(const Duration(seconds: 3), () {
+          redirecionaParaInserirCodigo(email);
+        });
+      } else {
+        // Algum erro aconteceu (ex: email não encontrado)
+        mostrarAlerta(data['error'] ?? "Erro ao enviar código", false);
+      }
+    } catch (e) {
+      mostrarAlerta("Erro de conexão: $e", false);
+    }
   }
-}
+
+  // Função para redirecionar para a tela de inserir código
+  Future<void> redirecionaParaInserirCodigo(String email) async {
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => CodigoVerificacao(email: email)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -157,8 +178,10 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
                         hintText: "exemplo@poliedro.com",
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              BorderSide(color: AppColors.azulClaro, width: 2),
+                          borderSide: BorderSide(
+                            color: AppColors.azulClaro,
+                            width: 2,
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -180,7 +203,9 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
                             side: BorderSide(color: AppColors.preto),
                           ),
                         ),
-                        onPressed: recuperarSenha,
+                        onPressed: () {
+                          verificaEmailEEnvia();
+                        },
                         child: Text(
                           "Enviar",
                           style: AppTextStyles.fonteUbuntu.copyWith(
