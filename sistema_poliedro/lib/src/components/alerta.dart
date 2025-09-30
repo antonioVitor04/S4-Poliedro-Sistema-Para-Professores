@@ -5,7 +5,11 @@ class AlertaWidget extends StatelessWidget {
   final String mensagem;
   final bool sucesso;
 
-  const AlertaWidget({super.key, required this.mensagem, required this.sucesso});
+  const AlertaWidget({
+    super.key,
+    required this.mensagem,
+    required this.sucesso,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +18,7 @@ class AlertaWidget extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         alignment: Alignment.topRight,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           child: Material(
             color: Colors.transparent,
