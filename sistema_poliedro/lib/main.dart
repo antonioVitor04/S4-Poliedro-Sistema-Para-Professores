@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(primarySwatch: Colors.blue),
       debugShowCheckedModeBanner: false,
       // 👇 Tela inicial
-      initialRoute: '/recuperar_senha',
+      initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginPage(),
         '/aluno_protected': (context) =>
