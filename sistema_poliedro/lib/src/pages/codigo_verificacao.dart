@@ -8,6 +8,7 @@ import 'nova_senha.dart';
 
 class CodigoVerificacao extends StatefulWidget {
   final String email;
+
   const CodigoVerificacao({super.key, required this.email});
 
   @override
