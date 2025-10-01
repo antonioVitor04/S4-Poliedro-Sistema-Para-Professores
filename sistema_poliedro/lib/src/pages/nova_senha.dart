@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:sistema_poliedro/src/styles/cores.dart';
 import 'package:sistema_poliedro/src/styles/fontes.dart';
 import 'package:sistema_poliedro/src/components/alerta.dart';
 
 class NovaSenha extends StatefulWidget {
-  const NovaSenha({super.key});
+  final String email;
+  final String codigo;
+  const NovaSenha({super.key, required this.email, required this.codigo});
 
   @override
   State<NovaSenha> createState() => _NovaSenhaState();
@@ -14,6 +18,7 @@ class _NovaSenhaState extends State<NovaSenha> {
   final TextEditingController novaSenhaController = TextEditingController();
   final TextEditingController confirmarSenhaController =
       TextEditingController();
+  bool _carregando = false;
 
   //funcao pra mostrar alerta
   void mostrarAlerta(String mensagem, bool sucesso) {
@@ -75,11 +80,95 @@ class _NovaSenhaState extends State<NovaSenha> {
     return novaSenhaController.text.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
   }
 
+  // Função para verificar se todos os requisitos da senha estão atendidos
+  bool get senhaAtendeRequisitos {
+    return novaSenhaController.text.length >= 8 &&
+        hasUpperCase &&
+        hasNumber &&
+        hasSymbol &&
+        senhasIguais;
+  }
+
+  // Função para chamar a API e atualizar a senha
+  Future<void> _atualizarSenha() async {
+    if (!senhaAtendeRequisitos) {
+      mostrarAlerta("A senha não atende aos requisitos", false);
+      return;
+    }
+
+    try {
+      setState(() {
+        _carregando = true;
+      });
+
+      final response = await _chamarApiAtualizarSenha();
+
+      if (response['sucesso'] == true) {
+        mostrarAlerta("Senha alterada com sucesso!", true);
+
+        // Aguardar 2 segundos antes de redirecionar
+        await Future.delayed(const Duration(seconds: 2));
+
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, "/login");
+        }
+      } else {
+        mostrarAlerta(response['mensagem'] ?? "Erro ao atualizar senha", false);
+      }
+    } catch (error) {
+      mostrarAlerta("Erro de conexão. Tente novamente.", false);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _carregando = false;
+        });
+      }
+    }
+  }
+
+  // Função REAL para chamada API de atualização de senha
+  Future<Map<String, dynamic>> _chamarApiAtualizarSenha() async {
+    const String url =
+        'http://localhost:5000/api/recuperarSenha/atualizar-senha';
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': widget.email,
+          'codigo': widget.codigo,
+          'novaSenha': novaSenhaController.text,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'sucesso': true,
+          'mensagem': data['message'] ?? 'Senha atualizada com sucesso',
+        };
+      } else if (response.statusCode == 400 || response.statusCode == 404) {
+        final data = json.decode(response.body);
+        return {
+          'sucesso': false,
+          'mensagem': data['error'] ?? 'Erro ao atualizar senha',
+        };
+      } else {
+        return {
+          'sucesso': false,
+          'mensagem': 'Erro no servidor. Status: ${response.statusCode}',
+        };
+      }
+    } catch (error) {
+      return {'sucesso': false, 'mensagem': 'Erro de conexão: $error'};
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.branco,
-
       body: Center(
         child: SingleChildScrollView(
           child: Column(
@@ -349,28 +438,7 @@ class _NovaSenhaState extends State<NovaSenha> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
-                          // Lógica para salvar a nova senha
-                          if (senhasIguais &&
-                              hasNumber &&
-                              hasSymbol &&
-                              hasUpperCase) {
-                            // Salvar a nova senha
-                            //fazer o alerta durar 2 segundos antes de redirecionar para o login
-
-                            mostrarAlerta("Senha alterada com sucesso!", true);
-                            // Aguardar 3 segundos antes de redirecionar
-                            Future.delayed(const Duration(seconds: 2), () {
-                              Navigator.pushReplacementNamed(context, "/login");
-                            });
-                          } //senhas não coincidem
-                          else {
-                            mostrarAlerta(
-                              "A senha não atende aos requisitos",
-                              false,
-                            );
-                          }
-                        },
+                        onPressed: _carregando ? null : _atualizarSenha,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.azulClaro,
                           padding: const EdgeInsets.symmetric(vertical: 15),
@@ -379,14 +447,25 @@ class _NovaSenhaState extends State<NovaSenha> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: Text(
-                          "Salvar Nova Senha",
-                          style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 18,
-                            fontWeight: FontWeight.normal,
-                            color: AppColors.preto,
-                          ),
-                        ),
+                        child: _carregando
+                            ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppColors.preto,
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                "Salvar Nova Senha",
+                                style: AppTextStyles.fonteUbuntu.copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.normal,
+                                  color: AppColors.preto,
+                                ),
+                              ),
                       ),
                     ),
                   ],

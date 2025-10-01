@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../../styles/fontes.dart';
 class NotificacoesPage extends StatelessWidget {
   const NotificacoesPage({super.key});
 
@@ -7,11 +7,17 @@ class NotificacoesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(20),
-      children: const [
-        Text(
-          "Notificações",
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
+      children: [
+        Padding(
+            padding: const EdgeInsets.only(left: 30),
+            child: Text(
+              "Notificações",
+              style: AppTextStyles.fonteUbuntu.copyWith(
+                fontSize: 25,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         SizedBox(height: 20),
         ListTile(
           leading: Icon(Icons.notifications),

@@ -28,5 +28,6 @@ app.use(
   "/api/recuperarSenha",
   require("./routes/recuperacao_senha/recuperarSenha.cjs")
 );
+app.use("/api/cardsDisciplinas", require("./routes/cards/disciplinas.cjs"));
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));

@@ -18,6 +18,7 @@ class Recuperar_Senha extends StatefulWidget {
 
 class _Recuperar_SenhaState extends State<Recuperar_Senha> {
   final TextEditingController emailController = TextEditingController();
+  bool _carregando = false;
 
   void mostrarAlerta(String mensagem, bool sucesso) {
     showDialog(
@@ -34,7 +35,6 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
     });
   }
 
-  //funcao que verifica o email digitado e envia
   // Função que verifica o email digitado e envia
   Future<void> verificaEmailEEnvia() async {
     final String email = emailController.text.trim();
@@ -45,6 +45,10 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
     }
 
     try {
+      setState(() {
+        _carregando = true;
+      });
+
       final url = Uri.parse(
         'http://localhost:5000/api/enviarEmail/enviar-codigo',
       );
@@ -69,6 +73,12 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
       }
     } catch (e) {
       mostrarAlerta("Erro de conexão: $e", false);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _carregando = false;
+        });
+      }
     }
   }
 
@@ -152,75 +162,29 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          "Lembre-se: utilize o e-mail cadastrado em nossa plataforma.",
-                          style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 14,
-                            color: Colors.redAccent,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 20),
 
-                        // CAMPO DE EMAIL
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            "Email",
-                            style: AppTextStyles.fonteUbuntu.copyWith(
-                              fontSize: 16,
-                              color: AppColors.preto,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: emailController,
-                          cursorColor: AppColors.azulClaro,
-                          decoration: InputDecoration(
-                            hintText: "exemplo@poliedro.com",
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: AppColors.azulClaro,
-                                width: 2,
+                        onPressed: _carregando ? null : verificaEmailEEnvia,
+                        child: _carregando
+                            ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppColors.preto,
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                "Enviar",
+                                style: AppTextStyles.fonteUbuntu.copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.normal,
+                                  color: AppColors.preto,
+                                ),
                               ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: AppColors.azulClaro),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
+                      ),
 
-                        // BOTÃO ENVIAR
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.azulClaro,
-                              padding: const EdgeInsets.symmetric(vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: BorderSide(color: AppColors.preto),
-                              ),
-                            ),
-                            onPressed: () {
-                              verificaEmailEEnvia();
-                            },
-                            child: Text(
-                              "Enviar",
-                              style: AppTextStyles.fonteUbuntu.copyWith(
-                                fontSize: 18,
-                                fontWeight: FontWeight.normal,
-                                color: AppColors.preto,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ],
