@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../../styles/fontes.dart';
 class PerfilPage extends StatelessWidget {
   const PerfilPage({super.key});
 
@@ -9,10 +9,16 @@ class PerfilPage extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
-            "Perfil do Aluno",
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        children:  [
+          Padding(
+            padding: const EdgeInsets.only(left: 30),
+            child: Text(
+              "Perfil do aluno",
+              style: AppTextStyles.fonteUbuntu.copyWith(
+                fontSize: 25,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           SizedBox(height: 20),
           Text("Nome: João da Silva"),
