@@ -3,7 +3,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const routerCards = express.Router();
-const CardDisciplina = require("../models/cardDisciplina.cjs");
+const CardDisciplina = require("../../models/cardDisciplina.cjs");
 
 // Configurações
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -197,13 +197,12 @@ routerCards.post(
   validateRequiredFields,
   async (req, res) => {
     try {
-      const { imagem, icone, titulo, descricao } = req.body;
+      const { imagem, icone, titulo } = req.body;
 
       const novoCard = new CardDisciplina({
         imagem: imagem,
         icone: icone,
         titulo: titulo.trim(),
-        descricao: descricao || "",
       });
 
       await novoCard.save();
@@ -285,7 +284,7 @@ routerCards.put(
   processUploadedFiles,
   async (req, res) => {
     const { id } = req.params;
-    const { imagem, icone, titulo, descricao } = req.body;
+    const { imagem, icone, titulo } = req.body;
 
     // Validação do ID
     if (!id || id.length !== 24) {
@@ -318,7 +317,6 @@ routerCards.put(
       }
       updates.titulo = titulo.trim();
     }
-    if (descricao !== undefined) updates.descricao = descricao;
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({

@@ -30,13 +30,9 @@ const cardDisciplinaSchema = new mongoose.Schema(
     },
     slug: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
       trim: true,
-    },
-    descricao: {
-      type: String,
-      default: "",
     },
   },
   {
@@ -44,34 +40,12 @@ const cardDisciplinaSchema = new mongoose.Schema(
   }
 );
 
-// Middleware para gerar slug antes de salvar
+// Middleware para gerar slug automaticamente antes de salvar
 cardDisciplinaSchema.pre("save", function (next) {
   if (this.isModified("titulo") || !this.slug) {
-    let baseSlug = generateSlug(this.titulo);
-    let slug = baseSlug;
-    let counter = 1;
-
-    // Verifica se o slug já existe (usaremos uma função externa para isso)
-    const checkSlug = async () => {
-      const existingDoc = await mongoose.model("CardDisciplina").findOne({
-        slug,
-        _id: { $ne: this._id },
-      });
-
-      if (existingDoc) {
-        slug = `${baseSlug}-${counter}`;
-        counter++;
-        await checkSlug();
-      } else {
-        this.slug = slug;
-        next();
-      }
-    };
-
-    checkSlug().catch(next);
-  } else {
-    next();
+    this.slug = generateSlug(this.titulo);
   }
+  next();
 });
 
 module.exports = mongoose.model("CardDisciplina", cardDisciplinaSchema);
