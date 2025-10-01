@@ -1,15 +1,16 @@
 // pages/disciplina/disciplina_detail_page.dart
-// disciplina_detail_page.dart - MANTÉM IGUAL
 import 'package:flutter/material.dart';
 import '../../../services/card_disciplina_service.dart';
 import '../../../models/modelo_card_disciplina.dart';
+import '../../../styles/cores.dart';
+import '../../../styles/fontes.dart';
 
 class DisciplinaDetailPage extends StatefulWidget {
   final String slug;
   final String titulo;
 
   const DisciplinaDetailPage({
-    super.key, 
+    super.key,
     required this.slug,
     required this.titulo,
   });
@@ -20,7 +21,6 @@ class DisciplinaDetailPage extends StatefulWidget {
 
 class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
   late Future<CardDisciplina> _futureCard;
-  int _selectedTab = 0;
 
   @override
   void initState() {
@@ -30,7 +30,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 SEM Scaffold próprio - usa o da MainAlunoPage
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     return FutureBuilder<CardDisciplina>(
       future: _futureCard,
       builder: (context, snapshot) {
@@ -43,17 +45,19 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.red),
-                SizedBox(height: 16),
+                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
                 Text(
                   'Erro ao carregar disciplina',
-                  style: TextStyle(fontSize: 18),
+                  style: AppTextStyles.fonteUbuntuSans.copyWith(fontSize: 18),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
                   snapshot.error.toString(),
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
+                  style: AppTextStyles.fonteUbuntuSans.copyWith(
+                    color: Colors.grey,
+                  ),
                 ),
               ],
             ),
@@ -65,9 +69,12 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.search_off, size: 64, color: Colors.orange),
-                SizedBox(height: 16),
-                Text('Disciplina não encontrada'),
+                const Icon(Icons.search_off, size: 64, color: Colors.orange),
+                const SizedBox(height: 16),
+                Text(
+                  'Disciplina não encontrada',
+                  style: AppTextStyles.fonteUbuntuSans.copyWith(fontSize: 18),
+                ),
               ],
             ),
           );
@@ -79,7 +86,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
           children: [
             // Header com imagem
             Container(
-              height: 200,
+              height: isMobile ? 200 : 200,
               width: double.infinity,
               decoration: BoxDecoration(
                 image: DecorationImage(
@@ -92,10 +99,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.7),
-                      Colors.transparent,
-                    ],
+                    colors: [Colors.black.withOpacity(0.7), Colors.transparent],
                   ),
                 ),
                 child: Align(
@@ -110,10 +114,10 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                           height: 40,
                           color: Colors.white,
                         ),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Text(
                           card.titulo,
-                          style: TextStyle(
+                          style: AppTextStyles.fonteUbuntu.copyWith(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -125,81 +129,50 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                 ),
               ),
             ),
-
-            // Tabs
-            Container(
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-              ),
-              child: Row(
-                children: [
-                  _buildTab(0, 'Conteúdo'),
-                  _buildTab(1, 'Exercícios'),
-                  _buildTab(2, 'Materiais'),
-                ],
-              ),
-            ),
-
-            // Conteúdo da tab selecionada
-            Expanded(
-              child: _buildTabContent(_selectedTab, card),
-            ),
           ],
         );
       },
     );
   }
 
-  Widget _buildTab(int index, String title) {
-    return Expanded(
-      child: TextButton(
-        onPressed: () => setState(() => _selectedTab = index),
-        style: TextButton.styleFrom(
-          backgroundColor: _selectedTab == index 
-              ? Theme.of(context).primaryColor.withOpacity(0.1)
-              : Colors.transparent,
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: _selectedTab == index 
-                ? Theme.of(context).primaryColor
-                : Colors.grey,
-            fontWeight: _selectedTab == index ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildTabContent(int tabIndex, CardDisciplina card) {
     switch (tabIndex) {
       case 0: // Conteúdo
         return ListView(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           children: [
             Text(
               'Conteúdo da Disciplina',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: AppTextStyles.fonteUbuntuCondensed.copyWith(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             _buildTopicItem('Introdução à ${card.titulo}'),
             _buildTopicItem('Conceitos Fundamentais'),
             _buildTopicItem('Aplicações Práticas'),
             _buildTopicItem('Exercícios Resolvidos'),
           ],
         );
-      
+
       case 1: // Exercícios
         return Center(
-          child: Text('Lista de exercícios em desenvolvimento...'),
+          child: Text(
+            'Lista de exercícios em desenvolvimento...',
+            style: AppTextStyles.fonteUbuntuSans.copyWith(fontSize: 16),
+          ),
         );
-      
+
       case 2: // Materiais
         return Center(
-          child: Text('Materiais de estudo em desenvolvimento...'),
+          child: Text(
+            'Materiais de estudo em desenvolvimento...',
+            style: AppTextStyles.fonteUbuntuSans.copyWith(fontSize: 16),
+          ),
         );
-      
+
       default:
         return Container();
     }
@@ -207,11 +180,17 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
 
   Widget _buildTopicItem(String title) {
     return Card(
-      margin: EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: Icon(Icons.play_circle_filled, color: Colors.green),
-        title: Text(title),
-        trailing: Icon(Icons.arrow_forward_ios, size: 16),
+        leading: const Icon(
+          Icons.play_circle_filled,
+          color: AppColors.azulClaro,
+        ),
+        title: Text(
+          title,
+          style: AppTextStyles.fonteUbuntuSans.copyWith(fontSize: 16),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
           // Navegar para o conteúdo específico
         },
