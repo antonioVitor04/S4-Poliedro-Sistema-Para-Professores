@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../../styles/fontes.dart';
 class NotasPage extends StatelessWidget {
   const NotasPage({super.key});
 
@@ -10,9 +10,15 @@ class NotasPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Notas",
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          Padding(
+            padding: const EdgeInsets.only(left: 30),
+            child: Text(
+              "Notas",
+              style: AppTextStyles.fonteUbuntu.copyWith(
+                fontSize: 25,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           const SizedBox(height: 20),
           DataTable(
