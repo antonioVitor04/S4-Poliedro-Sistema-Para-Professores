@@ -6,22 +6,34 @@ const generateSlug = (titulo) => {
   return titulo
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Remove acentos
-    .replace(/[^a-z0-9 -]/g, "") // Remove caracteres especiais
-    .replace(/\s+/g, "-") // Substitui espaços por hífens
-    .replace(/-+/g, "-") // Remove hífens múltiplos
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 -]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
     .trim();
 };
 
 const cardDisciplinaSchema = new mongoose.Schema(
   {
     imagem: {
-      type: String,
-      required: true,
+      data: {
+        type: Buffer,
+        required: true
+      },
+      contentType: {
+        type: String,
+        required: true
+      }
     },
     icone: {
-      type: String,
-      required: true,
+      data: {
+        type: Buffer,
+        required: true
+      },
+      contentType: {
+        type: String,
+        required: true
+      }
     },
     titulo: {
       type: String,

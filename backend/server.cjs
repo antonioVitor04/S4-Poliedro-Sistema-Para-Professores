@@ -3,10 +3,13 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
+const path = require("path"); // Adicione esta linha
+const fs = require("fs"); // Adicione esta linha
 const app = express();
 
 app.use(express.json());
 app.use(cors());
+
 
 const Professor = require("./models/professor.cjs");
 
@@ -29,5 +32,15 @@ app.use(
   require("./routes/recuperacao_senha/recuperarSenha.cjs")
 );
 app.use("/api/cardsDisciplinas", require("./routes/cards/disciplinas.cjs"));
+
+// Rota de saúde para testar o servidor
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Servidor funcionando',
+    uploadsPath: uploadsDir
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));

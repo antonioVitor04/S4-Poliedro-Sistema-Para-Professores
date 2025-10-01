@@ -1,24 +1,27 @@
+// components/disciplina_card.dart
 import 'package:flutter/material.dart';
 import 'animated_card_button.dart';
 
 class DisciplinaCard extends StatelessWidget {
   final String disciplina;
-  final String imageAsset;
+  final String imageUrl;
+  final String iconUrl;
   final bool isMobile;
-  final VoidCallback onTap;
+  final VoidCallback onTap; // 🔥 Recebe a função de navegação
 
   const DisciplinaCard({
     super.key,
     required this.disciplina,
-    required this.imageAsset,
+    required this.imageUrl,
+    required this.iconUrl,
     required this.isMobile,
-    required this.onTap,
+    required this.onTap, // 🔥 Recebe a função
   });
 
   @override
   Widget build(BuildContext context) {
     return AnimatedCardButton(
-      onTap: onTap,
+      onTap: onTap, // 🔥 Passa para o botão animado
       childBuilder: (hovering, scale) {
         return AnimatedScale(
           scale: scale,
@@ -32,7 +35,6 @@ class DisciplinaCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Banner
                 Expanded(
                   flex: 6,
                   child: Container(
@@ -43,7 +45,7 @@ class DisciplinaCard extends StatelessWidget {
                         topRight: Radius.circular(12),
                       ),
                       image: DecorationImage(
-                        image: AssetImage(imageAsset),
+                        image: NetworkImage(imageUrl),
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -56,22 +58,27 @@ class DisciplinaCard extends StatelessWidget {
                           color: Colors.black.withOpacity(0.5),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Icon(
-                          _getIconForDisciplina(disciplina),
+                        child: Image.network(
+                          iconUrl,
+                          width: isMobile ? 24 : 26,
+                          height: isMobile ? 24 : 26,
                           color: Colors.white,
-                          size: isMobile ? 24 : 26,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              _getIconForDisciplina(disciplina),
+                              color: Colors.white,
+                              size: isMobile ? 24 : 26,
+                            );
+                          },
                         ),
                       ),
                     ),
                   ),
                 ),
-
-                // Nome
                 Expanded(
                   flex: 4,
                   child: Padding(
-                    padding:
-                        const EdgeInsets.only(left: 12, top: 8, bottom: 6),
+                    padding: const EdgeInsets.only(left: 12, top: 8, bottom: 6),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(

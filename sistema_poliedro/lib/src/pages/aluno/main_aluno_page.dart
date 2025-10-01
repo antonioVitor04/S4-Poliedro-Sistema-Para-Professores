@@ -1,8 +1,10 @@
+// main_aluno_page.dart
 import 'package:flutter/material.dart';
 import '../../components/adaptive_navigation.dart';
 import '../../components/auth_guard.dart';
 import '../../styles/cores.dart';
-import 'disciplinas_aluno_page.dart';
+import 'disciplina/disciplinas_aluno_page.dart';
+import 'disciplina/disciplina_detail_page.dart';
 import 'notas_aluno_page.dart';
 import 'calendario_aluno_page.dart';
 import 'notificacoes_aluno_page.dart';
@@ -25,6 +27,8 @@ class _MainAlunoPageState extends State<MainAlunoPage>
   late AnimationController _profileController;
   late Animation<double> _profileAnimation;
 
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
   final List<NavigationItem> _navItems = [
     NavigationItem(label: "Perfil", icon: Icons.person, route: '/perfil'),
     NavigationItem(
@@ -45,12 +49,26 @@ class _MainAlunoPageState extends State<MainAlunoPage>
     ),
   ];
 
-  final Map<String, Widget> _pages = {
-    '/disciplinas': const DisciplinasPage(),
-    '/notas': const NotasPage(),
-    '/calendario': const CalendarioPage(),
-    '/notificacoes': const NotificacoesPage(),
-  };
+  // 🔥 FUNÇÃO PARA NAVEGAÇÃO INTERNA (AGORA PÚBLICA)
+  void _navigateToDetail(String slug, String titulo) {
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (context) => DisciplinaDetailPage(slug: slug, titulo: titulo),
+      ),
+    );
+  }
+
+  // 🔥 MAP DE PÁGINAS COM CALLBACK
+  Map<String, Widget> get _pages {
+    return {
+      '/disciplinas': DisciplinasPage(
+        onNavigateToDetail: _navigateToDetail, // 🔥 PASSA A FUNÇÃO
+      ),
+      '/notas': const NotasPage(),
+      '/calendario': const CalendarioPage(),
+      '/notificacoes': const NotificacoesPage(),
+    };
+  }
 
   @override
   void initState() {
@@ -93,6 +111,9 @@ class _MainAlunoPageState extends State<MainAlunoPage>
           _isProfileOpen = false;
           _profileController.reverse();
         }
+        
+        // VOLTAR PARA A ROTA PRINCIPAL AO TROCAR DE PÁGINA
+        _navigatorKey.currentState?.popUntil((route) => route.isFirst);
       }
     });
   }
@@ -140,7 +161,6 @@ class _MainAlunoPageState extends State<MainAlunoPage>
                 builder: (context, child) {
                   return Stack(
                     children: [
-                      // Container animado para a sombra e fundo
                       Container(
                         width: _profileAnimation.value * 300,
                         height: MediaQuery.of(context).size.height,
@@ -148,21 +168,16 @@ class _MainAlunoPageState extends State<MainAlunoPage>
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.2),
-                              offset: const Offset(
-                                2,
-                                0,
-                              ), 
+                              offset: const Offset(2, 0),
                               blurRadius: 6,
                             ),
                           ],
                         ),
                       ),
-
-                      // Conteúdo do perfil com largura fixa
                       Positioned(
                         right: 0,
                         child: Container(
-                          width: 300, // Largura fixa
+                          width: 300,
                           height: MediaQuery.of(context).size.height,
                           color: const Color(0xFFFEF7FF),
                           child: _isProfileOpen
@@ -174,7 +189,17 @@ class _MainAlunoPageState extends State<MainAlunoPage>
                   );
                 },
               ),
-            Expanded(child: _pages[_currentRoute] ?? _pages[_previousRoute]!),
+            
+            Expanded(
+              child: Navigator(
+                key: _navigatorKey,
+                onGenerateRoute: (settings) {
+                  return MaterialPageRoute(
+                    builder: (context) => _pages[_currentRoute] ?? _pages[_previousRoute]!,
+                  );
+                },
+              ),
+            ),
           ],
         ),
         bottomNavigationBar: !isDesktop
