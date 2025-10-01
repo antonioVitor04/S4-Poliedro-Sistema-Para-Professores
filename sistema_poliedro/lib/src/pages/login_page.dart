@@ -19,6 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController senhaController = TextEditingController();
   String paginaAtual = "aluno";
+  bool _senhaVisivel = false; // Variável para controlar a visibilidade da senha
 
   void mostrarAlerta(String mensagem, bool sucesso) {
     showDialog(
@@ -271,7 +272,7 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(height: 8),
         TextField(
           controller: senhaController,
-          obscureText: true,
+          obscureText: !_senhaVisivel, // Invertido para mostrar/ocultar
           cursorColor: AppColors.azulClaro,
           decoration: InputDecoration(
             hintText: "Digite sua senha",
@@ -282,6 +283,17 @@ class _LoginPageState extends State<LoginPage> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: AppColors.azulClaro),
+            ),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _senhaVisivel ? Icons.visibility : Icons.visibility_off,
+                color: AppColors.azulClaro,
+              ),
+              onPressed: () {
+                setState(() {
+                  _senhaVisivel = !_senhaVisivel;
+                });
+              },
             ),
           ),
         ),
