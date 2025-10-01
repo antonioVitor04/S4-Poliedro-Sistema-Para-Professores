@@ -119,11 +119,13 @@ routerCards.get("/imagem/:id/:tipo", async (req, res) => {
   }
 });
 
+// routes/cards/disciplinas.cjs - ATUALIZE A ROTA GET
 // GET: Buscar card por slug
 routerCards.get("/disciplina/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
 
+    // Use findOne sem populate primeiro para ver a estrutura
     const card = await CardDisciplina.findOne({ slug });
 
     if (!card) {
@@ -133,17 +135,29 @@ routerCards.get("/disciplina/:slug", async (req, res) => {
       });
     }
 
+    console.log('📦 Disciplina encontrada:', card.titulo);
+    console.log('📂 Tópicos no MongoDB:', card.topicos);
+    console.log('📊 Tipo de topicos:', typeof card.topicos);
+    console.log('🔍 Estrutura completa:', JSON.stringify(card, null, 2));
+
     // URLs para as imagens no MongoDB
     const cardResponse = {
       _id: card._id,
       titulo: card.titulo,
       slug: card.slug,
+      topicos: card.topicos || [], // GARANTIR QUE TOPICOS ESTEJAM INCLUÍDOS
       createdAt: card.createdAt,
       updatedAt: card.updatedAt,
       imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/imagem`,
       icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/icone`,
       url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${card.slug}`,
     };
+
+    console.log('🎯 Resposta enviada:', {
+      titulo: cardResponse.titulo,
+      quantidadeTopicos: cardResponse.topicos.length,
+      topicos: cardResponse.topicos
+    });
 
     res.json({
       success: true,

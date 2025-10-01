@@ -1,5 +1,6 @@
 // disciplinas_aluno_page.dart
 import 'package:flutter/material.dart';
+import 'package:sistema_poliedro/src/styles/cores.dart';
 import '../../../styles/fontes.dart';
 import '../../../components/disciplina_card.dart';
 import '../../../services/card_disciplina_service.dart';
@@ -30,7 +31,7 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
 
   Future<List<CardDisciplina>> _loadCards() async {
     try {
-      final cards = await CardDisciplinaService.getCards();
+      final cards = await CardDisciplinaService.getAllCards();
       setState(() {
         _isLoading = false;
       });
@@ -58,6 +59,7 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
     final isMobile = screenWidth < 600;
 
     return Scaffold(
+      backgroundColor: AppColors.branco,
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
