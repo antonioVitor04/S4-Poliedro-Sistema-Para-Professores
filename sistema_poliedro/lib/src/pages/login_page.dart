@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sistema_poliedro/src/pages/Recuperar_Senha.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sistema_poliedro/src/pages/aluno/main_aluno_page.dart';
 import '../components/alerta.dart';
@@ -18,6 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController senhaController = TextEditingController();
   String paginaAtual = "aluno";
+  bool _senhaVisivel = false; // Variável para controlar a visibilidade da senha
 
   void mostrarAlerta(String mensagem, bool sucesso) {
     showDialog(
@@ -27,7 +29,7 @@ class _LoginPageState extends State<LoginPage> {
       builder: (context) => AlertaWidget(mensagem: mensagem, sucesso: sucesso),
     );
 
-    Future.delayed(const Duration(seconds: 3), () {
+    Future.delayed(const Duration(seconds: 2), () {
       if (mounted) Navigator.of(context).pop();
     });
   }
@@ -57,7 +59,7 @@ class _LoginPageState extends State<LoginPage> {
         // Aguarda que o token seja salvo antes de navegar
         Navigator.pushReplacementNamed(
           context,
-          '/aluno',
+          '/aluno_protected',
           arguments: {'initialRoute': '/disciplinas'},
         );
       } else {
@@ -95,7 +97,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 40),
-              
+
               // CONTAINER DO FORMULÁRIO
               Container(
                 margin: const EdgeInsets.all(20),
@@ -145,7 +147,14 @@ class _LoginPageState extends State<LoginPage> {
                       alignment: Alignment.centerLeft,
                       margin: const EdgeInsets.only(bottom: 15),
                       child: TextButton(
-                        onPressed: () => {},
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => Recuperar_Senha(),
+                            ),
+                          );
+                        },
                         child: Text(
                           "Esqueci minha senha",
                           style: AppTextStyles.fonteUbuntu.copyWith(
@@ -160,6 +169,7 @@ class _LoginPageState extends State<LoginPage> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
+                          side: BorderSide(color: AppColors.preto),
                           backgroundColor: AppColors.azulClaro,
                           padding: const EdgeInsets.symmetric(vertical: 18),
                           shape: RoundedRectangleBorder(
@@ -171,7 +181,7 @@ class _LoginPageState extends State<LoginPage> {
                           "Entrar",
                           style: AppTextStyles.fonteUbuntu.copyWith(
                             fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.normal,
                             color: AppColors.preto,
                           ),
                         ),
@@ -262,7 +272,7 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(height: 8),
         TextField(
           controller: senhaController,
-          obscureText: true,
+          obscureText: !_senhaVisivel, // Invertido para mostrar/ocultar
           cursorColor: AppColors.azulClaro,
           decoration: InputDecoration(
             hintText: "Digite sua senha",
@@ -273,6 +283,17 @@ class _LoginPageState extends State<LoginPage> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: AppColors.azulClaro),
+            ),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _senhaVisivel ? Icons.visibility : Icons.visibility_off,
+                color: AppColors.azulClaro,
+              ),
+              onPressed: () {
+                setState(() {
+                  _senhaVisivel = !_senhaVisivel;
+                });
+              },
             ),
           ),
         ),
