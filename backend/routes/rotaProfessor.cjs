@@ -203,42 +203,38 @@ router.get("/image/:id", async (req, res) => {
 });
 
 // Rota específica para atualizar apenas a imagem
-router.put(
-  "/update-image",
-  auth("professor"),
-  upload.single("imagem"),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ msg: "Nenhuma imagem enviada" });
-      }
+// Rota para upload de imagem via base64
+router.put("/update-image-base64", auth("professor"), async (req, res) => {
+  try {
+    const { imagem, filename, contentType } = req.body;
 
-      const prof = await Professor.findById(req.user.id);
-      if (!prof)
-        return res.status(404).json({ msg: "Professor não encontrado" });
-
-      // Atualizar imagem Base64
-      prof.imagem = {
-        data: req.file.buffer.toString("base64"),
-        contentType: req.file.mimetype,
-        filename: req.file.originalname,
-        size: req.file.size,
-      };
-
-      await prof.save();
-      res.json({
-        msg: "Imagem atualizada com sucesso",
-        imagem: {
-          contentType: prof.imagem.contentType,
-          filename: prof.imagem.filename,
-          size: prof.imagem.size,
-        },
-      });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
+    if (!imagem) {
+      return res.status(400).json({ msg: "Nenhuma imagem enviada" });
     }
+
+    const prof = await Professor.findById(req.user.id);
+    if (!prof) return res.status(404).json({ msg: "Professor não encontrado" });
+
+    prof.imagem = {
+      data: imagem,
+      contentType: contentType || "image/jpeg",
+      filename: filename || "imagem.jpg",
+      size: Buffer.from(imagem, "base64").length,
+    };
+
+    await prof.save();
+    res.json({
+      msg: "Imagem atualizada com sucesso",
+      imagem: {
+        contentType: prof.imagem.contentType,
+        filename: prof.imagem.filename,
+        size: prof.imagem.size,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-);
+});
 
 // Remover imagem do perfil
 router.delete("/remove-image", auth("professor"), async (req, res) => {
@@ -264,6 +260,34 @@ router.delete("/delete", auth("professor"), async (req, res) => {
     await Professor.findByIdAndDelete(req.user.id);
     res.json({ msg: "Professor deletado com sucesso" });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET / - Perfil do professor
+router.get("/", auth("professor"), async (req, res) => {
+  try {
+    console.log("=== ROTA PROFESSOR GET / CHAMADA ===");
+    console.log("User ID:", req.user.id);
+
+    const professor = await Professor.findById(req.user.id);
+    if (!professor) {
+      console.log("Professor não encontrado para ID:", req.user.id);
+      return res.status(404).json({ msg: "Professor não encontrado" });
+    }
+
+    console.log("Professor encontrado:", professor.nome);
+
+    res.json({
+      professor: {
+        id: professor._id,
+        nome: professor.nome,
+        email: professor.email,
+        hasImage: !!professor.imagem,
+      },
+    });
+  } catch (err) {
+    console.log("Erro na rota GET / professor:", err);
     res.status(500).json({ error: err.message });
   }
 });

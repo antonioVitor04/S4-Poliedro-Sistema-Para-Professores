@@ -8,7 +8,7 @@ import 'disciplina/disciplina_detail_page.dart';
 import 'notas_aluno_page.dart';
 import 'calendario_aluno_page.dart';
 import 'notificacoes_aluno_page.dart';
-import 'perfil_aluno_page.dart';
+import '../perfil_page.dart';
 
 class MainAlunoPage extends StatefulWidget {
   final String initialRoute;
@@ -111,7 +111,7 @@ class _MainAlunoPageState extends State<MainAlunoPage>
           _isProfileOpen = false;
           _profileController.reverse();
         }
-        
+
         // VOLTAR PARA A ROTA PRINCIPAL AO TROCAR DE PÁGINA
         _navigatorKey.currentState?.popUntil((route) => route.isFirst);
       }
@@ -124,6 +124,7 @@ class _MainAlunoPageState extends State<MainAlunoPage>
 
     return AuthGuard(
       child: Scaffold(
+        backgroundColor: AppColors.branco,
         appBar: !isDesktop
             ? AppBar(
                 backgroundColor: AppColors.azulEscuro,
@@ -189,13 +190,14 @@ class _MainAlunoPageState extends State<MainAlunoPage>
                   );
                 },
               ),
-            
+
             Expanded(
               child: Navigator(
                 key: _navigatorKey,
                 onGenerateRoute: (settings) {
                   return MaterialPageRoute(
-                    builder: (context) => _pages[_currentRoute] ?? _pages[_previousRoute]!,
+                    builder: (context) =>
+                        _pages[_currentRoute] ?? _pages[_previousRoute]!,
                   );
                 },
               ),

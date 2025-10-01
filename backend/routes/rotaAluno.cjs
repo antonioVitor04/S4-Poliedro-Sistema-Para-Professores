@@ -198,41 +198,38 @@ router.get("/image/:id", async (req, res) => {
 });
 
 // Rota específica para atualizar apenas a imagem
-router.put(
-  "/update-image",
-  auth("aluno"),
-  upload.single("imagem"),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ msg: "Nenhuma imagem enviada" });
-      }
+// Rota para upload de imagem via base64
+router.put("/update-image-base64", auth("aluno"), async (req, res) => {
+  try {
+    const { imagem, filename, contentType } = req.body;
 
-      const aluno = await Aluno.findById(req.user.id);
-      if (!aluno) return res.status(404).json({ msg: "Aluno não encontrado" });
-
-      // Atualizar imagem Base64
-      aluno.imagem = {
-        data: req.file.buffer.toString("base64"),
-        contentType: req.file.mimetype,
-        filename: req.file.originalname,
-        size: req.file.size,
-      };
-
-      await aluno.save();
-      res.json({
-        msg: "Imagem atualizada com sucesso",
-        imagem: {
-          contentType: aluno.imagem.contentType,
-          filename: aluno.imagem.filename,
-          size: aluno.imagem.size,
-        },
-      });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
+    if (!imagem) {
+      return res.status(400).json({ msg: "Nenhuma imagem enviada" });
     }
+
+    const aluno = await Aluno.findById(req.user.id);
+    if (!aluno) return res.status(404).json({ msg: "Aluno não encontrado" });
+
+    aluno.imagem = {
+      data: imagem,
+      contentType: contentType || "image/jpeg",
+      filename: filename || "imagem.jpg",
+      size: Buffer.from(imagem, "base64").length,
+    };
+
+    await aluno.save();
+    res.json({
+      msg: "Imagem atualizada com sucesso",
+      imagem: {
+        contentType: aluno.imagem.contentType,
+        filename: aluno.imagem.filename,
+        size: aluno.imagem.size,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-);
+});
 
 // Remover imagem do perfil
 router.delete("/remove-image", auth("aluno"), async (req, res) => {
@@ -258,6 +255,35 @@ router.delete("/delete", auth("aluno"), async (req, res) => {
     await Aluno.findByIdAndDelete(req.user.id);
     res.json({ msg: "Aluno deletado com sucesso" });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ADICIONE ESTA ROTA - Perfil do aluno (GET /)
+router.get("/", auth("aluno"), async (req, res) => {
+  try {
+    console.log("=== ROTA ALUNO GET / CHAMADA ===");
+    console.log("User ID:", req.user.id);
+
+    const aluno = await Aluno.findById(req.user.id);
+    if (!aluno) {
+      console.log("Aluno não encontrado para ID:", req.user.id);
+      return res.status(404).json({ msg: "Aluno não encontrado" });
+    }
+
+    console.log("Aluno encontrado:", aluno.nome);
+
+    res.json({
+      aluno: {
+        id: aluno._id,
+        nome: aluno.nome,
+        ra: aluno.ra,
+        email: aluno.email,
+        hasImage: !!aluno.imagem,
+      },
+    });
+  } catch (err) {
+    console.log("Erro na rota GET /:", err);
     res.status(500).json({ error: err.message });
   }
 });
