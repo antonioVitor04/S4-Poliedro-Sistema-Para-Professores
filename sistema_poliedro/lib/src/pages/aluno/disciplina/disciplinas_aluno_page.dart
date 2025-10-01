@@ -31,7 +31,7 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
 
   Future<List<CardDisciplina>> _loadCards() async {
     try {
-      final cards = await CardDisciplinaService.getCards();
+      final cards = await CardDisciplinaService.getAllCards();
       setState(() {
         _isLoading = false;
       });
@@ -59,6 +59,7 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
     final isMobile = screenWidth < 600;
 
     return Scaffold(
+      backgroundColor: AppColors.branco,
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(

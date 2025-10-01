@@ -13,6 +13,68 @@ const generateSlug = (titulo) => {
     .trim();
 };
 
+const materialSchema = new mongoose.Schema({
+  tipo: {
+    type: String,
+    enum: ['pdf', 'imagem', 'link', 'atividade'],
+    required: true
+  },
+  titulo: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  descricao: {
+    type: String,
+    trim: true
+  },
+  url: {
+    type: String,
+    trim: true
+  },
+  arquivo: {
+    data: Buffer,
+    contentType: String,
+    nomeOriginal: String
+  },
+  peso: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  prazo: Date,
+  dataCriacao: {
+    type: Date,
+    default: Date.now
+  },
+  ordem: {
+    type: Number,
+    default: 0
+  }
+});
+
+const topicoSchema = new mongoose.Schema({
+  titulo: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  descricao: {
+    type: String,
+    trim: true
+  },
+  ordem: {
+    type: Number,
+    required: true
+  },
+  materiais: [materialSchema],
+  dataCriacao: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 const cardDisciplinaSchema = new mongoose.Schema(
   {
     imagem: {
@@ -46,6 +108,7 @@ const cardDisciplinaSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    topicos: [topicoSchema]
   },
   {
     timestamps: true,
