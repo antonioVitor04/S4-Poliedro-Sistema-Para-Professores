@@ -30,7 +30,7 @@ const cardDisciplinaSchema = new mongoose.Schema(
     },
     slug: {
       type: String,
-      required: false,
+      required: true,
       unique: true,
       trim: true,
     },
