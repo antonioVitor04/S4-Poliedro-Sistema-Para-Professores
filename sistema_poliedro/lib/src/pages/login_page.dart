@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sistema_poliedro/src/pages/Recuperar_Senha.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sistema_poliedro/src/pages/aluno/main_aluno_page.dart';
+import '../models/usuario.dart';
 import '../components/alerta.dart';
 import '../styles/cores.dart';
 import '../styles/fontes.dart';
@@ -54,7 +54,13 @@ class _LoginPageState extends State<LoginPage> {
         final data = jsonDecode(response.body);
         final token = data['token'];
         final prefs = await SharedPreferences.getInstance();
+
+        // SALVAR TOKEN E TIPO DE USUÁRIO
         await prefs.setString('token', token);
+        await prefs.setString(
+          'tipoUsuario',
+          paginaAtual,
+        ); // "professor" ou "aluno"
 
         // Aguarda que o token seja salvo antes de navegar
         Navigator.pushReplacementNamed(
