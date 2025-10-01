@@ -5,51 +5,87 @@ const Professor = require("../models/professor.cjs");
 const auth = require("../middleware/auth.cjs");
 const router = express.Router();
 const crypto = require("crypto");
+const multer = require("multer");
+
+// Configuração do Multer para memória (não salva arquivo localmente)
+const upload = multer({
+  storage: multer.memoryStorage(), // Armazena na memória, não no disco
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Apenas arquivos de imagem são permitidos!"), false);
+    }
+  },
+});
 
 // Registrar professor (SOMENTE professor pode registrar outro professor)
-router.post("/register", auth("professor"), async (req, res) => {
-  try {
-    const { nome, email } = req.body;
+router.post(
+  "/register",
+  auth("professor"),
+  upload.single("imagem"),
+  async (req, res) => {
+    try {
+      const { nome, email } = req.body;
 
-    if ( !email) {
-      return res.status(400).json({ msg: "Email é obrigatório" });
-    }
+      if (!email) {
+        return res.status(400).json({ msg: "Email é obrigatório" });
+      }
 
-    // verificar se já existe professor com esse email
-    const existing = await Professor.findOne({ email });
-    if (existing) {
-      return res.status(400).json({ msg: "Esse email já está em uso" });
-    }
+      // Verificar se já existe professor com esse email
+      const existing = await Professor.findOne({ email });
+      if (existing) {
+        return res.status(400).json({ msg: "Esse email já está em uso" });
+      }
 
-    // gerar senha automática
-    const senhaGerada = crypto.randomBytes(4).toString("hex");
+      // Gerar senha automática
+      const senhaGerada = crypto.randomBytes(4).toString("hex");
 
-    // hashear senha
-    const hashedPassword = await bcrypt.hash(senhaGerada, 10);
+      // Hashear senha
+      const hashedPassword = await bcrypt.hash(senhaGerada, 10);
 
-    // criar professor
-    const novoProfessor = new Professor({
-      nome,
-      email,
-      senha: hashedPassword
-    });
+      // Preparar dados do professor
+      const professorData = {
+        nome,
+        email,
+        senha: hashedPassword,
+      };
 
-    await novoProfessor.save();
+      // Adicionar imagem Base64 se foi enviada
+      if (req.file) {
+        professorData.imagem = {
+          data: req.file.buffer.toString("base64"), // Converter para Base64
+          contentType: req.file.mimetype,
+          filename: req.file.originalname,
+          size: req.file.size,
+        };
+      }
 
-    res.status(201).json({
-      msg: "Professor cadastrado com sucesso",
-      professor: {
+      // Criar professor
+      const novoProfessor = new Professor(professorData);
+      await novoProfessor.save();
+
+      // Não enviar dados Base64 na resposta (pode ser muito grande)
+      const professorResponse = {
         id: novoProfessor._id,
         nome: novoProfessor.nome,
-        email: novoProfessor.email
-      },
-      senhaProvisoria: senhaGerada // futuramente pode ser enviada por email
-    });
+        email: novoProfessor.email,
+        hasImage: !!novoProfessor.imagem,
+      };
 
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+      res.status(201).json({
+        msg: "Professor cadastrado com sucesso",
+        professor: professorResponse,
+        senhaProvisoria: senhaGerada, // futuramente pode ser enviada por email
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   }
-});
+);
 
 // Login Professor
 router.post("/login", async (req, res) => {
@@ -67,24 +103,152 @@ router.post("/login", async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    res.json({ token, professor: prof });
+    // Não enviar dados da imagem no login (pode ser muito grande)
+    const professorResponse = {
+      id: prof._id,
+      nome: prof.nome,
+      email: prof.email,
+      hasImage: !!prof.imagem,
+    };
+
+    res.json({ token, professor: professorResponse });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // Update Professor
-router.put("/update", auth("professor"), async (req, res) => {
+router.put(
+  "/update",
+  auth("professor"),
+  upload.single("imagem"),
+  async (req, res) => {
+    try {
+      const { nome, senha } = req.body;
+      const prof = await Professor.findById(req.user.id);
+      if (!prof)
+        return res.status(404).json({ msg: "Professor não encontrado" });
+
+      if (nome) prof.nome = nome;
+      if (senha) prof.senha = await bcrypt.hash(senha, 10);
+
+      // Atualizar imagem Base64 se foi enviada
+      if (req.file) {
+        prof.imagem = {
+          data: req.file.buffer.toString("base64"), // Converter para Base64
+          contentType: req.file.mimetype,
+          filename: req.file.originalname,
+          size: req.file.size,
+        };
+      }
+
+      await prof.save();
+
+      const professorResponse = {
+        id: prof._id,
+        nome: prof.nome,
+        email: prof.email,
+        hasImage: !!prof.imagem,
+      };
+
+      res.json({
+        msg: "Professor atualizado com sucesso",
+        professor: professorResponse,
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// Rota para obter imagem do professor
+router.get("/image", auth("professor"), async (req, res) => {
   try {
-    const { nome, senha } = req.body;
+    const prof = await Professor.findById(req.user.id).select("imagem");
+    if (!prof || !prof.imagem || !prof.imagem.data) {
+      return res.status(404).json({ msg: "Imagem não encontrada" });
+    }
+
+    // Converter Base64 para buffer
+    const imageBuffer = Buffer.from(prof.imagem.data, "base64");
+
+    res.set("Content-Type", prof.imagem.contentType);
+    res.set("Content-Length", imageBuffer.length);
+    res.set("Cache-Control", "public, max-age=86400"); // Cache de 1 dia
+
+    res.send(imageBuffer);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Rota para obter imagem por ID (pública - se necessário)
+router.get("/image/:id", async (req, res) => {
+  try {
+    const prof = await Professor.findById(req.params.id).select("imagem");
+    if (!prof || !prof.imagem || !prof.imagem.data) {
+      return res.status(404).json({ msg: "Imagem não encontrada" });
+    }
+
+    const imageBuffer = Buffer.from(prof.imagem.data, "base64");
+
+    res.set("Content-Type", prof.imagem.contentType);
+    res.set("Content-Length", imageBuffer.length);
+    res.set("Cache-Control", "public, max-age=86400");
+
+    res.send(imageBuffer);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Rota específica para atualizar apenas a imagem
+// Rota para upload de imagem via base64
+router.put("/update-image-base64", auth("professor"), async (req, res) => {
+  try {
+    const { imagem, filename, contentType } = req.body;
+
+    if (!imagem) {
+      return res.status(400).json({ msg: "Nenhuma imagem enviada" });
+    }
+
     const prof = await Professor.findById(req.user.id);
     if (!prof) return res.status(404).json({ msg: "Professor não encontrado" });
 
-    if (nome) prof.nome = nome;
-    if (senha) prof.senha = await bcrypt.hash(senha, 10);
+    prof.imagem = {
+      data: imagem,
+      contentType: contentType || "image/jpeg",
+      filename: filename || "imagem.jpg",
+      size: Buffer.from(imagem, "base64").length,
+    };
 
     await prof.save();
-    res.json({ msg: "Professor atualizado com sucesso", professor: prof });
+    res.json({
+      msg: "Imagem atualizada com sucesso",
+      imagem: {
+        contentType: prof.imagem.contentType,
+        filename: prof.imagem.filename,
+        size: prof.imagem.size,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Remover imagem do perfil
+router.delete("/remove-image", auth("professor"), async (req, res) => {
+  try {
+    const prof = await Professor.findById(req.user.id);
+    if (!prof) return res.status(404).json({ msg: "Professor não encontrado" });
+
+    if (prof.imagem) {
+      prof.imagem = undefined;
+      await prof.save();
+      res.json({ msg: "Imagem removida com sucesso" });
+    } else {
+      res.status(400).json({ msg: "Nenhuma imagem para remover" });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -96,6 +260,34 @@ router.delete("/delete", auth("professor"), async (req, res) => {
     await Professor.findByIdAndDelete(req.user.id);
     res.json({ msg: "Professor deletado com sucesso" });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET / - Perfil do professor
+router.get("/", auth("professor"), async (req, res) => {
+  try {
+    console.log("=== ROTA PROFESSOR GET / CHAMADA ===");
+    console.log("User ID:", req.user.id);
+
+    const professor = await Professor.findById(req.user.id);
+    if (!professor) {
+      console.log("Professor não encontrado para ID:", req.user.id);
+      return res.status(404).json({ msg: "Professor não encontrado" });
+    }
+
+    console.log("Professor encontrado:", professor.nome);
+
+    res.json({
+      professor: {
+        id: professor._id,
+        nome: professor.nome,
+        email: professor.email,
+        hasImage: !!professor.imagem,
+      },
+    });
+  } catch (err) {
+    console.log("Erro na rota GET / professor:", err);
     res.status(500).json({ error: err.message });
   }
 });
