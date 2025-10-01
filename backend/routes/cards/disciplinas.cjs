@@ -1,35 +1,19 @@
+// routes/cards/disciplinas.cjs
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
 const routerCards = express.Router();
 const CardDisciplina = require("../../models/cardDisciplina.cjs");
 
 // Configurações
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const UPLOADS_DIR = path.join(__dirname, "../uploads");
 
-// Criar diretório de uploads se não existir
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
-
-// Configuração do Multer para upload de arquivos
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, UPLOADS_DIR);
-  },
-  filename: (req, file, cb) => {
-    // Gera nome único para o arquivo
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, "card-" + uniqueSuffix + ext);
-  },
-});
+// Configuração do Multer para armazenar na memória
+const storage = multer.memoryStorage();
 
 // Filtro para validar tipos de arquivo
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif|bmp|webp|svg|ico/;
+  const allowedTypes = /jpeg|jpg|png|gif|bmp|webp|svg/;
   const extname = allowedTypes.test(
     path.extname(file.originalname).toLowerCase()
   );
@@ -56,25 +40,30 @@ const handleUpload = upload.fields([
   { name: "icone", maxCount: 1 },
 ]);
 
-// Middleware para converter arquivos uploadados em URLs
+// Middleware para processar arquivos uploadados
 const processUploadedFiles = (req, res, next) => {
   if (req.files) {
-    // Converte os arquivos uploadados em URLs acessíveis
+    // Prepara os dados para salvar no MongoDB
     if (req.files.imagem) {
-      req.body.imagem = `/uploads/${req.files.imagem[0].filename}`;
+      req.body.imagem = {
+        data: req.files.imagem[0].buffer,
+        contentType: req.files.imagem[0].mimetype
+      };
     }
     if (req.files.icone) {
-      req.body.icone = `/uploads/${req.files.icone[0].filename}`;
+      req.body.icone = {
+        data: req.files.icone[0].buffer,
+        contentType: req.files.icone[0].mimetype
+      };
     }
   }
   next();
 };
 
-// Middleware de validação de campos obrigatórios
+// Middleware de validação
 const validateRequiredFields = (req, res, next) => {
   const { imagem, icone, titulo } = req.body;
 
-  // Para criação, todos os campos são obrigatórios
   if (req.method === "POST") {
     if (!imagem || !icone || !titulo) {
       return res.status(400).json({
@@ -94,22 +83,43 @@ const validateRequiredFields = (req, res, next) => {
   next();
 };
 
-// Função para deletar arquivo antigo se necessário
-const deleteOldFile = async (cardId, fieldName) => {
+// Rota para servir imagens do MongoDB
+routerCards.get("/imagem/:id/:tipo", async (req, res) => {
   try {
-    const card = await CardDisciplina.findById(cardId);
-    if (card && card[fieldName]) {
-      const oldFilePath = path.join(__dirname, "..", card[fieldName]);
-      if (fs.existsSync(oldFilePath)) {
-        fs.unlinkSync(oldFilePath);
-      }
+    const { id, tipo } = req.params;
+    
+    if (!['imagem', 'icone'].includes(tipo)) {
+      return res.status(400).json({
+        success: false,
+        error: "Tipo inválido. Use 'imagem' ou 'icone'"
+      });
     }
-  } catch (error) {
-    console.error(`Erro ao deletar arquivo antigo ${fieldName}:`, error);
-  }
-};
 
-// GET: Buscar card por slug (para a página individual da disciplina)
+    const card = await CardDisciplina.findById(id);
+    
+    if (!card || !card[tipo]) {
+      return res.status(404).json({
+        success: false,
+        error: "Imagem não encontrada"
+      });
+    }
+
+    // Configurar headers para imagem
+    res.set('Content-Type', card[tipo].contentType);
+    res.set('Cache-Control', 'public, max-age=86400'); // Cache de 1 dia
+    
+    // Enviar dados da imagem
+    res.send(card[tipo].data);
+  } catch (err) {
+    console.error("Erro ao buscar imagem:", err);
+    res.status(500).json({
+      success: false,
+      error: "Erro interno do servidor ao buscar a imagem",
+    });
+  }
+});
+
+// GET: Buscar card por slug
 routerCards.get("/disciplina/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
@@ -123,12 +133,16 @@ routerCards.get("/disciplina/:slug", async (req, res) => {
       });
     }
 
-    // Adiciona URLs completas
+    // URLs para as imagens no MongoDB
     const cardResponse = {
-      ...card._doc,
-      imagem: req.protocol + "://" + req.get("host") + card.imagem,
-      icone: req.protocol + "://" + req.get("host") + card.icone,
-      url: `${req.protocol}://${req.get("host")}/cards/disciplina/${card.slug}`,
+      _id: card._id,
+      titulo: card.titulo,
+      slug: card.slug,
+      createdAt: card.createdAt,
+      updatedAt: card.updatedAt,
+      imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/imagem`,
+      icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/icone`,
+      url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${card.slug}`,
     };
 
     res.json({
@@ -144,23 +158,27 @@ routerCards.get("/disciplina/:slug", async (req, res) => {
   }
 });
 
-// GET: Buscar todos os cards (inclui a URL da disciplina)
+// GET: Buscar todos os cards
 routerCards.get("/", async (req, res) => {
   try {
     const cards = await CardDisciplina.find().sort({ createdAt: -1 });
 
-    // Converte caminhos relativos em URLs completas e adiciona URL da disciplina
-    const cardsWithFullUrls = cards.map((card) => ({
-      ...card._doc,
-      imagem: req.protocol + "://" + req.get("host") + card.imagem,
-      icone: req.protocol + "://" + req.get("host") + card.icone,
-      url: `${req.protocol}://${req.get("host")}/cards/disciplina/${card.slug}`,
+    // Adiciona URLs para as imagens no MongoDB
+    const cardsWithUrls = cards.map((card) => ({
+      _id: card._id,
+      titulo: card.titulo,
+      slug: card.slug,
+      createdAt: card.createdAt,
+      updatedAt: card.updatedAt,
+      imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/imagem`,
+      icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/icone`,
+      url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${card.slug}`,
     }));
 
     res.json({
       success: true,
       count: cards.length,
-      data: cardsWithFullUrls,
+      data: cardsWithUrls,
     });
   } catch (err) {
     console.error("Erro ao buscar cards:", err);
@@ -171,28 +189,10 @@ routerCards.get("/", async (req, res) => {
   }
 });
 
-// POST: Criar um novo card com upload de arquivos
+// POST: Criar um novo card
 routerCards.post(
   "/",
-  (req, res, next) => {
-    handleUpload(req, res, (err) => {
-      if (err) {
-        if (err instanceof multer.MulterError) {
-          if (err.code === "LIMIT_FILE_SIZE") {
-            return res.status(400).json({
-              success: false,
-              error: "Arquivo muito grande. Tamanho máximo permitido: 5MB",
-            });
-          }
-        }
-        return res.status(400).json({
-          success: false,
-          error: err.message,
-        });
-      }
-      next();
-    });
-  },
+  handleUpload,
   processUploadedFiles,
   validateRequiredFields,
   async (req, res) => {
@@ -200,21 +200,29 @@ routerCards.post(
       const { imagem, icone, titulo } = req.body;
 
       const novoCard = new CardDisciplina({
-        imagem: imagem,
-        icone: icone,
+        imagem: {
+          data: imagem.data,
+          contentType: imagem.contentType
+        },
+        icone: {
+          data: icone.data,
+          contentType: icone.contentType
+        },
         titulo: titulo.trim(),
       });
 
       await novoCard.save();
 
-      // Adiciona URLs completas na resposta
+      // Resposta com URLs para as imagens
       const cardResponse = {
-        ...novoCard._doc,
-        imagem: req.protocol + "://" + req.get("host") + novoCard.imagem,
-        icone: req.protocol + "://" + req.get("host") + novoCard.icone,
-        url: `${req.protocol}://${req.get("host")}/cards/disciplina/${
-          novoCard.slug
-        }`,
+        _id: novoCard._id,
+        titulo: novoCard.titulo,
+        slug: novoCard.slug,
+        createdAt: novoCard.createdAt,
+        updatedAt: novoCard.updatedAt,
+        imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${novoCard._id}/imagem`,
+        icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${novoCard._id}/icone`,
+        url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${novoCard.slug}`,
       };
 
       res.status(201).json({
@@ -223,17 +231,6 @@ routerCards.post(
         data: cardResponse,
       });
     } catch (err) {
-      // Deleta arquivos uploadados se houve erro
-      if (req.files) {
-        Object.values(req.files).forEach((files) => {
-          files.forEach((file) => {
-            if (fs.existsSync(file.path)) {
-              fs.unlinkSync(file.path);
-            }
-          });
-        });
-      }
-
       console.error("Erro ao criar card:", err);
 
       if (err.name === "ValidationError") {
@@ -259,55 +256,35 @@ routerCards.post(
   }
 );
 
-// PUT: Atualizar um card pelo ID com upload de arquivos
+// PUT: Atualizar um card
 routerCards.put(
   "/:id",
-  (req, res, next) => {
-    handleUpload(req, res, (err) => {
-      if (err) {
-        if (err instanceof multer.MulterError) {
-          if (err.code === "LIMIT_FILE_SIZE") {
-            return res.status(400).json({
-              success: false,
-              error: "Arquivo muito grande. Tamanho máximo permitido: 5MB",
-            });
-          }
-        }
-        return res.status(400).json({
-          success: false,
-          error: err.message,
-        });
-      }
-      next();
-    });
-  },
+  handleUpload,
   processUploadedFiles,
   async (req, res) => {
     const { id } = req.params;
     const { imagem, icone, titulo } = req.body;
 
-    // Validação do ID
     if (!id || id.length !== 24) {
-      // Deleta arquivos uploadados se ID é inválido
-      if (req.files) {
-        Object.values(req.files).forEach((files) => {
-          files.forEach((file) => {
-            if (fs.existsSync(file.path)) {
-              fs.unlinkSync(file.path);
-            }
-          });
-        });
-      }
       return res.status(400).json({
         success: false,
         error: "ID inválido",
       });
     }
 
-    // Prepara updates
     const updates = {};
-    if (imagem !== undefined) updates.imagem = imagem;
-    if (icone !== undefined) updates.icone = icone;
+    if (imagem !== undefined) {
+      updates.imagem = {
+        data: imagem.data,
+        contentType: imagem.contentType
+      };
+    }
+    if (icone !== undefined) {
+      updates.icone = {
+        data: icone.data,
+        contentType: icone.contentType
+      };
+    }
     if (titulo !== undefined) {
       if (typeof titulo !== "string" || titulo.trim().length === 0) {
         return res.status(400).json({
@@ -326,22 +303,6 @@ routerCards.put(
     }
 
     try {
-      const cardAtual = await CardDisciplina.findById(id);
-      if (!cardAtual) {
-        return res.status(404).json({
-          success: false,
-          error: "Card não encontrado",
-        });
-      }
-
-      // Deleta arquivos antigos se novos arquivos foram uploadados
-      if (req.files && req.files.imagem) {
-        await deleteOldFile(id, "imagem");
-      }
-      if (req.files && req.files.icone) {
-        await deleteOldFile(id, "icone");
-      }
-
       const cardAtualizado = await CardDisciplina.findByIdAndUpdate(
         id,
         updates,
@@ -351,14 +312,22 @@ routerCards.put(
         }
       );
 
-      // Adiciona URLs completas na resposta
+      if (!cardAtualizado) {
+        return res.status(404).json({
+          success: false,
+          error: "Card não encontrado",
+        });
+      }
+
       const cardResponse = {
-        ...cardAtualizado._doc,
-        imagem: req.protocol + "://" + req.get("host") + cardAtualizado.imagem,
-        icone: req.protocol + "://" + req.get("host") + cardAtualizado.icone,
-        url: `${req.protocol}://${req.get("host")}/cards/disciplina/${
-          cardAtualizado.slug
-        }`,
+        _id: cardAtualizado._id,
+        titulo: cardAtualizado.titulo,
+        slug: cardAtualizado.slug,
+        createdAt: cardAtualizado.createdAt,
+        updatedAt: cardAtualizado.updatedAt,
+        imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${cardAtualizado._id}/imagem`,
+        icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${cardAtualizado._id}/icone`,
+        url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${cardAtualizado.slug}`,
       };
 
       res.json({
@@ -367,17 +336,6 @@ routerCards.put(
         data: cardResponse,
       });
     } catch (err) {
-      // Deleta arquivos uploadados se houve erro
-      if (req.files) {
-        Object.values(req.files).forEach((files) => {
-          files.forEach((file) => {
-            if (fs.existsSync(file.path)) {
-              fs.unlinkSync(file.path);
-            }
-          });
-        });
-      }
-
       console.error("Erro ao atualizar card:", err);
 
       if (err.name === "CastError") {
@@ -410,11 +368,10 @@ routerCards.put(
   }
 );
 
-// DELETE: Deletar um card pelo ID
+// DELETE: Deletar um card
 routerCards.delete("/:id", async (req, res) => {
   const { id } = req.params;
 
-  // Validação do ID
   if (!id || id.length !== 24) {
     return res.status(400).json({
       success: false,
@@ -423,7 +380,7 @@ routerCards.delete("/:id", async (req, res) => {
   }
 
   try {
-    const card = await CardDisciplina.findById(id);
+    const card = await CardDisciplina.findByIdAndDelete(id);
 
     if (!card) {
       return res.status(404).json({
@@ -432,28 +389,14 @@ routerCards.delete("/:id", async (req, res) => {
       });
     }
 
-    // Deleta os arquivos associados
-    if (card.imagem) {
-      const imagemPath = path.join(__dirname, "..", card.imagem);
-      if (fs.existsSync(imagemPath)) {
-        fs.unlinkSync(imagemPath);
-      }
-    }
-
-    if (card.icone) {
-      const iconePath = path.join(__dirname, "..", card.icone);
-      if (fs.existsSync(iconePath)) {
-        fs.unlinkSync(iconePath);
-      }
-    }
-
-    // Deleta o card do banco de dados
-    await CardDisciplina.findByIdAndDelete(id);
-
     res.json({
       success: true,
-      message: "Card e arquivos associados deletados com sucesso",
-      data: card,
+      message: "Card deletado com sucesso",
+      data: {
+        _id: card._id,
+        titulo: card.titulo,
+        slug: card.slug
+      },
     });
   } catch (err) {
     console.error("Erro ao deletar card:", err);
