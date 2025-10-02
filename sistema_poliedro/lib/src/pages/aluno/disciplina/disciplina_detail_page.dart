@@ -29,12 +29,45 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
   late Future<CardDisciplina> _futureCard;
   final List<int> _expandedTopicos = [];
   bool _isLoading = false;
+  final ScrollController _scrollController = ScrollController();
+  bool _isScrolled = false;
+  DateTime _lastScrollUpdate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     print('🔍 Iniciando disciplina: ${widget.slug}');
     _carregarDisciplina();
+    
+    // Adicione o listener para o scroll
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    // Otimização: throttle para evitar updates muito frequentes
+    final now = DateTime.now();
+    if (now.difference(_lastScrollUpdate).inMilliseconds < 16) {
+      return; // Limita a ~60fps
+    }
+    
+    // Define um threshold (pode ajustar conforme necessário)
+    const threshold = 100.0;
+    final newIsScrolled = _scrollController.offset > threshold;
+    
+    // Só atualiza se o valor mudou
+    if (newIsScrolled != _isScrolled) {
+      _lastScrollUpdate = now;
+      setState(() {
+        _isScrolled = newIsScrolled;
+      });
+    }
   }
 
   void _carregarDisciplina() {
@@ -101,8 +134,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     }
   }
 
-  // No _DisciplinaDetailPageState, método _adicionarMaterial:
-  // No método _adicionarMaterial do DisciplinaDetailPage, atualize:
   Future<void> _adicionarMaterial(int topicoIndex) async {
     final card = await _futureCard;
     final topico = card.topicos[topicoIndex];
@@ -111,7 +142,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
       context: context,
       builder: (context) => AdicionarMaterialDialog(
         onConfirm: (tipo, titulo, descricao, url, peso, prazo, arquivo) async {
-          // ADICIONE O arquivo AQUI
           await _criarMaterial(
             topicoIndex,
             tipo,
@@ -127,9 +157,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     );
   }
 
-  // No _DisciplinaDetailPageState, atualize o método _criarMaterial:
-  // No _DisciplinaDetailPageState, atualize o método:
-  // No _DisciplinaDetailPageState, atualize a assinatura do método:
   Future<void> _criarMaterial(
     int topicoIndex,
     String tipo,
@@ -138,7 +165,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     String? url,
     double peso,
     DateTime? prazo,
-    PlatformFile? arquivo, // ADICIONE ESTE PARÂMETRO
+    PlatformFile? arquivo,
   ) async {
     setState(() => _isLoading = true);
 
@@ -192,11 +219,11 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
         insetPadding: const EdgeInsets.symmetric(
           horizontal: 30,
           vertical: 80,
-        ), // MENOS LARGO
+        ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 450), // LARGURA MÁXIMA
+          constraints: const BoxConstraints(maxWidth: 450),
           child: Padding(
-            padding: const EdgeInsets.all(20), // MENOS PADDING
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,18 +234,18 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                       Icons.edit,
                       color: AppColors.azulClaro,
                       size: 24,
-                    ), // ÍCONE MENOR
-                    const SizedBox(width: 8), // MENOS ESPAÇO
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       'Editar Tópico',
                       style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: 18, // FONTE MENOR
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20), // MENOS ESPAÇO
+                const SizedBox(height: 20),
                 TextFormField(
                   controller: tituloController,
                   decoration: InputDecoration(
@@ -234,7 +261,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 16,
-                    ), // MENOS ALTURA
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -243,7 +270,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 12), // MENOS ESPAÇO
+                const SizedBox(height: 12),
                 TextFormField(
                   controller: descricaoController,
                   decoration: InputDecoration(
@@ -261,9 +288,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                       vertical: 16,
                     ),
                   ),
-                  maxLines: 2, // MENOS LINHAS
+                  maxLines: 2,
                 ),
-                const SizedBox(height: 20), // MENOS ESPAÇO
+                const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -274,14 +301,14 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 8,
-                        ), // MENOS PADDING
+                        ),
                       ),
                       child: const Text(
                         'Cancelar',
                         style: TextStyle(fontSize: 14),
-                      ), // TEXTO MENOR
+                      ),
                     ),
-                    const SizedBox(width: 8), // MENOS ESPAÇO
+                    const SizedBox(width: 8),
                     ElevatedButton(
                       onPressed: () async {
                         if (tituloController.text.trim().isNotEmpty) {
@@ -299,12 +326,12 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 10,
-                        ), // MENOS PADDING
+                        ),
                       ),
                       child: const Text(
                         'Salvar',
                         style: TextStyle(fontSize: 14),
-                      ), // TEXTO MENOR
+                      ),
                     ),
                   ],
                 ),
@@ -488,7 +515,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
 
     return Scaffold(
       backgroundColor: AppColors.branco,
-      floatingActionButton: !isMobile ? _buildFloatingActionButton() : null,
       body: Stack(
         children: [
           FutureBuilder<CardDisciplina>(
@@ -499,7 +525,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                   child: CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(
                       AppColors.azulClaro,
-                    ), // AZUL
+                    ),
                   ),
                 );
               }
@@ -571,7 +597,252 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
               }
 
               if (isMobile) {
-                return _buildLayoutMobile(card);
+                return CustomScrollView(
+                  controller: _scrollController,
+                  physics: const ClampingScrollPhysics(), // Física mais suave
+                  slivers: [
+                    SliverAppBar(
+                      expandedHeight: 200.0,
+                      floating: false,
+                      pinned: true,
+                      automaticallyImplyLeading: false,
+                      backgroundColor: _isScrolled ? Colors.white : Colors.transparent,
+                      foregroundColor: _isScrolled ? Colors.black : Colors.white,
+                      elevation: _isScrolled ? 4 : 0,
+                      actions: [
+                        PopupMenuButton<String>(
+                          icon: Icon(
+                            Icons.assignment, 
+                            color: _isScrolled ? Colors.black : Colors.white,
+                          ),
+                          onSelected: (value) {
+                            if (value == 'tasks') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => TasksPage(slug: widget.slug),
+                                ),
+                              );
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'tasks',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.assignment, size: 20, color: Colors.black),
+                                  SizedBox(width: 8),
+                                  Text('Tarefas Pendentes', style: TextStyle(color: Colors.black)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      flexibleSpace: FlexibleSpaceBar(
+                        title: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 150),
+                          opacity: _isScrolled ? 1.0 : 1.0,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 16.0),
+                            child: Row(
+                              children: [
+                                Image.network(
+                                  card.icone,
+                                  width: 24,
+                                  height: 24,
+                                  color: _isScrolled ? Colors.black : Colors.white,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    card.titulo,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: _isScrolled ? Colors.black : Colors.white,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        background: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              card.imagem,
+                              fit: BoxFit.cover,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      value: loadingProgress.expectedTotalBytes != null
+                                          ? loadingProgress.cumulativeBytesLoaded /
+                                              loadingProgress.expectedTotalBytes!
+                                          : null,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    Colors.black.withOpacity(0.7),
+                                    Colors.transparent
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (card.topicos.isEmpty)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: _buildEmptyState(),
+                        ),
+                      )
+                    else ...[
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: _buildBotaoAdicionarTopico(),
+                        ),
+                      ),
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final topico = card.topicos[index];
+                          final isExpanded = _expandedTopicos.contains(index);
+
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: Card(
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                children: [
+                                  // Header do tópico
+                                  ListTile(
+                                    leading: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.azulClaro.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(Icons.folder, color: AppColors.azulClaro),
+                                    ),
+                                    title: Text(
+                                      topico.titulo,
+                                      style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      '${topico.materiais.length} materiais',
+                                      style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        PopupMenuButton<String>(
+                                          icon: Icon(
+                                            Icons.more_vert,
+                                            color: Colors.grey[600],
+                                          ),
+                                          onSelected: (value) {
+                                            if (value == 'edit') {
+                                              _editarTopico(index);
+                                            } else if (value == 'delete') {
+                                              _deletarTopico(index);
+                                            }
+                                          },
+                                          itemBuilder: (context) => [
+                                            const PopupMenuItem(
+                                              value: 'edit',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.edit, size: 20),
+                                                  SizedBox(width: 8),
+                                                  Text('Editar'),
+                                                ],
+                                              ),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'delete',
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.delete,
+                                                    size: 20,
+                                                    color: Colors.red,
+                                                  ),
+                                                  SizedBox(width: 8),
+                                                  Text(
+                                                    'Excluir',
+                                                    style: TextStyle(color: Colors.red),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Icon(
+                                          isExpanded ? Icons.expand_less : Icons.expand_more,
+                                          color: AppColors.azulClaro,
+                                        ),
+                                      ],
+                                    ),
+                                    onTap: () => _toggleTopico(index),
+                                  ),
+
+                                  // Conteúdo expandido
+                                  if (isExpanded) ...[
+                                    const Divider(height: 1),
+                                    if (topico.materiais.isEmpty)
+                                      _buildEmptyMaterialState(topico.titulo, index),
+                                    ...topico.materiais.asMap().entries.map((entry) {
+                                      final materialIndex = entry.key;
+                                      final material = entry.value;
+                                      return _buildMaterialItem(
+                                        material,
+                                        materialIndex,
+                                        topico.titulo,
+                                        topicoIndex: index,
+                                      );
+                                    }).toList(),
+                                    Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: _buildBotaoAdicionarMaterial(
+                                        topicoIndex: index,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          );
+                        }, childCount: card.topicos.length),
+                      ),
+                    ],
+                  ],
+                );
               } else {
                 return _buildLayoutDesktop(card);
               }
@@ -584,7 +855,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(
                     AppColors.azulClaro,
-                  ), // AZUL
+                  ),
                 ),
               ),
             ),
@@ -593,28 +864,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     );
   }
 
-  Widget _buildFloatingActionButton() {
-    return FloatingActionButton.extended(
-      onPressed: _adicionarTopico,
-      backgroundColor: AppColors.azulClaro,
-      foregroundColor: Colors.white,
-      icon: const Icon(Icons.add),
-      label: const Text('Novo Tópico'),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-    );
-  }
-
-  Widget _buildLayoutMobile(CardDisciplina card) {
-    return Column(
-      children: [
-        _buildBanner(card),
-        if (card.topicos.isEmpty) _buildEmptyState(),
-        Expanded(child: _buildListaTopicos(card, true)),
-      ],
-    );
-  }
-
+  // ... (os métodos restantes permanecem iguais)
   Widget _buildLayoutDesktop(CardDisciplina card) {
     return Column(
       children: [
@@ -741,14 +991,8 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
 
   Widget _buildListaTopicos(CardDisciplina card, bool isMobile) {
     return CustomScrollView(
+      physics: const ClampingScrollPhysics(),
       slivers: [
-        if (isMobile && card.topicos.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: _buildBotaoAdicionarTopico(),
-            ),
-          ),
         SliverList(
           delegate: SliverChildBuilderDelegate((context, index) {
             final topico = card.topicos[index];
@@ -763,7 +1007,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                 ),
                 child: Column(
                   children: [
-                    // Header do tópico
                     ListTile(
                       leading: Container(
                         padding: const EdgeInsets.all(8),
@@ -844,7 +1087,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                       onTap: () => _toggleTopico(index),
                     ),
 
-                    // Conteúdo expandido
                     if (isExpanded) ...[
                       const Divider(height: 1),
                       if (topico.materiais.isEmpty)
@@ -963,7 +1205,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12),
                 )
-              : null, // REMOVIDA A PRÉ-VISUALIZAÇÃO DE DATA E PESO
+              : null,
           trailing: PopupMenuButton<String>(
             icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
             onSelected: (value) {
@@ -1022,15 +1264,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     }
   }
 
-  Color _getPrazoColor(DateTime prazo) {
-    final now = DateTime.now();
-    final difference = prazo.difference(now);
-
-    if (difference.inDays < 0) return Colors.red;
-    if (difference.inDays <= 3) return Colors.orange;
-    return Colors.green;
-  }
-
   Widget _buildSidebarTarefas(CardDisciplina card) {
     final tarefas = <MaterialDisciplina>[];
     for (final topico in card.topicos) {
@@ -1081,10 +1314,11 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                 child: tarefas.isEmpty
                     ? _buildEmptyTarefasState()
                     : ListView.builder(
+                        physics: const ClampingScrollPhysics(),
                         itemCount: tarefas.length,
                         itemBuilder: (context, index) {
                           final tarefa = tarefas[index];
-                          return _buildTarefaItem(tarefa, index);
+                          return _buildTarefaItem(tarefa);
                         },
                       ),
               ),
@@ -1122,7 +1356,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     );
   }
 
-  Widget _buildTarefaItem(MaterialDisciplina tarefa, int index) {
+  Widget _buildTarefaItem(MaterialDisciplina tarefa) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -1188,6 +1422,213 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
           material: material,
           topicoTitulo: topicoTitulo,
         ),
+      ),
+    );
+  }
+}
+
+// ... (TasksPage permanece igual)
+class TasksPage extends StatefulWidget {
+  final String slug;
+
+  const TasksPage({
+    super.key,
+    required this.slug,
+  });
+
+  @override
+  State<TasksPage> createState() => _TasksPageState();
+}
+
+class _TasksPageState extends State<TasksPage> {
+  late Future<CardDisciplina> _futureCard;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureCard = CardDisciplinaService.getCardBySlug(widget.slug);
+  }
+
+  Color _getTarefaColor(DateTime prazo) {
+    final now = DateTime.now();
+    final difference = prazo.difference(now);
+
+    if (difference.inDays < 0) return Colors.red;
+    if (difference.inDays <= 3) return Colors.orange;
+    return AppColors.azulClaro;
+  }
+
+  Widget _buildTarefaItem(MaterialDisciplina tarefa) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        borderRadius: BorderRadius.circular(8),
+        color: _getTarefaColor(tarefa.prazo!),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 8,
+          ),
+          leading: Icon(Icons.assignment, color: Colors.white, size: 20),
+          title: Text(
+            tarefa.titulo,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 4),
+              Text(
+                '${tarefa.prazo!.day}/${tarefa.prazo!.month}/${tarefa.prazo!.year}',
+                style: const TextStyle(fontSize: 12, color: Colors.white70),
+              ),
+              if (tarefa.peso > 0)
+                Text(
+                  'Peso: ${tarefa.peso}%',
+                  style: const TextStyle(fontSize: 11, color: Colors.white60),
+                ),
+            ],
+          ),
+          dense: true,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VisualizacaoMaterialPage(
+                  material: tarefa,
+                  topicoTitulo: 'Tarefa',
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.black,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptySection(String title) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.assignment_turned_in, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            Text(
+              'Nenhuma $title',
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text(
+          'Tarefas Pendentes',
+          style: TextStyle(color: Colors.black),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      body: FutureBuilder<CardDisciplina>(
+        future: _futureCard,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.azulClaro),
+              ),
+            );
+          }
+
+          if (snapshot.hasError || !snapshot.hasData) {
+            return const Center(
+              child: Text('Erro ao carregar tarefas', style: TextStyle(color: Colors.black)),
+            );
+          }
+
+          final card = snapshot.data!;
+          final allTarefas = <MaterialDisciplina>[];
+          for (final topico in card.topicos) {
+            for (final material in topico.materiais) {
+              if (material.prazo != null) {
+                allTarefas.add(material);
+              }
+            }
+          }
+
+          final now = DateTime.now();
+          final pendentes = allTarefas.where((t) => t.prazo!.isAfter(now.subtract(const Duration(days: 1)))).toList();
+          final passadas = allTarefas.where((t) => t.prazo!.isBefore(now)).toList();
+
+          pendentes.sort((a, b) => a.prazo!.compareTo(b.prazo!));
+          passadas.sort((a, b) => b.prazo!.compareTo(a.prazo!));
+
+          return CustomScrollView(
+            physics: const ClampingScrollPhysics(),
+            slivers: [
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+              SliverToBoxAdapter(
+                child: pendentes.isEmpty
+                    ? _buildEmptySection('tarefa pendente')
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionHeader('Tarefas Pendentes'),
+                          ...pendentes.map((tarefa) => Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: _buildTarefaItem(tarefa),
+                              )),
+                        ],
+                      ),
+              ),
+              SliverToBoxAdapter(
+                child: passadas.isEmpty
+                    ? _buildEmptySection('tarefa passada')
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionHeader('Tarefas Passadas'),
+                          ...passadas.map((tarefa) => Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: _buildTarefaItem(tarefa),
+                              )),
+                        ],
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
