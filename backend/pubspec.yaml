@@ -1,0 +1,12 @@
+name: backend_dart
+description: Backend convertido de Node.js para Dart
+version: 1.0.0
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  shelf: ^1.4.0
+  shelf_router: ^1.1.4
+  mongo_dart: ^0.10.0
+  dotenv: ^4.2.0
