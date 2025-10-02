@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:sistema_poliedro/src/components/lista_disciplinas.dart';
+import 'package:sistema_poliedro/src/services/calculadora_medias.dart';
+import 'package:sistema_poliedro/src/styles/cores.dart';
 
 class NotasPage extends StatefulWidget {
   const NotasPage({super.key});
@@ -10,56 +13,53 @@ class NotasPage extends StatefulWidget {
 class _NotasPageState extends State<NotasPage> {
   final TextEditingController _searchController = TextEditingController();
   String searchText = "";
+  List<Map<String, dynamic>> disciplinas = [];
 
-  final List<Map<String, dynamic>> disciplinas = [
-    {
-      "disciplina": "Física",
-      "mediaProvas": 5.0,
-      "mediaAtividades": 5.0,
-      "mediaFinal": 5.0,
-      "detalhes": [
-        {"tipo": "Prova 1", "nota": 3.5, "peso": 0.5},
-        {"tipo": "Prova 2", "nota": 2.5, "peso": 0.5},
-        {"tipo": "Atividade 1", "nota": 5.0, "peso": 0.5},
-      ]
-    },
-    {
-      "disciplina": "Biologia",
-      "mediaProvas": 7.5,
-      "mediaAtividades": 8.0,
-      "mediaFinal": 7.8,
-      "detalhes": []
-    },
-    {
-      "disciplina": "História",
-      "mediaProvas": 6.0,
-      "mediaAtividades": 7.0,
-      "mediaFinal": 6.5,
-      "detalhes": []
-    },
-    {
-      "disciplina": "Matemática",
-      "mediaProvas": 8.5,
-      "mediaAtividades": 9.0,
-      "mediaFinal": 8.75,
-      "detalhes": []
-    },
-    {
-      "disciplina": "Literatura",
-      "mediaProvas": 3.0,
-      "mediaAtividades": 5.0,
-      "mediaFinal": 4.0,
-      "detalhes": [
-        {"tipo": "Prova 1", "nota": 3.5, "peso": 0.5},
-        {"tipo": "Prova 2", "nota": 2.5, "peso": 0.5},
-        {"tipo": "Atividade 1", "nota": 5.0, "peso": 0.5},
-      ]
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _carregarDisciplinas();
+  }
+
+  void _carregarDisciplinas() {
+    // Dados brutos - apenas com detalhes, sem médias calculadas
+    final dadosBrutos = [
+      {
+        "disciplina": "Física",
+        "detalhes": [
+          {"tipo": "Prova 1", "nota": 3.5, "peso": 0.5},
+          {"tipo": "Prova 2", "nota": 2.5, "peso": 0.5},
+          {"tipo": "Atividade 1", "nota": 5.0, "peso": 0.5},
+        ]
+      },
+      {
+        "disciplina": "Matemática",
+        "detalhes": [
+          {"tipo": "Prova 1", "nota": 9.0, "peso": 0.5},
+          {"tipo": "Prova 2", "nota": 8.0, "peso": 0.5},
+          {"tipo": "Atividade 1", "nota": 9.0, "peso": 0.5}
+        ]
+      },
+      {
+        "disciplina": "Química",
+        "detalhes": [
+          {"tipo": "Prova 1", "nota": 3.5, "peso": 0.5},
+          {"tipo": "Prova 2", "nota": 2.5, "peso": 0.5},
+          {"tipo": "Atividade 1", "nota": 5.0, "peso": 0.5},
+        ]
+      },
+    ];
+
+    // Processa as disciplinas calculando as médias automaticamente
+    setState(() {
+      disciplinas = CalculadoraMedias.processarDisciplinas(dadosBrutos);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.branco,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -111,157 +111,17 @@ class _NotasPageState extends State<NotasPage> {
               ),
               const SizedBox(height: 15),
 
-              /// LISTA DE DISCIPLINAS
+              /// LISTA DE DISCIPLINAS (COMPONENTIZADA)
               Expanded(
-                child: ListView(
-                  children: disciplinas
-                      .where((d) => d["disciplina"]
-                          .toString()
-                          .toLowerCase()
-                          .contains(searchText))
-                      .map((disciplina) {
-                    bool acimaMedia = disciplina["mediaFinal"] >= 6.0;
-
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: ExpansionTile(
-                        leading: CircleAvatar(
-                          backgroundColor:
-                              acimaMedia ? Colors.teal : Colors.red,
-                          radius: 8,
-                        ),
-                        title: Row(
-                          children: [
-                            /// Nome da disciplina à esquerda
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                disciplina["disciplina"],
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-
-                            /// Notas centralizadas
-                            Expanded(
-                              flex: 3,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  _buildNota(
-                                      "Provas", disciplina["mediaProvas"]),
-                                  const SizedBox(width: 8),
-                                  _buildNota("Atividades",
-                                      disciplina["mediaAtividades"]),
-                                  const SizedBox(width: 8),
-                                  _buildNota("Final", disciplina["mediaFinal"],
-                                      destaque: true),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        /// Detalhes ao expandir
-                        children: disciplina["detalhes"].isNotEmpty
-                            ? [
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Table(
-                                    border: TableBorder.all(
-                                        color: Colors.grey.shade300),
-                                    columnWidths: const {
-                                      0: FlexColumnWidth(2),
-                                      1: FlexColumnWidth(1),
-                                      2: FlexColumnWidth(1),
-                                    },
-                                    children: [
-                                      const TableRow(
-                                        decoration: BoxDecoration(
-                                            color: Color(0xFFEFEFEF)),
-                                        children: [
-                                          Padding(
-                                            padding: EdgeInsets.all(6.0),
-                                            child: Text("Tipo",
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold)),
-                                          ),
-                                          Padding(
-                                            padding: EdgeInsets.all(6.0),
-                                            child: Text("Nota",
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold)),
-                                          ),
-                                          Padding(
-                                            padding: EdgeInsets.all(6.0),
-                                            child: Text("Peso",
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold)),
-                                          ),
-                                        ],
-                                      ),
-                                      ...disciplina["detalhes"].map<TableRow>(
-                                          (detalhe) {
-                                        return TableRow(children: [
-                                          Padding(
-                                            padding: const EdgeInsets.all(6.0),
-                                            child: Text(detalhe["tipo"]),
-                                          ),
-                                          Padding(
-                                            padding: const EdgeInsets.all(6.0),
-                                            child:
-                                                Text(detalhe["nota"].toString()),
-                                          ),
-                                          Padding(
-                                            padding: const EdgeInsets.all(6.0),
-                                            child:
-                                                Text(detalhe["peso"].toString()),
-                                          ),
-                                        ]);
-                                      }).toList(),
-                                    ],
-                                  ),
-                                )
-                              ]
-                            : [],
-                      ),
-                    );
-                  }).toList(),
+                child: ListaDisciplinas(
+                  disciplinas: disciplinas,
+                  searchText: searchText,
                 ),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  /// Widget auxiliar para exibir notas
-  Widget _buildNota(String titulo, double valor, {bool destaque = false}) {
-    return Row(
-      children: [
-        Text(
-          "$titulo: ",
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        ),
-        Text(
-          valor.toStringAsFixed(1),
-          style: TextStyle(
-            fontSize: destaque ? 14 : 12,
-            fontWeight: destaque ? FontWeight.bold : FontWeight.normal,
-            color: destaque
-                ? (valor >= 6 ? Colors.teal : Colors.red)
-                : Colors.black87,
-          ),
-        ),
-      ],
     );
   }
 }

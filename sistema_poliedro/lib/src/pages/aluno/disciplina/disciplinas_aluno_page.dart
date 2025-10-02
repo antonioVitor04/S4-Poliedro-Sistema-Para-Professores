@@ -1,5 +1,6 @@
 // disciplinas_aluno_page.dart
 import 'package:flutter/material.dart';
+import 'package:sistema_poliedro/src/styles/cores.dart';
 import '../../../styles/fontes.dart';
 import '../../../components/disciplina_card.dart';
 import '../../../services/card_disciplina_service.dart';
@@ -76,11 +77,7 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
             const SizedBox(height: 20),
 
             if (_isLoading)
-              const Expanded(
-                child: Center(
-                  child: CircularProgressIndicator(),
-                ),
-              ),
+              const Expanded(child: Center(child: CircularProgressIndicator())),
 
             if (_errorMessage.isNotEmpty)
               Expanded(
@@ -90,17 +87,11 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
                     children: [
                       Text(
                         'Erro ao carregar disciplinas',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.red,
-                        ),
+                        style: TextStyle(fontSize: 16, color: Colors.red),
                       ),
                       Text(
                         _errorMessage,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 20),
@@ -161,7 +152,9 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
                           crossAxisCount: crossAxisCount,
                           crossAxisSpacing: 30,
                           mainAxisSpacing: 16,
-                          childAspectRatio: _getAspectRatio(constraints.maxWidth),
+                          childAspectRatio: _getAspectRatio(
+                            constraints.maxWidth,
+                          ),
                           padding: const EdgeInsets.all(25),
                           children: cards.map((card) {
                             return DisciplinaCard(
@@ -171,8 +164,8 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
                               isMobile: isMobile,
                               // 🔥 USA A FUNÇÃO PASSADA COMO PARÂMETRO
                               onTap: () => widget.onNavigateToDetail(
-                                card.slug, 
-                                card.titulo
+                                card.slug,
+                                card.titulo,
                               ),
                             );
                           }).toList(),

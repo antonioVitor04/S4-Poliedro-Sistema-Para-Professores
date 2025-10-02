@@ -4,8 +4,6 @@ import 'src/pages/login_page.dart';
 import 'src/pages/aluno/main_aluno_page.dart';
 import 'src/components/auth_guard.dart';
 import 'src/pages/recuperar_senha.dart';
-import 'src/pages/codigo_verificacao.dart';
-import 'src/pages/nova_senha.dart';
 
 void main() {
   runApp(const MyApp());
