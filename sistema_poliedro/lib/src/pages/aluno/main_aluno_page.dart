@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../components/adaptive_navigation.dart';
 import '../../components/auth_guard.dart';
 import '../../styles/cores.dart';
-import 'disciplina/disciplinas_aluno_page.dart';
+import 'disciplina/disciplinas_page.dart';
 import 'disciplina/disciplina_detail_page.dart';
 import 'notas_aluno_page.dart';
 import 'calendario_aluno_page.dart';
@@ -120,17 +120,18 @@ class _MainAlunoPageState extends State<MainAlunoPage>
 
   @override
   Widget build(BuildContext context) {
-    final bool isDesktop = MediaQuery.of(context).size.width >= 600;
+    final bool isWeb = MediaQuery.of(context).size.width >= 600;
 
     return AuthGuard(
       child: Scaffold(
         backgroundColor: AppColors.branco,
-        appBar: !isDesktop
+        appBar: !isWeb
             ? AppBar(
                 backgroundColor: AppColors.azulEscuro,
                 leading: IconButton(
                   icon: const Icon(Icons.menu),
                   onPressed: () {},
+                  color: AppColors.branco,
                 ),
                 title: Image.asset(
                   'assets/images/logo.png',
@@ -138,25 +139,19 @@ class _MainAlunoPageState extends State<MainAlunoPage>
                   height: 50,
                 ),
                 centerTitle: true,
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () {},
-                  ),
-                ],
               )
             : null,
         body: Row(
           children: [
-            if (isDesktop)
+            if (isWeb)
               AdaptiveNavigation(
                 currentRoute: _currentRoute,
                 items: _navItems,
-                isDesktop: true,
+                isWeb: true,
                 onTap: _onNavTap,
                 profileSelected: _isProfileOpen,
               ),
-            if (isDesktop)
+            if (isWeb)
               AnimatedBuilder(
                 animation: _profileAnimation,
                 builder: (context, child) {
@@ -204,7 +199,7 @@ class _MainAlunoPageState extends State<MainAlunoPage>
             ),
           ],
         ),
-        bottomNavigationBar: !isDesktop
+        bottomNavigationBar: !isWeb
             ? AdaptiveNavigation(
                 currentRoute: _currentRoute,
                 items: _navItems,

@@ -58,70 +58,79 @@ class _NotasPageState extends State<NotasPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.branco,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              /// TÍTULO
-              Text(
-                "Notas",
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 15),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
 
-              /// BARRA DE PESQUISA
-              TextField(
-                controller: _searchController,
-                onChanged: (value) {
-                  setState(() => searchText = value.toLowerCase());
-                },
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search),
-                  hintText: "Pesquisar disciplina...",
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                  contentPadding: const EdgeInsets.symmetric(vertical: 5),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+    return CustomScrollView(
+      slivers: [
+        // Título como SliverToBoxAdapter (mesma posição que em Disciplinas)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(30, 20, 20, 30), // Mesma padding: top 20, bottom 30 para mais espaço
+            child: Text(
+              "Notas",
+              style: TextStyle(
+                fontSize: isMobile ? 22 : 25, // Ajustado para consistência com Disciplinas
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
               ),
-              const SizedBox(height: 15),
-
-              /// LEGENDA
-              Row(
-                children: const [
-                  CircleAvatar(radius: 6, backgroundColor: Colors.red),
-                  SizedBox(width: 5),
-                  Text("Abaixo da média"),
-                  SizedBox(width: 20),
-                  CircleAvatar(radius: 6, backgroundColor: Colors.teal),
-                  SizedBox(width: 5),
-                  Text("Acima da média"),
-                ],
-              ),
-              const SizedBox(height: 15),
-
-              /// LISTA DE DISCIPLINAS (COMPONENTIZADA)
-              Expanded(
-                child: ListaDisciplinas(
-                  disciplinas: disciplinas,
-                  searchText: searchText,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
+        // Conteúdo (search, legend, list) em SliverToBoxAdapter para mover para baixo
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16), // Padding horizontal igual ao original
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                /// BARRA DE PESQUISA
+                TextField(
+                  controller: _searchController,
+                  onChanged: (value) {
+                    setState(() => searchText = value.toLowerCase());
+                  },
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search),
+                    hintText: "Pesquisar disciplina...",
+                    filled: true,
+                    fillColor: Colors.grey[200],
+                    contentPadding: const EdgeInsets.symmetric(vertical: 5),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                /// LEGENDA
+                Row(
+                  children: const [
+                    CircleAvatar(radius: 6, backgroundColor: Colors.red),
+                    SizedBox(width: 5),
+                    Text("Abaixo da média"),
+                    SizedBox(width: 20),
+                    CircleAvatar(radius: 6, backgroundColor: Colors.teal),
+                    SizedBox(width: 5),
+                    Text("Acima da média"),
+                  ],
+                ),
+                const SizedBox(height: 15),
+
+                /// LISTA DE DISCIPLINAS (agora sem Expanded, para caber no scroll)
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.7, // Altura flexível para o resto da tela
+                  child: ListaDisciplinas(
+                    disciplinas: disciplinas,
+                    searchText: searchText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

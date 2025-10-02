@@ -1,5 +1,6 @@
 // components/disciplina_card.dart
 import 'package:flutter/material.dart';
+import 'package:sistema_poliedro/src/styles/cores.dart';
 import 'animated_card_button.dart';
 
 class DisciplinaCard extends StatelessWidget {
@@ -7,7 +8,7 @@ class DisciplinaCard extends StatelessWidget {
   final String imageUrl;
   final String iconUrl;
   final bool isMobile;
-  final VoidCallback onTap; // 🔥 Recebe a função de navegação
+  final VoidCallback onTap; 
 
   const DisciplinaCard({
     super.key,
@@ -15,19 +16,20 @@ class DisciplinaCard extends StatelessWidget {
     required this.imageUrl,
     required this.iconUrl,
     required this.isMobile,
-    required this.onTap, // 🔥 Recebe a função
+    required this.onTap, 
   });
 
   @override
   Widget build(BuildContext context) {
     return AnimatedCardButton(
-      onTap: onTap, // 🔥 Passa para o botão animado
+      onTap: onTap, 
       childBuilder: (hovering, scale) {
         return AnimatedScale(
           scale: scale,
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeInOut,
           child: Card(
+            
             elevation: hovering ? 10 : 4,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),

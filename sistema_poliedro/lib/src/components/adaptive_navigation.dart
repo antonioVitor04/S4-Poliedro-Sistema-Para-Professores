@@ -4,7 +4,7 @@ import '../styles/cores.dart';
 class AdaptiveNavigation extends StatefulWidget {
   final String currentRoute;
   final List<NavigationItem> items;
-  final bool isDesktop;
+  final bool isWeb;
   final Function(String)? onTap;
   final bool profileSelected; // novo
 
@@ -12,7 +12,7 @@ class AdaptiveNavigation extends StatefulWidget {
     Key? key,
     required this.currentRoute,
     required this.items,
-    this.isDesktop = false,
+    this.isWeb = false,
     this.onTap,
     this.profileSelected = false,
   }) : super(key: key);
@@ -26,13 +26,13 @@ class _AdaptiveNavigationState extends State<AdaptiveNavigation> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isDesktop) {
+    if (!widget.isWeb) {
       return BottomNavigationBar(
         currentIndex: widget.items.indexWhere(
           (i) => i.route == widget.currentRoute,
         ),
         onTap: (index) => widget.onTap?.call(widget.items[index].route),
-        backgroundColor: AppColors.azulClaro,
+        backgroundColor: AppColors.azulEscuro,
         selectedItemColor: AppColors.preto,
         unselectedItemColor: AppColors.branco,
         type: BottomNavigationBarType.fixed,
