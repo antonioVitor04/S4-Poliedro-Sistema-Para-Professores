@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:sistema_poliedro/src/styles/cores.dart';
 import 'package:sistema_poliedro/src/styles/fontes.dart';
 import 'package:sistema_poliedro/src/components/alerta.dart';
+import 'package:sistema_poliedro/src/components/botao_voltar.dart';
 
 class NovaSenha extends StatefulWidget {
   final String email;
@@ -169,311 +170,333 @@ class _NovaSenhaState extends State<NovaSenha> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.branco,
-      body: Center(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // LOGO E TÍTULO FORA DO CONTAINER
-              Image.asset('assets/images/logo.png', width: 139, height: 200),
-              Text(
-                "Poliedro",
-                style: AppTextStyles.fonteUbuntu.copyWith(
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                "Educação",
-                style: AppTextStyles.fonteUbuntu.copyWith(
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.azulClaro,
-                ),
-              ),
-              const SizedBox(height: 40),
-              // CONTAINER DO FORMULÁRIO
-              Container(
-                margin: const EdgeInsets.all(20),
-                padding: const EdgeInsets.all(20),
-                width: 390,
-                decoration: BoxDecoration(
-                  color: AppColors.branco,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
+      body: Stack(
+        // MUDEI PARA Stack PARA O BOTÃO VOLTAR FUNCIONAR CORRETAMENTE
+        children: [
+          Center(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // LOGO E TÍTULO FORA DO CONTAINER
+                  Image.asset(
+                    'assets/images/logo.png',
+                    width: 139,
+                    height: 200,
+                  ),
+                  Text(
+                    "Poliedro",
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Align(
-                      alignment: Alignment.center,
-                      child: Text(
-                        "Informe sua nova senha",
-                        style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.preto,
-                        ),
-                      ),
+                  ),
+                  Text(
+                    "Educação",
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.azulClaro,
                     ),
-                    const SizedBox(height: 20),
-                    //texto acima do campo nova senha
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "Digite sua nova senha",
-                        style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: 16,
-                          color: AppColors.preto,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    //campo de digitação da nova senha
-                    TextField(
-                      controller: novaSenhaController,
-                      cursorColor: AppColors.azulClaro,
-                      decoration: InputDecoration(
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: AppColors.azulClaro,
-                            width: 2,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: AppColors.azulClaro),
-                        ),
-                        hintText: "Nova Senha",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      obscureText: true,
-                    ),
-                    const SizedBox(height: 20),
-                    //texto acima do campo confirmar senha
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "Confirme sua nova senha",
-                        style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: 16,
-                          color: AppColors.preto,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    //campo de digitação da confirmação da nova senha
-                    TextField(
-                      controller: confirmarSenhaController,
-                      cursorColor: AppColors.azulClaro,
-                      decoration: InputDecoration(
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: AppColors.azulClaro,
-                            width: 2,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: AppColors.azulClaro),
-                        ),
-                        hintText: "Confirmar Nova Senha",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      obscureText: true,
-                    ),
-                    const SizedBox(height: 30),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 20),
-                        child: Text(
-                          "Sua senha deve conter:",
-                          style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 16,
-                            color: AppColors.preto,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            novaSenhaController.text.length >= 8
-                                ? Icon(
-                                    Icons.check,
-                                    color: AppColors.verdeConfirmacao,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.close,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
-                            const SizedBox(width: 10),
-                            Text(
-                              "Mínimo de 8 caracteres",
-                              style: AppTextStyles.fonteUbuntu.copyWith(
-                                fontSize: 14,
-                                color: AppColors.preto,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            hasUpperCase
-                                ? Icon(
-                                    Icons.check,
-                                    color: AppColors.verdeConfirmacao,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.close,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
-                            const SizedBox(width: 10),
-                            Text(
-                              "Pelo menos uma letra maiúscula",
-                              style: AppTextStyles.fonteUbuntu.copyWith(
-                                fontSize: 14,
-                                color: AppColors.preto,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            hasNumber
-                                ? Icon(
-                                    Icons.check,
-                                    color: AppColors.verdeConfirmacao,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.close,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
-                            const SizedBox(width: 10),
-                            Text(
-                              "Pelo menos um número",
-                              style: AppTextStyles.fonteUbuntu.copyWith(
-                                fontSize: 14,
-                                color: AppColors.preto,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            hasSymbol
-                                ? Icon(
-                                    Icons.check,
-                                    color: AppColors.verdeConfirmacao,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.close,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
-                            const SizedBox(width: 10),
-                            Text(
-                              "Pelo menos um símbolo",
-                              style: AppTextStyles.fonteUbuntu.copyWith(
-                                fontSize: 14,
-                                color: AppColors.preto,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            senhasIguais
-                                ? Icon(
-                                    Icons.check,
-                                    color: AppColors.verdeConfirmacao,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.close,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
-                            const SizedBox(width: 10),
-                            Text(
-                              "As senhas devem ser iguais",
-                              style: AppTextStyles.fonteUbuntu.copyWith(
-                                fontSize: 14,
-                                color: AppColors.preto,
-                              ),
-                            ),
-                          ],
+                  ),
+                  const SizedBox(height: 40),
+                  // CONTAINER DO FORMULÁRIO
+                  Container(
+                    margin: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(20),
+                    width: 390,
+                    decoration: BoxDecoration(
+                      color: AppColors.branco,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 30),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _carregando ? null : _atualizarSenha,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.azulClaro,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                            side: BorderSide(color: AppColors.preto),
-                            borderRadius: BorderRadius.circular(8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Align(
+                          alignment: Alignment.center,
+                          child: Text(
+                            "Informe sua nova senha",
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: 30,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.preto,
+                            ),
                           ),
                         ),
-                        child: _carregando
-                            ? SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    AppColors.preto,
+                        const SizedBox(height: 20),
+                        //texto acima do campo nova senha
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            "Digite sua nova senha",
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: 16,
+                              color: AppColors.preto,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        //campo de digitação da nova senha
+                        TextField(
+                          controller: novaSenhaController,
+                          cursorColor: AppColors.azulClaro,
+                          decoration: InputDecoration(
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: AppColors.azulClaro,
+                                width: 2,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: AppColors.azulClaro,
+                              ),
+                            ),
+                            hintText: "Nova Senha",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          obscureText: true,
+                        ),
+                        const SizedBox(height: 20),
+                        //texto acima do campo confirmar senha
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            "Confirme sua nova senha",
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: 16,
+                              color: AppColors.preto,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        //campo de digitação da confirmação da nova senha
+                        TextField(
+                          controller: confirmarSenhaController,
+                          cursorColor: AppColors.azulClaro,
+                          decoration: InputDecoration(
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: AppColors.azulClaro,
+                                width: 2,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: AppColors.azulClaro,
+                              ),
+                            ),
+                            hintText: "Confirmar Nova Senha",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          obscureText: true,
+                        ),
+                        const SizedBox(height: 30),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 20),
+                            child: Text(
+                              "Sua senha deve conter:",
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontSize: 16,
+                                color: AppColors.preto,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                novaSenhaController.text.length >= 8
+                                    ? Icon(
+                                        Icons.check,
+                                        color: AppColors.verdeConfirmacao,
+                                        size: 20,
+                                      )
+                                    : Icon(
+                                        Icons.close,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  "Mínimo de 8 caracteres",
+                                  style: AppTextStyles.fonteUbuntu.copyWith(
+                                    fontSize: 14,
+                                    color: AppColors.preto,
                                   ),
                                 ),
-                              )
-                            : Text(
-                                "Salvar Nova Senha",
-                                style: AppTextStyles.fonteUbuntu.copyWith(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.normal,
-                                  color: AppColors.preto,
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                hasUpperCase
+                                    ? Icon(
+                                        Icons.check,
+                                        color: AppColors.verdeConfirmacao,
+                                        size: 20,
+                                      )
+                                    : Icon(
+                                        Icons.close,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  "Pelo menos uma letra maiúscula",
+                                  style: AppTextStyles.fonteUbuntu.copyWith(
+                                    fontSize: 14,
+                                    color: AppColors.preto,
+                                  ),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                hasNumber
+                                    ? Icon(
+                                        Icons.check,
+                                        color: AppColors.verdeConfirmacao,
+                                        size: 20,
+                                      )
+                                    : Icon(
+                                        Icons.close,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  "Pelo menos um número",
+                                  style: AppTextStyles.fonteUbuntu.copyWith(
+                                    fontSize: 14,
+                                    color: AppColors.preto,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                hasSymbol
+                                    ? Icon(
+                                        Icons.check,
+                                        color: AppColors.verdeConfirmacao,
+                                        size: 20,
+                                      )
+                                    : Icon(
+                                        Icons.close,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  "Pelo menos um símbolo",
+                                  style: AppTextStyles.fonteUbuntu.copyWith(
+                                    fontSize: 14,
+                                    color: AppColors.preto,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                senhasIguais
+                                    ? Icon(
+                                        Icons.check,
+                                        color: AppColors.verdeConfirmacao,
+                                        size: 20,
+                                      )
+                                    : Icon(
+                                        Icons.close,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  "As senhas devem ser iguais",
+                                  style: AppTextStyles.fonteUbuntu.copyWith(
+                                    fontSize: 14,
+                                    color: AppColors.preto,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 30),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _carregando ? null : _atualizarSenha,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.azulClaro,
+                              padding: const EdgeInsets.symmetric(vertical: 15),
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(color: AppColors.preto),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                      ),
+                            ),
+                            child: _carregando
+                                ? SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppColors.preto,
+                                      ),
+                                    ),
+                                  )
+                                : Text(
+                                    "Salvar Nova Senha",
+                                    style: AppTextStyles.fonteUbuntu.copyWith(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.normal,
+                                      color: AppColors.preto,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+
+          // BOTÃO VOLTAR NO CANTO SUPERIOR ESQUERDO (FORA DO SCROLLVIEW)
+          BotaoVoltar(
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+
+            corFundo: AppColors.azulClaro,
+          ),
+        ],
       ),
     );
   }
