@@ -357,13 +357,16 @@ class _NovaSenhaState extends State<NovaSenha> {
                 horizontal: 16,
                 vertical: 16,
               ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               enabledBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
               ),
               focusedBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
               ),
             ),
           ),
@@ -396,13 +399,16 @@ class _NovaSenhaState extends State<NovaSenha> {
                 horizontal: 16,
                 vertical: 16,
               ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               enabledBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
               ),
               focusedBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
               ),
             ),
           ),
@@ -444,7 +450,7 @@ class _NovaSenhaState extends State<NovaSenha> {
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
               onPressed: _carregando ? null : _atualizarSenha,
@@ -507,11 +513,13 @@ class _NovaSenhaState extends State<NovaSenha> {
           size: 18,
         ),
         const SizedBox(width: 12),
-        Text(
-          texto,
-          style: AppTextStyles.fonteUbuntu.copyWith(
-            fontSize: 12,
-            color: AppColors.preto.withOpacity(0.7),
+        Expanded(
+          child: Text(
+            texto,
+            style: AppTextStyles.fonteUbuntu.copyWith(
+              fontSize: 12,
+              color: AppColors.preto.withOpacity(0.7),
+            ),
           ),
         ),
       ],

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service_user.dart';
 import '../models/usuario.dart';
 import '../styles/fontes.dart';
+import '../styles/cores.dart';
 import '../utils/image_utils.dart';
 import '../components/alerta.dart';
 
@@ -252,7 +253,7 @@ class _PerfilPageState extends State<PerfilPage> {
                         child: Icon(
                           Icons.edit,
                           size: 32,
-                          color: Colors.blue.shade600,
+                          color: AppColors.azulClaro,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -276,105 +277,123 @@ class _PerfilPageState extends State<PerfilPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Text(
-                  'Email',
-                  style: AppTextStyles.fonteUbuntu.copyWith(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                const SizedBox(height: 8),
+
+                // Email
                 TextFormField(
                   controller: _emailController,
+                  cursorColor: AppColors.azulClaro,
+                  style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
                   decoration: InputDecoration(
-                    hintText: 'Digite seu email',
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                    labelText: 'Email*',
+                    labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                      color: Colors.black,
                     ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: AppColors.preto.withOpacity(0.1),
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: AppColors.azulClaro,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    prefixIcon: Icon(Icons.email, color: AppColors.azulClaro),
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+                      horizontal: 12,
+                      vertical: 16,
                     ),
                   ),
                   keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Por favor, insira um email';
+                    }
+                    if (!value.contains('@')) {
+                      return 'Por favor, insira um email válido';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Nova Senha (opcional)',
-                  style: AppTextStyles.fonteUbuntu.copyWith(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                const SizedBox(height: 8),
+
+                // Nova Senha
                 TextFormField(
                   controller: _senhaController,
+                  cursorColor: AppColors.azulClaro,
                   obscureText: true,
+                  style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
                   decoration: InputDecoration(
-                    hintText: 'Digite nova senha',
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                    labelText: 'Nova Senha (opcional)',
+                    labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                      color: Colors.black,
                     ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: AppColors.preto.withOpacity(0.1),
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: AppColors.azulClaro,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    prefixIcon: Icon(Icons.lock, color: AppColors.azulClaro),
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+                      horizontal: 12,
+                      vertical: 16,
                     ),
                   ),
                 ),
                 const SizedBox(height: 30),
+
+                // Botões
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          _senhaController.clear();
-                          Navigator.pop(context);
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        child: Text(
-                          'Cancelar',
-                          style: TextStyle(
-                            color: Colors.grey.shade700,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                    TextButton(
+                      onPressed: () {
+                        _senhaController.clear();
+                        Navigator.pop(context);
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
                         ),
                       ),
+                      child: const Text(
+                        'Cancelar',
+                        style: TextStyle(fontSize: 14),
+                      ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _atualizarPerfil,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _atualizarPerfil,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.azulClaro,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
                         ),
-                        child: const Text(
-                          'Salvar',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                      ),
+                      child: const Text(
+                        'Salvar',
+                        style: TextStyle(fontSize: 14),
                       ),
                     ),
                   ],

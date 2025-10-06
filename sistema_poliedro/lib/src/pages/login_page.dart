@@ -332,96 +332,88 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _campoTexto({required String tipo}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          tipo == "professor" ? "Email" : "RA",
-          style: AppTextStyles.fonteUbuntu.copyWith(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.preto,
-          ),
+    return TextFormField(
+      controller: emailController,
+      cursorColor: AppColors.azulClaro,
+      style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+      decoration: InputDecoration(
+        labelText: tipo == "professor" ? "Email*" : "RA*",
+        labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+        hintStyle: AppTextStyles.fonteUbuntu.copyWith(
+          color: AppColors.preto.withOpacity(0.4),
         ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: emailController,
-          cursorColor: AppColors.azulClaro,
-          style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
-          decoration: InputDecoration(
-            hintText: tipo == "professor"
-                ? "Digite seu email"
-                : "Digite seu RA",
-            hintStyle: TextStyle(color: AppColors.preto.withOpacity(0.4)),
-            filled: true,
-            fillColor: AppColors.azulClaro.withOpacity(0.05),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.transparent),
-            ),
-          ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-      ],
+        prefixIcon: Icon(
+          tipo == "professor" ? Icons.email : Icons.badge,
+          color: AppColors.azulClaro,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(
+            color: AppColors.azulClaro,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 16,
+        ),
+      ),
     );
   }
 
   Widget _campoSenha() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Senha",
-          style: AppTextStyles.fonteUbuntu.copyWith(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.preto,
-          ),
+    return TextFormField(
+      controller: senhaController,
+      cursorColor: AppColors.azulClaro,
+      obscureText: !_senhaVisivel,
+      style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+      decoration: InputDecoration(
+        labelText: 'Senha*',
+        labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+        hintStyle: AppTextStyles.fonteUbuntu.copyWith(
+          color: AppColors.preto.withOpacity(0.4),
         ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: senhaController,
-          obscureText: !_senhaVisivel,
-          cursorColor: AppColors.azulClaro,
-          style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
-          decoration: InputDecoration(
-            hintText: "Digite sua senha",
-            hintStyle: TextStyle(color: AppColors.preto.withOpacity(0.4)),
-            filled: true,
-            fillColor: AppColors.azulClaro.withOpacity(0.05),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.transparent),
-            ),
-            suffixIcon: IconButton(
-              icon: Icon(
-                _senhaVisivel ? Icons.visibility : Icons.visibility_off,
-                color: AppColors.azulClaro,
-              ),
-              onPressed: () {
-                setState(() {
-                  _senhaVisivel = !_senhaVisivel;
-                });
-              },
-            ),
-          ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-      ],
+        prefixIcon: Icon(
+          Icons.lock,
+          color: AppColors.azulClaro,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(
+            color: AppColors.azulClaro,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 16,
+        ),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _senhaVisivel ? Icons.visibility : Icons.visibility_off,
+            color: AppColors.azulClaro,
+          ),
+          onPressed: () {
+            setState(() {
+              _senhaVisivel = !_senhaVisivel;
+            });
+          },
+        ),
+      ),
     );
   }
 }
