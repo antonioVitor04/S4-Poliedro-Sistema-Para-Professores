@@ -4,7 +4,6 @@ import 'dart:convert';
 import '../styles/cores.dart';
 import '../styles/fontes.dart';
 import '../components/alerta.dart';
-import '../components/botao_voltar.dart';
 import 'nova_senha.dart';
 
 class CodigoVerificacao extends StatefulWidget {
@@ -79,8 +78,7 @@ class _CodigoVerificacaoState extends State<CodigoVerificacao> {
 
   // Função REAL para chamada API
   Future<Map<String, dynamic>> _chamarApiValidacao(String codigo) async {
-    const String url =
-        'http://localhost:5000/api/enviarEmail/verificar-codigo'; // Ajuste a URL conforme necessário
+    const String url = 'http://localhost:5000/api/enviarEmail/verificar-codigo';
 
     try {
       final response = await http.post(
@@ -116,9 +114,7 @@ class _CodigoVerificacaoState extends State<CodigoVerificacao> {
     String codigo = _controllers.map((c) => c.text).join();
 
     if (codigo.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Digite todos os 6 dígitos.")),
-      );
+      mostrarAlerta("Digite todos os 6 dígitos.", false);
       return;
     }
 
@@ -126,25 +122,311 @@ class _CodigoVerificacaoState extends State<CodigoVerificacao> {
     _validarCodigoComBackend(codigo);
   }
 
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 800;
+
+    return Scaffold(
+      backgroundColor: AppColors.branco,
+      body: isDesktop ? _buildDesktopLayout() : _buildMobileLayout(),
+    );
+  }
+
+  Widget _buildDesktopLayout() {
+    return Row(
+      children: [
+        // LADO ESQUERDO - LOGO E BRANDING
+        Expanded(
+          flex: 5,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.azulClaro,
+                  AppColors.azulClaro.withOpacity(0.8),
+                ],
+              ),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(30),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      width: 180,
+                      height: 260,
+                      color: Colors.white,
+                      colorBlendMode: BlendMode.modulate,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  Text(
+                    "Poliedro",
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: 56,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  Text(
+                    "Educação",
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: 56,
+                      fontWeight: FontWeight.w300,
+                      color: Colors.white,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    "Sistema de Gestão Educacional",
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: 18,
+                      color: Colors.white.withOpacity(0.9),
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // LADO DIREITO - FORMULÁRIO DE VERIFICAÇÃO
+        Expanded(
+          flex: 5,
+          child: Container(
+            color: AppColors.branco,
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 60),
+                child: _buildVerificacaoForm(isDesktop: true),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout() {
+    return Center(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          child: _buildVerificacaoForm(isDesktop: false),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerificacaoForm({bool isDesktop = true}) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 450),
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: AppColors.branco,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // LOGO NO MOBILE (dentro do card)
+          if (!isDesktop) ...[
+            Column(
+              children: [
+                Image.asset('assets/images/logo.png', width: 70, height: 110),
+                const SizedBox(height: 30),
+              ],
+            ),
+          ],
+
+          Text(
+            "Verificação Código",
+            style: AppTextStyles.fonteUbuntu.copyWith(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: AppColors.preto,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Enviamos um código de 6 dígitos para ${widget.email}",
+            style: AppTextStyles.fonteUbuntu.copyWith(
+              fontSize: 16,
+              color: AppColors.preto.withOpacity(0.6),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 30),
+
+          // AVISO IMPORTANTE
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.azulClaro.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.azulClaro.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: AppColors.azulClaro, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    "Digite o código recebido em seu e-mail",
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: 14,
+                      color: AppColors.azulClaro,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 30),
+
+          // CAMPOS DE CÓDIGO
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Código de Verificação",
+                style: AppTextStyles.fonteUbuntu.copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.preto,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(
+                  6,
+                  (i) => _campoCodigo(_controllers[i]),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 30),
+
+          // BOTÃO CONTINUAR
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.azulClaro,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: _carregando ? null : _continuar,
+              child: _carregando
+                  ? SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Text(
+                      "Verificar Código",
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // BOTÃO VOLTAR PARA LOGIN
+          Center(
+            child: TextButton(
+              onPressed: () {
+                Navigator.pushReplacementNamed(context, '/login');
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.arrow_back, size: 18, color: AppColors.azulClaro),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Voltar para o login",
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.azulClaro,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _campoCodigo(TextEditingController controller) {
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 800;
+
     return SizedBox(
-      width: 45,
-      height: 55,
+      width: isDesktop ? 55 : 40,
+      height: isDesktop ? 60 : 48,
       child: TextField(
         controller: controller,
         textAlign: TextAlign.center,
         maxLength: 1,
         keyboardType: TextInputType.number,
         cursorColor: AppColors.azulClaro,
+        style: AppTextStyles.fonteUbuntu.copyWith(
+          fontSize: isDesktop ? 24 : 12,
+          fontWeight: FontWeight.bold,
+        ),
         decoration: InputDecoration(
           counterText: "",
+          filled: true,
+          fillColor: AppColors.azulClaro.withOpacity(0.15),
           enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: AppColors.preto),
-            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: Colors.transparent),
+            borderRadius: BorderRadius.circular(10),
           ),
           focusedBorder: OutlineInputBorder(
             borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
           ),
         ),
         onChanged: (value) {
@@ -154,143 +436,6 @@ class _CodigoVerificacaoState extends State<CodigoVerificacao> {
             FocusScope.of(context).previousFocus();
           }
         },
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.branco,
-      body: Stack(
-        children: [
-          Center(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // LOGO
-                  Image.asset(
-                    'assets/images/logo.png',
-                    width: 139,
-                    height: 200,
-                  ),
-                  Text(
-                    "Poliedro",
-                    style: AppTextStyles.fonteUbuntu.copyWith(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    "Educação",
-                    style: AppTextStyles.fonteUbuntu.copyWith(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.azulClaro,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-
-                  // CONTAINER DO FORMULÁRIO
-                  Container(
-                    margin: const EdgeInsets.all(20),
-                    padding: const EdgeInsets.all(20),
-                    width: 350,
-                    decoration: BoxDecoration(
-                      color: AppColors.branco,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          "Insira o código",
-                          style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.preto,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          "Enviamos um código de 6 dígitos para ${widget.email}. Insira-o abaixo para continuar.",
-                          style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 14,
-                            color: AppColors.preto,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 20),
-
-                        // CAMPOS DE CÓDIGO
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: List.generate(
-                            6,
-                            (i) => _campoCodigo(_controllers[i]),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // BOTÃO CONTINUAR
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.azulClaro,
-                              padding: const EdgeInsets.symmetric(vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: BorderSide(color: AppColors.preto),
-                              ),
-                            ),
-                            onPressed: _carregando ? null : _continuar,
-                            child: _carregando
-                                ? SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        AppColors.preto,
-                                      ),
-                                    ),
-                                  )
-                                : Text(
-                                    "Continuar",
-                                    style: AppTextStyles.fonteUbuntu.copyWith(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.normal,
-                                      color: AppColors.preto,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // BOTÃO VOLTAR NO CANTO SUPERIOR ESQUERDO
-          BotaoVoltar(
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, '/login');
-            },
-
-            corFundo: AppColors.azulClaro,
-          ),
-        ],
       ),
     );
   }
