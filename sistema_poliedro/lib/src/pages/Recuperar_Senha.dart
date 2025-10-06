@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../components/alerta.dart';
 import '../styles/cores.dart';
 import '../styles/fontes.dart';
-import '../components/botao_voltar.dart';
 import 'package:sistema_poliedro/src/pages/codigo_verificacao.dart';
 import 'package:http/http.dart' as http;
 
@@ -93,175 +92,300 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 800;
+
     return Scaffold(
       backgroundColor: AppColors.branco,
-      body: Stack(
-        // MUDEI PARA Stack PARA O BOTÃO VOLTAR FUNCIONAR CORRETAMENTE
-        children: [
-          Center(
-            child: SingleChildScrollView(
+      body: isDesktop ? _buildDesktopLayout() : _buildMobileLayout(),
+    );
+  }
+
+  Widget _buildDesktopLayout() {
+    return Row(
+      children: [
+        // LADO ESQUERDO - LOGO E BRANDING
+        Expanded(
+          flex: 5,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.azulClaro,
+                  AppColors.azulClaro.withOpacity(0.8),
+                ],
+              ),
+            ),
+            child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // LOGO
-                  Image.asset(
-                    'assets/images/logo.png',
-                    width: 139,
-                    height: 200,
+                  Container(
+                    padding: const EdgeInsets.all(30),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      width: 180,
+                      height: 260,
+                      color: Colors.white,
+                      colorBlendMode: BlendMode.modulate,
+                    ),
                   ),
+                  const SizedBox(height: 40),
                   Text(
                     "Poliedro",
                     style: AppTextStyles.fonteUbuntu.copyWith(
-                      fontSize: 40,
+                      fontSize: 56,
                       fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 2,
                     ),
                   ),
                   Text(
                     "Educação",
                     style: AppTextStyles.fonteUbuntu.copyWith(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.azulClaro,
+                      fontSize: 56,
+                      fontWeight: FontWeight.w300,
+                      color: Colors.white,
+                      letterSpacing: 2,
                     ),
                   ),
-                  const SizedBox(height: 40),
-
-                  // CONTAINER DO FORMULÁRIO
-                  Container(
-                    margin: const EdgeInsets.all(20),
-                    padding: const EdgeInsets.all(20),
-                    width: 350,
-                    decoration: BoxDecoration(
-                      color: AppColors.branco,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            "Recupere sua senha",
-                            style: AppTextStyles.fonteUbuntu.copyWith(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.preto,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          "Digite seu e-mail para receber um código de 6 dígitos e recuperar sua senha.",
-                          style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 14,
-                            color: AppColors.preto,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          "Lembre-se: utilize o e-mail cadastrado em nossa plataforma.",
-                          style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 14,
-                            color: Colors.redAccent,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 20),
-
-                        // CAMPO DE EMAIL
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            "Email",
-                            style: AppTextStyles.fonteUbuntu.copyWith(
-                              fontSize: 16,
-                              color: AppColors.preto,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: emailController,
-                          cursorColor: AppColors.azulClaro,
-                          decoration: InputDecoration(
-                            hintText: "exemplo@poliedro.com",
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: AppColors.azulClaro,
-                                width: 2,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: AppColors.azulClaro,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // BOTÃO ENVIAR
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.azulClaro,
-                              padding: const EdgeInsets.symmetric(vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: BorderSide(color: AppColors.preto),
-                              ),
-                            ),
-                            onPressed: _carregando ? null : verificaEmailEEnvia,
-                            child: _carregando
-                                ? SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        AppColors.preto,
-                                      ),
-                                    ),
-                                  )
-                                : Text(
-                                    "Enviar",
-                                    style: AppTextStyles.fonteUbuntu.copyWith(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.normal,
-                                      color: AppColors.preto,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 20),
+                  Text(
+                    "Sistema de Gestão Educacional",
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: 18,
+                      color: Colors.white.withOpacity(0.9),
+                      letterSpacing: 1,
                     ),
                   ),
                 ],
               ),
             ),
           ),
+        ),
 
-          // BOTÃO VOLTAR NO CANTO SUPERIOR ESQUERDO (FORA DO SCROLLVIEW)
-          BotaoVoltar(
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, '/login');
-            },
+        // LADO DIREITO - FORMULÁRIO DE RECUPERAÇÃO
+        Expanded(
+          flex: 5,
+          child: Container(
+            color: AppColors.branco,
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 60),
+                child: _buildRecuperacaoForm(isDesktop: true),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-            corFundo: AppColors.azulClaro,
+  Widget _buildMobileLayout() {
+    return Center(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          child: _buildRecuperacaoForm(isDesktop: false),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecuperacaoForm({bool isDesktop = true}) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 450),
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: AppColors.branco,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // LOGO NO MOBILE (dentro do card)
+          if (!isDesktop) ...[
+            Column(
+              children: [
+                Image.asset('assets/images/logo.png', width: 70, height: 110),
+                const SizedBox(height: 30),
+              ],
+            ),
+          ],
+
+          Text(
+            "Recuperar Senha",
+            style: AppTextStyles.fonteUbuntu.copyWith(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: AppColors.preto,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Digite seu e-mail para receber um código de verificação",
+            style: AppTextStyles.fonteUbuntu.copyWith(
+              fontSize: 16,
+              color: AppColors.preto.withOpacity(0.6),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 30),
+
+          // AVISO IMPORTANTE
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.redAccent.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.redAccent, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    "Utilize o e-mail cadastrado em nossa plataforma",
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: 14,
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 30),
+
+          // CAMPO DE EMAIL
+          SizedBox(width: double.infinity, child: _campoEmail()),
+
+          const SizedBox(height: 30),
+
+          // BOTÃO ENVIAR
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.azulClaro,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: _carregando ? null : verificaEmailEEnvia,
+              child: _carregando
+                  ? SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Text(
+                      "Enviar Código",
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // BOTÃO VOLTAR PARA LOGIN
+          Center(
+            child: TextButton(
+              onPressed: () {
+                Navigator.pushReplacementNamed(context, '/login');
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.arrow_back, size: 18, color: AppColors.azulClaro),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Voltar para o login",
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.azulClaro,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _campoEmail() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Email",
+          style: AppTextStyles.fonteUbuntu.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.preto,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: emailController,
+          cursorColor: AppColors.azulClaro,
+          style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+          keyboardType: TextInputType.emailAddress,
+          decoration: InputDecoration(
+            hintText: "exemplo@poliedro.com",
+            hintStyle: TextStyle(color: AppColors.preto.withOpacity(0.4)),
+            filled: true,
+            fillColor: AppColors.azulClaro.withOpacity(0.05),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+            prefixIcon: Icon(Icons.email_outlined, color: AppColors.azulClaro),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.transparent),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
