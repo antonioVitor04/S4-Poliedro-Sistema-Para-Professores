@@ -210,132 +210,187 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     final topico = card.topicos[topicoIndex];
 
     final tituloController = TextEditingController(text: topico.titulo);
-    final descricaoController = TextEditingController(text: topico.descricao);
+    final descricaoController = TextEditingController(text: topico.descricao ?? '');
+    final _formKey = GlobalKey<FormState>();
 
     await showDialog(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        insetPadding: const EdgeInsets.symmetric(
-          horizontal: 30,
-          vertical: 80,
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 450),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.edit,
-                      color: AppColors.azulClaro,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Editar Tópico',
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: tituloController,
-                  decoration: InputDecoration(
-                    labelText: 'Título do Tópico*',
-                    border: const OutlineInputBorder(),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: AppColors.azulClaro,
-                        width: 2,
-                      ),
-                    ),
-                    labelStyle: TextStyle(color: AppColors.azulClaro),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 16,
-                    ),
+      builder: (context) => Material(
+        color: Colors.transparent,
+        child: Center(
+          child: SingleChildScrollView(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 400),
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 30,
+                    offset: const Offset(0, 10),
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Por favor, insira um título';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: descricaoController,
-                  decoration: InputDecoration(
-                    labelText: 'Descrição (opcional)',
-                    border: const OutlineInputBorder(),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: AppColors.azulClaro,
-                        width: 2,
-                      ),
-                    ),
-                    labelStyle: TextStyle(color: AppColors.azulClaro),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 16,
-                    ),
-                  ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.edit,
+                                size: 32,
+                                color: AppColors.azulClaro,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Editar Tópico',
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Atualize as informações do tópico',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: const Text(
-                        'Cancelar',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () async {
-                        if (tituloController.text.trim().isNotEmpty) {
-                          await _atualizarTopico(
-                            topicoIndex,
-                            tituloController.text.trim(),
-                            descricaoController.text.trim(),
-                          );
-                          Navigator.pop(context);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.azulClaro,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
+                      const SizedBox(height: 24),
+                      TextFormField(
+                        controller: tituloController,
+                        cursorColor: AppColors.azulClaro,
+                        style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+                        decoration: InputDecoration(
+                          labelText: 'Título do Tópico*',
+                          labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: AppColors.azulClaro,
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          prefixIcon: Icon(Icons.title, color: AppColors.azulClaro),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 16,
+                          ),
                         ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Por favor, insira um título';
+                          }
+                          return null;
+                        },
                       ),
-                      child: const Text(
-                        'Salvar',
-                        style: TextStyle(fontSize: 14),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: descricaoController,
+                        cursorColor: AppColors.azulClaro,
+                        style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+                        decoration: InputDecoration(
+                          labelText: 'Descrição (opcional)',
+                          labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: AppColors.azulClaro,
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          prefixIcon: Icon(Icons.description, color: AppColors.azulClaro),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 16,
+                          ),
+                        ),
+                        maxLines: 2,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 30),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                            ),
+                            child: const Text(
+                              'Cancelar',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () async {
+                              if (_formKey.currentState!.validate()) {
+                                final descricao = descricaoController.text.trim().isEmpty ? null : descricaoController.text.trim();
+                                await _atualizarTopico(
+                                  topicoIndex,
+                                  tituloController.text.trim(),
+                                  descricao,
+                                );
+                                Navigator.pop(context);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.azulClaro,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 10,
+                              ),
+                            ),
+                            child: const Text(
+                              'Salvar',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -346,7 +401,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
   Future<void> _atualizarTopico(
     int topicoIndex,
     String titulo,
-    String descricao,
+    String? descricao,
   ) async {
     setState(() => _isLoading = true);
 
@@ -395,11 +450,17 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.black,
+            ),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.black,
+            ),
             child: const Text('Excluir'),
           ),
         ],
@@ -447,11 +508,17 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.black,
+            ),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.black,
+            ),
             child: const Text('Excluir'),
           ),
         ],
@@ -632,7 +699,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                 children: [
                                   Icon(Icons.assignment, size: 20, color: Colors.black),
                                   SizedBox(width: 8),
-                                  Text('Tarefas Pendentes', style: TextStyle(color: Colors.black)),
+                                  Text('Tarefas', style: TextStyle(color: Colors.black)),
                                 ],
                               ),
                             ),
@@ -717,7 +784,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
-                          child: _buildBotaoAdicionarTopico(),
+                          child: _buildBotaoAdicionarTopico(card.topicos.isEmpty),
                         ),
                       ),
                       SliverList(
@@ -795,7 +862,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                                   SizedBox(width: 8),
                                                   Text(
                                                     'Excluir',
-                                                    style: TextStyle(color: Colors.red),
+                                                    style: TextStyle(color: Colors.black),
                                                   ),
                                                 ],
                                               ),
@@ -869,24 +936,27 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     return Column(
       children: [
         _buildBanner(card),
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Column(
-                  children: [
-                    if (card.topicos.isEmpty) _buildEmptyState(),
-                    Expanded(child: _buildListaTopicos(card, false)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(flex: 1, child: _buildSidebarTarefas(card)),
-            ],
+        if (card.topicos.isEmpty)
+          _buildEmptyState()
+        else ...[
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: _buildBotaoAdicionarTopico(card.topicos.isEmpty),
           ),
-        ),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: _buildListaTopicos(card, false),
+                ),
+                const SizedBox(width: 16),
+                Expanded(flex: 1, child: _buildSidebarTarefas(card)),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -968,17 +1038,17 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildBotaoAdicionarTopico(),
+          _buildBotaoAdicionarTopico(true),
         ],
       ),
     );
   }
 
-  Widget _buildBotaoAdicionarTopico() {
+  Widget _buildBotaoAdicionarTopico(bool isEmpty) {
     return ElevatedButton.icon(
       onPressed: _adicionarTopico,
       icon: const Icon(Icons.add, size: 20),
-      label: const Text('Criar Primeiro Tópico'),
+      label: Text(isEmpty ? 'Criar Primeiro Tópico' : 'Adicionar Novo Tópico'),
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.azulClaro,
         foregroundColor: Colors.white,
@@ -1070,7 +1140,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                     SizedBox(width: 8),
                                     Text(
                                       'Excluir',
-                                      style: TextStyle(color: Colors.red),
+                                      style: TextStyle(color: Colors.black),
                                     ),
                                   ],
                                 ),
@@ -1220,7 +1290,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                   children: [
                     Icon(Icons.delete, size: 16, color: Colors.red),
                     SizedBox(width: 8),
-                    Text('Excluir', style: TextStyle(color: Colors.red)),
+                    Text('Excluir', style: TextStyle(color: Colors.black)),
                   ],
                 ),
               ),
@@ -1275,6 +1345,10 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     }
     tarefas.sort((a, b) => a.prazo!.compareTo(b.prazo!));
 
+    final now = DateTime.now();
+    final pendentes = tarefas.where((t) => t.prazo!.isAfter(now.subtract(const Duration(days: 1)))).toList();
+    final passadas = tarefas.where((t) => t.prazo!.isBefore(now)).toList();
+
     return Container(
       margin: const EdgeInsets.only(top: 16, right: 16, bottom: 16),
       child: Card(
@@ -1301,7 +1375,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Tarefas Pendentes',
+                    'Tarefas',
                     style: AppTextStyles.fonteUbuntu.copyWith(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -1313,17 +1387,78 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
               Expanded(
                 child: tarefas.isEmpty
                     ? _buildEmptyTarefasState()
-                    : ListView.builder(
-                        physics: const ClampingScrollPhysics(),
-                        itemCount: tarefas.length,
-                        itemBuilder: (context, index) {
-                          final tarefa = tarefas[index];
-                          return _buildTarefaItem(tarefa);
-                        },
+                    : Column(
+                        children: [
+                          // Seção Pendentes
+                          if (pendentes.isNotEmpty) ...[
+                            _buildSectionHeader('Pendentes'),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                'Tarefas com prazo futuro ou em até 1 dia',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              height: 120,
+                              child: ListView.builder(
+                                physics: const ClampingScrollPhysics(),
+                                itemCount: pendentes.length,
+                                itemBuilder: (context, index) {
+                                  final tarefa = pendentes[index];
+                                  return _buildTarefaItem(tarefa);
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          // Seção Passadas
+                          if (passadas.isNotEmpty) ...[
+                            _buildSectionHeader('Passadas'),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                'Tarefas vencidas',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: ListView.builder(
+                                physics: const ClampingScrollPhysics(),
+                                itemCount: passadas.length,
+                                itemBuilder: (context, index) {
+                                  final tarefa = passadas[index];
+                                  return _buildTarefaItem(tarefa);
+                                },
+                              ),
+                            ),
+                          ],
+                          if (pendentes.isEmpty && passadas.isEmpty) _buildEmptyTarefasState(),
+                        ],
                       ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: Colors.black,
         ),
       ),
     );
@@ -1553,7 +1688,7 @@ class _TasksPageState extends State<TasksPage> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
-          'Tarefas Pendentes',
+          'Tarefas',
           style: TextStyle(color: Colors.black),
         ),
         backgroundColor: Colors.white,
@@ -1605,6 +1740,16 @@ class _TasksPageState extends State<TasksPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildSectionHeader('Tarefas Pendentes'),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: Text(
+                              'Tarefas com prazo futuro ou em até 1 dia',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
                           ...pendentes.map((tarefa) => Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 child: _buildTarefaItem(tarefa),
@@ -1619,6 +1764,16 @@ class _TasksPageState extends State<TasksPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildSectionHeader('Tarefas Passadas'),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: Text(
+                              'Tarefas vencidas',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
                           ...passadas.map((tarefa) => Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 child: _buildTarefaItem(tarefa),
