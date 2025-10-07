@@ -113,12 +113,16 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                       value: _tipoSelecionado,
                       decoration: InputDecoration(
                         labelText: 'Tipo de Material*',
-                        labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+                        labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                          color: Colors.black,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+                          borderSide: BorderSide(
+                            color: AppColors.preto.withOpacity(0.1),
+                          ),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         focusedBorder: OutlineInputBorder(
@@ -166,12 +170,16 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                       style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
                       decoration: InputDecoration(
                         labelText: 'Título*',
-                        labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+                        labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                          color: Colors.black,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+                          borderSide: BorderSide(
+                            color: AppColors.preto.withOpacity(0.1),
+                          ),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         focusedBorder: OutlineInputBorder(
@@ -181,7 +189,10 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                           ),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        prefixIcon: Icon(Icons.title, color: AppColors.azulClaro),
+                        prefixIcon: Icon(
+                          Icons.title,
+                          color: AppColors.azulClaro,
+                        ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 16,
@@ -203,12 +214,16 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                       style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
                       decoration: InputDecoration(
                         labelText: 'Descrição (opcional)',
-                        labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+                        labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                          color: Colors.black,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+                          borderSide: BorderSide(
+                            color: AppColors.preto.withOpacity(0.1),
+                          ),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         focusedBorder: OutlineInputBorder(
@@ -239,12 +254,16 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                         style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
                         decoration: InputDecoration(
                           labelText: 'URL*',
-                          labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+                          labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                            color: Colors.black,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+                            borderSide: BorderSide(
+                              color: AppColors.preto.withOpacity(0.1),
+                            ),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           focusedBorder: OutlineInputBorder(
@@ -254,7 +273,10 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                             ),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          prefixIcon: Icon(Icons.link, color: AppColors.azulClaro),
+                          prefixIcon: Icon(
+                            Icons.link,
+                            color: AppColors.azulClaro,
+                          ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 16,
@@ -272,7 +294,9 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                     if (_tipoSelecionado == 'link') const SizedBox(height: 16),
 
                     // Upload de arquivo (para PDF, Imagem e Atividade)
-                    if (_tipoSelecionado == 'pdf' || _tipoSelecionado == 'imagem' || _tipoSelecionado == 'atividade')
+                    if (_tipoSelecionado == 'pdf' ||
+                        _tipoSelecionado == 'imagem' ||
+                        _tipoSelecionado == 'atividade')
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -303,7 +327,9 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                                       size: 18,
                                     ),
                                     label: Text(
-                                      _tipoSelecionado == 'atividade' ? 'Selecionar PDF' : 'Selecionar Arquivo',
+                                      _tipoSelecionado == 'atividade'
+                                          ? 'Selecionar PDF'
+                                          : 'Selecionar Arquivo',
                                       style: const TextStyle(fontSize: 14),
                                     ),
                                     style: ElevatedButton.styleFrom(
@@ -321,7 +347,9 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                                       Row(
                                         children: [
                                           Icon(
-                                            _tipoSelecionado == 'pdf' || _tipoSelecionado == 'atividade'
+                                            _tipoSelecionado == 'pdf' ||
+                                                    _tipoSelecionado ==
+                                                        'atividade'
                                                 ? Icons.picture_as_pdf
                                                 : Icons.image,
                                             color: AppColors.azulClaro,
@@ -339,7 +367,8 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 14,
                                                   ),
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                                 Text(
                                                   '${(_arquivoSelecionado!.size / 1024 / 1024).toStringAsFixed(2)} MB',
@@ -374,7 +403,9 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                                           size: 16,
                                         ),
                                         label: Text(
-                                          _tipoSelecionado == 'atividade' ? 'Trocar PDF' : 'Trocar Arquivo',
+                                          _tipoSelecionado == 'atividade'
+                                              ? 'Trocar PDF'
+                                              : 'Trocar Arquivo',
                                           style: const TextStyle(fontSize: 12),
                                         ),
                                         style: ElevatedButton.styleFrom(
@@ -403,12 +434,16 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                         style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
                         decoration: InputDecoration(
                           labelText: 'Peso (%) *',
-                          labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+                          labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                            color: Colors.black,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+                            borderSide: BorderSide(
+                              color: AppColors.preto.withOpacity(0.1),
+                            ),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           focusedBorder: OutlineInputBorder(
@@ -442,7 +477,8 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                           return null;
                         },
                       ),
-                    if (_tipoSelecionado == 'atividade') const SizedBox(height: 16),
+                    if (_tipoSelecionado == 'atividade')
+                      const SizedBox(height: 16),
 
                     // Prazo (apenas para atividade)
                     if (_tipoSelecionado == 'atividade')
@@ -451,12 +487,16 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                         child: InputDecorator(
                           decoration: InputDecoration(
                             labelText: 'Prazo *',
-                            labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+                            labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                              color: Colors.black,
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+                              borderSide: BorderSide(
+                                color: AppColors.preto.withOpacity(0.1),
+                              ),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             focusedBorder: OutlineInputBorder(
@@ -482,7 +522,9 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                                 _prazoSelecionado != null
                                     ? '${_prazoSelecionado!.day}/${_prazoSelecionado!.month}/${_prazoSelecionado!.year} ${_prazoSelecionado!.hour}:${_prazoSelecionado!.minute.toString().padLeft(2, '0')}'
                                     : 'Selecionar prazo',
-                                style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+                                style: AppTextStyles.fonteUbuntu.copyWith(
+                                  fontSize: 16,
+                                ),
                               ),
                               Icon(
                                 Icons.arrow_drop_down,
@@ -493,7 +535,8 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                           ),
                         ),
                       ),
-                    if (_tipoSelecionado == 'atividade') const SizedBox(height: 30),
+                    if (_tipoSelecionado == 'atividade')
+                      const SizedBox(height: 30),
 
                     // Validação de arquivo
                     if ((_tipoSelecionado == 'pdf' ||
@@ -645,9 +688,7 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
         allowedExtensions = ['pdf'];
       } else if (_tipoSelecionado == 'atividade') {
         allowedExtensions = ['pdf'];
-        fileType = FileType.custom;
       } else if (_tipoSelecionado == 'imagem') {
-        fileType = FileType.image;
         allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
       }
 
@@ -679,9 +720,9 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
 
   void _salvar() {
     // Validação especial para arquivos
-    if ((_tipoSelecionado == 'pdf' || 
-         _tipoSelecionado == 'imagem' || 
-         _tipoSelecionado == 'atividade') &&
+    if ((_tipoSelecionado == 'pdf' ||
+            _tipoSelecionado == 'imagem' ||
+            _tipoSelecionado == 'atividade') &&
         _arquivoSelecionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
