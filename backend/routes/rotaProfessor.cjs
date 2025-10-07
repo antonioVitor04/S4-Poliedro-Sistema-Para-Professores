@@ -7,9 +7,9 @@ const router = express.Router();
 const crypto = require("crypto");
 const multer = require("multer");
 
-// Configuração do Multer para memória (não salva arquivo localmente)
+// Configuração do Multer para memória (não salva arquivo)
 const upload = multer({
-  storage: multer.memoryStorage(), // Armazena na memória, não no disco
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB
   },
@@ -22,17 +22,60 @@ const upload = multer({
   },
 });
 
+// Middleware para tratar erros do multer
+const handleMulterError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res
+        .status(400)
+        .json({ msg: "Arquivo muito grande. Tamanho máximo: 5MB" });
+    }
+    if (err.code === "LIMIT_UNEXPECTED_FILE") {
+      return res.status(400).json({ msg: "Campo de arquivo inesperado" });
+    }
+    return res.status(400).json({ msg: `Erro no upload: ${err.message}` });
+  } else if (err) {
+    return res.status(400).json({ msg: err.message });
+  }
+  next();
+};
+
 // Registrar professor (SOMENTE professor pode registrar outro professor)
 router.post(
   "/register",
   auth("professor"),
-  upload.single("imagem"),
+  (req, res, next) => {
+    console.log("=== INICIANDO UPLOAD ===");
+    console.log("Headers:", req.headers);
+    console.log("Content-Type:", req.headers["content-type"]);
+    console.log("Body fields:", Object.keys(req.body));
+
+    upload.single("imagem")(req, res, (err) => {
+      if (err) {
+        console.log("Erro no multer:", err.message);
+        return res.status(400).json({
+          msg: `Falha no upload: ${err.message}`,
+          details: err.code,
+        });
+      }
+      console.log(
+        "Upload bem-sucedido. Arquivo:",
+        req.file ? req.file.originalname : "Nenhum arquivo"
+      );
+      next();
+    });
+  },
   async (req, res) => {
     try {
+      console.log("=== PROCESSANDO REGISTRO ===");
       const { nome, email } = req.body;
 
+      // Validações
       if (!email) {
-        return res.status(400).json({ msg: "Email é obrigatório" });
+        return res.status(400).json({
+          msg: "Email é obrigatório",
+          received: { nome, email },
+        });
       }
 
       // Verificar se já existe professor com esse email
@@ -49,19 +92,30 @@ router.post(
 
       // Preparar dados do professor
       const professorData = {
-        nome,
-        email,
+        nome: nome.trim(),
+        email: email.trim(),
         senha: hashedPassword,
       };
 
       // Adicionar imagem Base64 se foi enviada
       if (req.file) {
+        console.log("Processando imagem...");
+        console.log("Tamanho do buffer:", req.file.buffer.length);
+        console.log("Mimetype:", req.file.mimetype);
+
         professorData.imagem = {
-          data: req.file.buffer.toString("base64"), // Converter para Base64
+          data: req.file.buffer.toString("base64"),
           contentType: req.file.mimetype,
           filename: req.file.originalname,
           size: req.file.size,
         };
+
+        console.log(
+          "Imagem convertida para Base64. Tamanho:",
+          professorData.imagem.data.length
+        );
+      } else {
+        console.log("Nenhum arquivo recebido no registro");
       }
 
       // Criar professor
@@ -76,13 +130,19 @@ router.post(
         hasImage: !!novoProfessor.imagem,
       };
 
+      console.log("Professor registrado com sucesso:", novoProfessor._id);
+
       res.status(201).json({
         msg: "Professor cadastrado com sucesso",
         professor: professorResponse,
         senhaProvisoria: senhaGerada, // futuramente pode ser enviada por email
       });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error("Erro no registro:", err);
+      res.status(500).json({
+        error: err.message,
+        stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+      });
     }
   }
 );
@@ -121,25 +181,47 @@ router.post("/login", async (req, res) => {
 router.put(
   "/update",
   auth("professor"),
-  upload.single("imagem"),
+  (req, res, next) => {
+    console.log("=== INICIANDO UPDATE COM IMAGEM ===");
+
+    upload.single("imagem")(req, res, (err) => {
+      if (err) {
+        console.log("Erro no multer (update):", err.message);
+        return res.status(400).json({
+          msg: `Falha no upload da imagem: ${err.message}`,
+        });
+      }
+      console.log("Processando update...");
+      next();
+    });
+  },
   async (req, res) => {
     try {
       const { nome, senha } = req.body;
       const prof = await Professor.findById(req.user.id);
-      if (!prof)
+
+      if (!prof) {
         return res.status(404).json({ msg: "Professor não encontrado" });
+      }
 
+      // Atualizar campos
       if (nome) prof.nome = nome;
-      if (senha) prof.senha = await bcrypt.hash(senha, 10);
+      if (senha) {
+        prof.senha = await bcrypt.hash(senha, 10);
+      }
 
-      // Atualizar imagem Base64 se foi enviada
+      // Atualizar imagem se foi enviada
       if (req.file) {
+        console.log("Atualizando imagem do professor...");
         prof.imagem = {
-          data: req.file.buffer.toString("base64"), // Converter para Base64
+          data: req.file.buffer.toString("base64"),
           contentType: req.file.mimetype,
           filename: req.file.originalname,
           size: req.file.size,
         };
+        console.log("Imagem atualizada com sucesso");
+      } else {
+        console.log("Nenhuma nova imagem no update");
       }
 
       await prof.save();
@@ -156,12 +238,13 @@ router.put(
         professor: professorResponse,
       });
     } catch (err) {
+      console.error("Erro no update:", err);
       res.status(500).json({ error: err.message });
     }
   }
 );
 
-// Rota para obter imagem do professor
+// Rota específica para obter imagem do professor
 router.get("/image", auth("professor"), async (req, res) => {
   try {
     const prof = await Professor.findById(req.user.id).select("imagem");
@@ -202,27 +285,43 @@ router.get("/image/:id", async (req, res) => {
   }
 });
 
-// Rota específica para atualizar apenas a imagem
 // Rota para upload de imagem via base64
 router.put("/update-image-base64", auth("professor"), async (req, res) => {
   try {
+    console.log("=== UPLOAD VIA BASE64 ===");
     const { imagem, filename, contentType } = req.body;
 
     if (!imagem) {
       return res.status(400).json({ msg: "Nenhuma imagem enviada" });
     }
 
+    // Validar se é base64 válido
+    if (!imagem.startsWith("data:image/")) {
+      return res.status(400).json({ msg: "Formato de imagem inválido" });
+    }
+
     const prof = await Professor.findById(req.user.id);
     if (!prof) return res.status(404).json({ msg: "Professor não encontrado" });
 
+    // Extrair dados da string base64
+    const matches = imagem.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ msg: "String base64 inválida" });
+    }
+
+    const imageBuffer = Buffer.from(matches[2], "base64");
+
     prof.imagem = {
-      data: imagem,
-      contentType: contentType || "image/jpeg",
+      data: matches[2], // Apenas a parte base64 sem o prefixo
+      contentType: matches[1] || contentType || "image/jpeg",
       filename: filename || "imagem.jpg",
-      size: Buffer.from(imagem, "base64").length,
+      size: imageBuffer.length,
     };
 
     await prof.save();
+
+    console.log("Imagem atualizada via base64 com sucesso");
+
     res.json({
       msg: "Imagem atualizada com sucesso",
       imagem: {
@@ -232,6 +331,7 @@ router.put("/update-image-base64", auth("professor"), async (req, res) => {
       },
     });
   } catch (err) {
+    console.error("Erro no upload base64:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -264,7 +364,7 @@ router.delete("/delete", auth("professor"), async (req, res) => {
   }
 });
 
-// GET / - Perfil do professor
+// ADICIONE ESTA ROTA - Perfil do professor (GET /)
 router.get("/", auth("professor"), async (req, res) => {
   try {
     console.log("=== ROTA PROFESSOR GET / CHAMADA ===");
@@ -291,5 +391,7 @@ router.get("/", auth("professor"), async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+router.use(handleMulterError);
 
 module.exports = router;

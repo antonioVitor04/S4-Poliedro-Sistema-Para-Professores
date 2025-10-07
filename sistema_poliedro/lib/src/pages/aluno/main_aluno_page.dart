@@ -118,9 +118,82 @@ class _MainAlunoPageState extends State<MainAlunoPage>
     });
   }
 
+  Widget _buildProfileOverlay() {
+    final bool isWeb = MediaQuery.of(context).size.width >= 600;
+    return AnimatedBuilder(
+      animation: _profileAnimation,
+      builder: (context, child) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final profileWidth = isWeb ? 300.0 : screenWidth;
+        return Positioned(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          child: Container(
+            width: profileWidth,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF7FF),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  offset: const Offset(
+                    -2,
+                    0,
+                  ), // Sombra para a esquerda no mobile/web
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+            child: SlideTransition(
+              position:
+                  Tween<Offset>(
+                    begin: const Offset(
+                      1.0,
+                      0.0,
+                    ), // Começa fora da tela à direita
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: _profileController,
+                      curve: Curves.easeInOut,
+                    ),
+                  ),
+              child: _isProfileOpen ? PerfilPage() : const SizedBox.shrink(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isWeb = MediaQuery.of(context).size.width >= 600;
+
+    Widget mainContent = Navigator(
+      key: _navigatorKey,
+      onGenerateRoute: (settings) {
+        return MaterialPageRoute(
+          builder: (context) =>
+              _pages[_currentRoute] ?? _pages[_previousRoute]!,
+        );
+      },
+    );
+
+    if (isWeb) {
+      mainContent = Row(
+        children: [
+          AdaptiveNavigation(
+            currentRoute: _currentRoute,
+            items: _navItems,
+            isWeb: true,
+            onTap: _onNavTap,
+            profileSelected: _isProfileOpen,
+          ),
+          Expanded(child: mainContent),
+        ],
+      );
+    }
 
     return AuthGuard(
       child: Scaffold(
@@ -130,7 +203,7 @@ class _MainAlunoPageState extends State<MainAlunoPage>
                 backgroundColor: AppColors.azulEscuro,
                 leading: IconButton(
                   icon: const Icon(Icons.menu),
-                  onPressed: () {},
+                  onPressed: () => _onNavTap('/perfil'), // Agora abre o perfil
                   color: AppColors.branco,
                 ),
                 title: Image.asset(
@@ -141,63 +214,8 @@ class _MainAlunoPageState extends State<MainAlunoPage>
                 centerTitle: true,
               )
             : null,
-        body: Row(
-          children: [
-            if (isWeb)
-              AdaptiveNavigation(
-                currentRoute: _currentRoute,
-                items: _navItems,
-                isWeb: true,
-                onTap: _onNavTap,
-                profileSelected: _isProfileOpen,
-              ),
-            if (isWeb)
-              AnimatedBuilder(
-                animation: _profileAnimation,
-                builder: (context, child) {
-                  return Stack(
-                    children: [
-                      Container(
-                        width: _profileAnimation.value * 300,
-                        height: MediaQuery.of(context).size.height,
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              offset: const Offset(2, 0),
-                              blurRadius: 6,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        child: Container(
-                          width: 300,
-                          height: MediaQuery.of(context).size.height,
-                          color: const Color(0xFFFEF7FF),
-                          child: _isProfileOpen
-                              ? PerfilPage()
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-
-            Expanded(
-              child: Navigator(
-                key: _navigatorKey,
-                onGenerateRoute: (settings) {
-                  return MaterialPageRoute(
-                    builder: (context) =>
-                        _pages[_currentRoute] ?? _pages[_previousRoute]!,
-                  );
-                },
-              ),
-            ),
-          ],
+        body: Stack(
+          children: [mainContent, if (_isProfileOpen) _buildProfileOverlay()],
         ),
         bottomNavigationBar: !isWeb
             ? AdaptiveNavigation(
