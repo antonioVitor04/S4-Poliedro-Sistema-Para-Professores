@@ -13,16 +13,12 @@ class DisciplinaCard extends StatelessWidget {
     required this.onTap,
   });
 
-  /// Garante que as médias estão calculadas
   Map<String, dynamic> get _disciplinaProcessada {
-    // Se as médias já existem, usa como estão
-    if (disciplina["mediaProvas"] != null && 
-        disciplina["mediaAtividades"] != null && 
+    if (disciplina["mediaProvas"] != null &&
+        disciplina["mediaAtividades"] != null &&
         disciplina["mediaFinal"] != null) {
       return disciplina;
     }
-
-    // Se não, calcula as médias automaticamente
     return CalculadoraMedias.processarDisciplina(disciplina);
   }
 
@@ -32,54 +28,71 @@ class DisciplinaCard extends StatelessWidget {
     bool acimaMedia = disciplinaProcessada["mediaFinal"] >= 6.0;
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      color: Colors.white, // <- FONDO BRANCO PADRÃO
+      elevation: 1.5,
+      shadowColor: Colors.grey.shade200,
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      child: ExpansionTile(
-        leading: CircleAvatar(
-          backgroundColor: acimaMedia ? Colors.teal : Colors.red,
-          radius: 8,
+      child: Theme( // <- Remove o tom lilás interno do ExpansionTile
+        data: Theme.of(context).copyWith(
+          dividerColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+                surface: Colors.white,
+                surfaceVariant: Colors.white,
+              ),
         ),
-        title: Row(
-          children: [
-            /// Nome da disciplina à esquerda
-            Expanded(
-              flex: 2,
-              child: Text(
-                disciplinaProcessada["disciplina"],
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
+        child: ExpansionTile(
+          backgroundColor: Colors.grey.shade50, // <- Fundo leve quando fechado
+          collapsedBackgroundColor: Colors.grey.shade50,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          collapsedShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          leading: CircleAvatar(
+            backgroundColor: acimaMedia ? Colors.teal : Colors.red,
+            radius: 8,
+          ),
+          title: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Text(
+                  disciplinaProcessada["disciplina"],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
                 ),
               ),
-            ),
-
-            /// Notas centralizadas
-            Expanded(
-              flex: 3,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildNota("Média de Provas", disciplinaProcessada["mediaProvas"], destaque: true),
-                  const SizedBox(width: 8),
-                  _buildNota("Média de Atividades", disciplinaProcessada["mediaAtividades"], destaque: true),
-                  const SizedBox(width: 8),
-                  _buildNota("Média Final", disciplinaProcessada["mediaFinal"], destaque: true),
-                ],
+              Expanded(
+                flex: 3,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildNota("Média de Provas", disciplinaProcessada["mediaProvas"], destaque: true),
+                    const SizedBox(width: 8),
+                    _buildNota("Média de Atividades", disciplinaProcessada["mediaAtividades"], destaque: true),
+                    const SizedBox(width: 8),
+                    _buildNota("Média Final", disciplinaProcessada["mediaFinal"], destaque: true),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          children: disciplinaProcessada["detalhes"].isNotEmpty
+              ? [_buildTabelaDetalhes(disciplinaProcessada)]
+              : [],
         ),
-        
-        /// Detalhes ao expandir - TABELA MELHORADA
-        children: disciplinaProcessada["detalhes"].isNotEmpty
-            ? [_buildTabelaDetalhes(disciplinaProcessada)]
-            : [],
       ),
     );
   }
 
-  /// Widget auxiliar para exibir notas
   Widget _buildNota(String titulo, double valor, {bool destaque = false}) {
     return Row(
       children: [
@@ -101,7 +114,6 @@ class DisciplinaCard extends StatelessWidget {
     );
   }
 
-  /// TABELA MELHORADA
   Widget _buildTabelaDetalhes(Map<String, dynamic> disciplina) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
@@ -119,10 +131,9 @@ class DisciplinaCard extends StatelessWidget {
               2: FlexColumnWidth(1),
             },
             children: [
-              /// CABEÇALHO MELHORADO
               TableRow(
                 decoration: BoxDecoration(
-                  color: Colors.grey[50],
+                  color: Colors.grey[100],
                   border: Border(
                     bottom: BorderSide(color: Colors.grey.shade300),
                   ),
@@ -133,8 +144,6 @@ class DisciplinaCard extends StatelessWidget {
                   _buildCelulaCabecalho("Peso"),
                 ],
               ),
-              
-              /// LINHAS DOS DETALHES
               ...disciplina["detalhes"].map<TableRow>((detalhe) {
                 return TableRow(
                   decoration: BoxDecoration(
@@ -190,7 +199,7 @@ class DisciplinaCard extends StatelessWidget {
   Widget _buildCelulaNota(dynamic nota) {
     double notaValue = double.parse(nota.toString());
     Color corNota = notaValue >= 6 ? Colors.teal : Colors.red;
-    
+
     return Padding(
       padding: const EdgeInsets.all(12.0),
       child: Row(
