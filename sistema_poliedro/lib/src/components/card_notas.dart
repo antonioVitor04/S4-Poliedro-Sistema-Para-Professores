@@ -88,8 +88,8 @@ class DisciplinaCard extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNotaItem("Média de Provas", disciplina["mediaProvas"], isDestaque: true),
-              _buildNotaItem("Média de Atividades", disciplina["mediaAtividades"], isDestaque: true),
+              _buildNotaItem("Média Provas", disciplina["mediaProvas"], isDestaque: true),
+              _buildNotaItem("Média Atividades", disciplina["mediaAtividades"], isDestaque: true),
               _buildNotaItem("Média Final", disciplina["mediaFinal"], isDestaque: true),
             ],
           ),
@@ -117,8 +117,8 @@ class DisciplinaCard extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildNotaItem("Média de Provas", disciplina["mediaProvas"], isDestaque: true),
-            _buildNotaItem("Média de Atividades", disciplina["mediaAtividades"], isDestaque: true),
+            _buildNotaItem("Média Provas", disciplina["mediaProvas"], isDestaque: true),
+            _buildNotaItem("Média Atividades", disciplina["mediaAtividades"], isDestaque: true),
             _buildNotaItem("Média Final", disciplina["mediaFinal"], isDestaque: true),
           ],
         ),
