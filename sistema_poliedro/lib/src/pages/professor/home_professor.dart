@@ -1,5 +1,6 @@
 // main_aluno_page.dart
 import 'package:flutter/material.dart';
+import 'package:sistema_poliedro/src/pages/professor/administracao_page.dart';
 import '../../components/adaptive_navigation.dart';
 import '../../components/auth_guard.dart';
 import '../../styles/cores.dart';
@@ -9,6 +10,7 @@ import 'notas_professor_page.dart';
 import 'calendario_professor_page.dart';
 import 'notificacoes_professor_page.dart';
 import '../perfil_page.dart';
+import 'administracao_page.dart';
 
 class HomeProfessor extends StatefulWidget {
   final String initialRoute;
@@ -47,6 +49,11 @@ class _HomeProfessorState extends State<HomeProfessor>
       icon: Icons.notifications,
       route: '/notificacoes',
     ),
+    NavigationItem(
+      label: "Administração",
+      icon: Icons.admin_panel_settings,
+      route: '/administracao',
+    ),
   ];
 
   //  FUNÇÃO PARA NAVEGAÇÃO INTERNA (AGORA PÚBLICA)
@@ -68,6 +75,7 @@ class _HomeProfessorState extends State<HomeProfessor>
       '/notas': const NotasPageProfessor(),
       '/calendario': const CalendarioPageProfessor(),
       '/notificacoes': const NotificacoesPageProfessor(),
+      '/administracao': AdministracaoPage(),
     };
   }
 
