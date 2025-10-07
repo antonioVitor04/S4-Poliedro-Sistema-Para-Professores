@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import '../components/alerta.dart';
-import '../styles/cores.dart';
-import '../styles/fontes.dart';
-import 'package:sistema_poliedro/src/pages/codigo_verificacao.dart';
+import 'package:sistema_poliedro/src/styles/cores.dart';
+import 'package:sistema_poliedro/src/styles/fontes.dart';
+import 'package:sistema_poliedro/src/components/alerta.dart';
+import './codigo_verificacao.dart';
 import 'package:http/http.dart' as http;
 
 class Recuperar_Senha extends StatefulWidget {

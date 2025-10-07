@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../styles/cores.dart';
-import '../styles/fontes.dart';
-import '../components/alerta.dart';
+import 'package:sistema_poliedro/src/styles/cores.dart';
+import 'package:sistema_poliedro/src/styles/fontes.dart';
+import 'package:sistema_poliedro/src/components/alerta.dart';
 import 'nova_senha.dart';
 
 class CodigoVerificacao extends StatefulWidget {
