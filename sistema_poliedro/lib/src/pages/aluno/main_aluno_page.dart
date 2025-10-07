@@ -49,7 +49,7 @@ class _MainAlunoPageState extends State<MainAlunoPage>
     ),
   ];
 
-  // 🔥 FUNÇÃO PARA NAVEGAÇÃO INTERNA (AGORA PÚBLICA)
+  //  FUNÇÃO PARA NAVEGAÇÃO INTERNA (AGORA PÚBLICA)
   void _navigateToDetail(String slug, String titulo) {
     _navigatorKey.currentState?.push(
       MaterialPageRoute(
@@ -58,11 +58,11 @@ class _MainAlunoPageState extends State<MainAlunoPage>
     );
   }
 
-  // 🔥 MAP DE PÁGINAS COM CALLBACK
+  //  MAP DE PÁGINAS COM CALLBACK
   Map<String, Widget> get _pages {
     return {
       '/disciplinas': DisciplinasPage(
-        onNavigateToDetail: _navigateToDetail, // 🔥 PASSA A FUNÇÃO
+        onNavigateToDetail: _navigateToDetail, //  PASSA A FUNÇÃO
       ),
       '/notas': const NotasPage(),
       '/calendario': const CalendarioPage(),
@@ -118,54 +118,6 @@ class _MainAlunoPageState extends State<MainAlunoPage>
     });
   }
 
-  Widget _buildProfileOverlay() {
-    final bool isWeb = MediaQuery.of(context).size.width >= 600;
-    return AnimatedBuilder(
-      animation: _profileAnimation,
-      builder: (context, child) {
-        final screenWidth = MediaQuery.of(context).size.width;
-        final profileWidth = isWeb ? 300.0 : screenWidth;
-        return Positioned(
-          right: 0,
-          top: 0,
-          bottom: 0,
-          child: Container(
-            width: profileWidth,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF7FF),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  offset: const Offset(
-                    -2,
-                    0,
-                  ), // Sombra para a esquerda no mobile/web
-                  blurRadius: 6,
-                ),
-              ],
-            ),
-            child: SlideTransition(
-              position:
-                  Tween<Offset>(
-                    begin: const Offset(
-                      1.0,
-                      0.0,
-                    ), // Começa fora da tela à direita
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: _profileController,
-                      curve: Curves.easeInOut,
-                    ),
-                  ),
-              child: _isProfileOpen ? PerfilPage() : const SizedBox.shrink(),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final bool isWeb = MediaQuery.of(context).size.width >= 600;
@@ -190,7 +142,55 @@ class _MainAlunoPageState extends State<MainAlunoPage>
             onTap: _onNavTap,
             profileSelected: _isProfileOpen,
           ),
+          // Profile panel animado entre sidebar e conteúdo
+          AnimatedBuilder(
+            animation: _profileAnimation,
+            builder: (context, child) {
+              return Container(
+                width: _profileAnimation.value * 300,
+                height: MediaQuery.of(context).size.height,
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      offset: const Offset(2, 0),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: 0,
+                      child: Container(
+                        width: 300,
+                        height: MediaQuery.of(context).size.height,
+                        color: const Color(0xFFFEF7FF),
+                        child: _isProfileOpen
+                            ? PerfilPage()
+                            : const SizedBox.shrink(),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           Expanded(child: mainContent),
+        ],
+      );
+    } else {
+      // Para mobile, usa overlay full screen
+      mainContent = Stack(
+        children: [
+          mainContent,
+          if (_isProfileOpen)
+            Container(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height,
+              color: const Color(0xFFFEF7FF),
+              child: PerfilPage(),
+            ),
         ],
       );
     }
@@ -214,9 +214,7 @@ class _MainAlunoPageState extends State<MainAlunoPage>
                 centerTitle: true,
               )
             : null,
-        body: Stack(
-          children: [mainContent, if (_isProfileOpen) _buildProfileOverlay()],
-        ),
+        body: mainContent,
         bottomNavigationBar: !isWeb
             ? AdaptiveNavigation(
                 currentRoute: _currentRoute,
