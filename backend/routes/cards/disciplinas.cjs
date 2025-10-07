@@ -11,18 +11,57 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 // Configuração do Multer para armazenar na memória
 const storage = multer.memoryStorage();
 
+// Função para obter mimetype baseado na extensão
+function getMimeTypeFromExtension(filename) {
+  const ext = path.extname(filename).toLowerCase();
+  switch (ext) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    case '.gif':
+      return 'image/gif';
+    case '.bmp':
+      return 'image/bmp';
+    case '.webp':
+      return 'image/webp';
+    case '.svg':
+      return 'image/svg+xml';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+// Função para gerar slug a partir do título
+function generateSlug(title) {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '') // Remove caracteres especiais
+    .replace(/[\s_-]+/g, '-') // Substitui espaços e underscores por hífens
+    .replace(/^-+|-+$/g, ''); // Remove hífens no início e fim
+}
+
 // Filtro para validar tipos de arquivo
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif|bmp|webp|svg/;
-  const extname = allowedTypes.test(
+  // Regex para extensões permitidas
+  const allowedExtensions = /jpeg|jpg|png|gif|bmp|webp|svg/;
+  const extname = allowedExtensions.test(
     path.extname(file.originalname).toLowerCase()
   );
-  const mimetype = allowedTypes.test(file.mimetype);
+  
+  // Regex para mimetypes permitidos
+  const allowedMimeTypes = /^image\/(jpeg|png|gif|bmp|webp|svg\+xml)$/;
+  const mimetype = allowedMimeTypes.test(file.mimetype);
 
-  if (mimetype && extname) {
+  console.log(`File: ${file.originalname}, Extension: ${path.extname(file.originalname).toLowerCase()}, Matches: ${extname}, Mimetype: ${file.mimetype}, Matches: ${mimetype}`);
+
+  if (extname) {
+    console.log(`Accepting file based on extension: ${file.originalname}`);
     return cb(null, true);
   } else {
-    cb(new Error("Apenas arquivos de imagem são permitidos"));
+    cb(new Error(`Apenas arquivos de imagem são permitidos. Enviado: ${file.originalname} (mimetype: ${file.mimetype})`));
   }
 };
 
@@ -45,15 +84,25 @@ const processUploadedFiles = (req, res, next) => {
   if (req.files) {
     // Prepara os dados para salvar no MongoDB
     if (req.files.imagem) {
+      let contentType = req.files.imagem[0].mimetype;
+      if (contentType === 'application/octet-stream') {
+        contentType = getMimeTypeFromExtension(req.files.imagem[0].originalname);
+        console.log(`Overriding mimetype for imagem: ${contentType}`);
+      }
       req.body.imagem = {
         data: req.files.imagem[0].buffer,
-        contentType: req.files.imagem[0].mimetype
+        contentType: contentType
       };
     }
     if (req.files.icone) {
+      let contentType = req.files.icone[0].mimetype;
+      if (contentType === 'application/octet-stream') {
+        contentType = getMimeTypeFromExtension(req.files.icone[0].originalname);
+        console.log(`Overriding mimetype for icone: ${contentType}`);
+      }
       req.body.icone = {
         data: req.files.icone[0].buffer,
-        contentType: req.files.icone[0].mimetype
+        contentType: contentType
       };
     }
   }
@@ -119,7 +168,6 @@ routerCards.get("/imagem/:id/:tipo", async (req, res) => {
   }
 });
 
-// routes/cards/disciplinas.cjs - ATUALIZE A ROTA GET
 // GET: Buscar card por slug
 routerCards.get("/disciplina/:slug", async (req, res) => {
   try {
@@ -213,6 +261,17 @@ routerCards.post(
     try {
       const { imagem, icone, titulo } = req.body;
 
+      const slug = generateSlug(titulo.trim());
+      
+      // Verificar se já existe um card com este slug
+      const existingCard = await CardDisciplina.findOne({ slug });
+      if (existingCard) {
+        return res.status(400).json({
+          success: false,
+          error: "Já existe uma disciplina com este título",
+        });
+      }
+
       const novoCard = new CardDisciplina({
         imagem: {
           data: imagem.data,
@@ -223,6 +282,7 @@ routerCards.post(
           contentType: icone.contentType
         },
         titulo: titulo.trim(),
+        slug: slug,
       });
 
       await novoCard.save();
@@ -306,7 +366,21 @@ routerCards.put(
           error: "Título deve ser uma string não vazia",
         });
       }
+      const newSlug = generateSlug(titulo.trim());
       updates.titulo = titulo.trim();
+      updates.slug = newSlug;
+      
+      // Verificar se o novo slug já existe (exceto para o próprio card)
+      const existingCard = await CardDisciplina.findOne({ 
+        slug: newSlug, 
+        _id: { $ne: id } 
+      });
+      if (existingCard) {
+        return res.status(400).json({
+          success: false,
+          error: "Já existe uma disciplina com este título",
+        });
+      }
     }
 
     if (Object.keys(updates).length === 0) {

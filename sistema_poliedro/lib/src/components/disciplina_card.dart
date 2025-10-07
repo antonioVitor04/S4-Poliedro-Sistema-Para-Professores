@@ -1,5 +1,5 @@
-// components/disciplina_card.dart
 import 'package:flutter/material.dart';
+import 'package:sistema_poliedro/src/styles/cores.dart';
 import 'animated_card_button.dart';
 
 class DisciplinaCard extends StatelessWidget {
@@ -7,7 +7,7 @@ class DisciplinaCard extends StatelessWidget {
   final String imageUrl;
   final String iconUrl;
   final bool isMobile;
-  final VoidCallback onTap; // 🔥 Recebe a função de navegação
+  final VoidCallback onTap;
 
   const DisciplinaCard({
     super.key,
@@ -15,26 +15,30 @@ class DisciplinaCard extends StatelessWidget {
     required this.imageUrl,
     required this.iconUrl,
     required this.isMobile,
-    required this.onTap, // 🔥 Recebe a função
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return AnimatedCardButton(
-      onTap: onTap, // 🔥 Passa para o botão animado
+      onTap: onTap,
       childBuilder: (hovering, scale) {
         return AnimatedScale(
           scale: scale,
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeInOut,
           child: Card(
+            color: Colors.white, //
             elevation: hovering ? 10 : 4,
+            shadowColor: Colors.grey.shade300,
+            surfaceTintColor: Colors.transparent, 
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Imagem superior
                 Expanded(
                   flex: 6,
                   child: Container(
@@ -75,9 +79,18 @@ class DisciplinaCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                // Título inferior
                 Expanded(
                   flex: 4,
-                  child: Padding(
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white, // ✅ Fundo branco da parte inferior
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(12),
+                        bottomRight: Radius.circular(12),
+                      ),
+                    ),
                     padding: const EdgeInsets.only(left: 12, top: 8, bottom: 6),
                     child: Align(
                       alignment: Alignment.centerLeft,
@@ -86,6 +99,7 @@ class DisciplinaCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: isMobile ? 20 : 21,
                           fontWeight: FontWeight.bold,
+                          color: Colors.black87,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

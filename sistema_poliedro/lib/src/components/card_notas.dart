@@ -13,10 +13,9 @@ class DisciplinaCard extends StatelessWidget {
     required this.onTap,
   });
 
-  /// Garante que as médias estão calculadas
   Map<String, dynamic> get _disciplinaProcessada {
-    if (disciplina["mediaProvas"] != null && 
-        disciplina["mediaAtividades"] != null && 
+    if (disciplina["mediaProvas"] != null &&
+        disciplina["mediaAtividades"] != null &&
         disciplina["mediaFinal"] != null) {
       return disciplina;
     }
@@ -29,14 +28,22 @@ class DisciplinaCard extends StatelessWidget {
     bool acimaMedia = disciplinaProcessada["mediaFinal"] >= 6.0;
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      color: Colors.white, // <- FONDO BRANCO PADRÃO
+      elevation: 1.5,
+      shadowColor: Colors.grey.shade200,
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      child: ExpansionTile(
-        leading: CircleAvatar(
-          backgroundColor: acimaMedia ? Colors.teal : Colors.red,
-          radius: 8,
+      child: Theme( // <- Remove o tom lilás interno do ExpansionTile
+        data: Theme.of(context).copyWith(
+          dividerColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+                surface: Colors.white,
+                surfaceVariant: Colors.white,
+              ),
         ),
         title: LayoutBuilder(
           builder: (context, constraints) {

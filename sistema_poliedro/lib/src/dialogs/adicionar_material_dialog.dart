@@ -46,422 +46,567 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: const EdgeInsets.symmetric(
-        horizontal: 20,
-        vertical: 40,
-      ), // MENOS LARGO
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 500), // LARGURA MÁXIMA
+    return Material(
+      color: Colors.transparent,
+      child: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20), // MENOS PADDING
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.add_circle,
-                      color: AppColors.azulClaro,
-                      size: 24,
-                    ), // ÍCONE MENOR
-                    const SizedBox(width: 8), // MENOS ESPAÇO
-                    Text(
-                      'Adicionar Material',
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: 18, // FONTE MENOR
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20), // MENOS ESPAÇO
-                // Tipo
-                DropdownButtonFormField<String>(
-                  value: _tipoSelecionado,
-                  decoration: InputDecoration(
-                    labelText: 'Tipo de Material*',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: Icon(
-                      Icons.category,
-                      color: AppColors.azulClaro,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: AppColors.azulClaro,
-                        width: 2,
-                      ),
-                    ),
-                    labelStyle: TextStyle(color: Colors.black),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 16,
-                    ), // MENOS ALTURA
-                  ),
-                  items: _tipos.map((tipo) {
-                    return DropdownMenuItem(
-                      value: tipo,
-                      child: Text(_nomesTipos[tipo]!),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _tipoSelecionado = value!;
-                      _arquivoSelecionado = null;
-                    });
-                  },
-                  validator: (value) {
-                    if (value == null) return 'Selecione um tipo';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12), // MENOS ESPAÇO
-                // Título
-                TextFormField(
-                  controller: _tituloController,
-                  decoration: InputDecoration(
-                    labelText: 'Título*',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.title, color: AppColors.azulClaro),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: AppColors.azulClaro,
-                        width: 2,
-                      ),
-                    ),
-                    labelStyle: TextStyle(color: Colors.black),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 16,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Por favor, insira um título';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-
-                // Descrição
-                TextFormField(
-                  controller: _descricaoController,
-                  decoration: InputDecoration(
-                    labelText: 'Descrição (opcional)',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: Icon(
-                      Icons.description,
-                      color: AppColors.azulClaro,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: AppColors.azulClaro,
-                        width: 2,
-                      ),
-                    ),
-                    labelStyle: TextStyle(color: Colors.black),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 16,
-                    ),
-                  ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 12),
-
-                // URL (apenas para tipo link)
-                if (_tipoSelecionado == 'link')
-                  TextFormField(
-                    controller: _urlController,
-                    decoration: InputDecoration(
-                      labelText: 'URL*',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.link, color: AppColors.azulClaro),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: AppColors.azulClaro,
-                          width: 2,
-                        ),
-                      ),
-                      labelStyle: TextStyle(color: Colors.black),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 16,
-                      ),
-                    ),
-                    validator: _tipoSelecionado == 'link'
-                        ? (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Por favor, insira uma URL';
-                            }
-                            return null;
-                          }
-                        : null,
-                  ),
-                if (_tipoSelecionado == 'link') const SizedBox(height: 12),
-
-                // Upload de arquivo (para PDF e Imagem)
-                if (_tipoSelecionado == 'pdf' || _tipoSelecionado == 'imagem')
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Arquivo*',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.azulClaro,
-                          fontSize: 14, // FONTE MENOR
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.all(12), // MENOS PADDING
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: AppColors.azulClaro.withOpacity(0.3),
+                    Center(
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.add_circle,
+                              size: 32,
+                              color: AppColors.azulClaro,
+                            ),
                           ),
-                          borderRadius: BorderRadius.circular(8),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Adicionar Material',
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Crie um novo material de estudo',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Tipo
+                    DropdownButtonFormField<String>(
+                      value: _tipoSelecionado,
+                      decoration: InputDecoration(
+                        labelText: 'Tipo de Material*',
+                        labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                          color: Colors.black,
                         ),
-                        child: Column(
-                          children: [
-                            if (_arquivoSelecionado == null)
-                              ElevatedButton.icon(
-                                onPressed: _selecionarArquivo,
-                                icon: const Icon(
-                                  Icons.upload_file,
-                                  size: 18,
-                                ), // ÍCONE MENOR
-                                label: const Text(
-                                  'Selecionar Arquivo',
-                                  style: TextStyle(fontSize: 14),
-                                ), // TEXTO MENOR
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.azulClaro,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ), // MENOS PADDING
-                                ),
-                              )
-                            else
-                              Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        _tipoSelecionado == 'pdf'
-                                            ? Icons.picture_as_pdf
-                                            : Icons.image,
-                                        color: AppColors.azulClaro,
-                                        size: 20, // ÍCONE MENOR
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              _arquivoSelecionado!.name,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14, // FONTE MENOR
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            Text(
-                                              '${(_arquivoSelecionado!.size / 1024 / 1024).toStringAsFixed(2)} MB',
-                                              style: TextStyle(
-                                                color: Colors.grey[600],
-                                                fontSize: 11, // FONTE MENOR
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      IconButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            _arquivoSelecionado = null;
-                                          });
-                                        },
-                                        icon: const Icon(
-                                          Icons.delete,
-                                          color: Colors.red,
-                                          size: 20,
-                                        ), // ÍCONE MENOR
-                                        padding: const EdgeInsets.all(
-                                          4,
-                                        ), // MENOS PADDING
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: AppColors.preto.withOpacity(0.1),
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: AppColors.azulClaro,
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        prefixIcon: Icon(
+                          Icons.category,
+                          color: AppColors.azulClaro,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 16,
+                        ),
+                      ),
+                      items: _tipos.map((tipo) {
+                        return DropdownMenuItem(
+                          value: tipo,
+                          child: Text(_nomesTipos[tipo]!),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _tipoSelecionado = value!;
+                          _arquivoSelecionado = null;
+                          if (value != 'atividade') {
+                            _prazoSelecionado = null;
+                            _pesoController.text = '0';
+                          }
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null) return 'Selecione um tipo';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Título
+                    TextFormField(
+                      controller: _tituloController,
+                      cursorColor: AppColors.azulClaro,
+                      style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+                      decoration: InputDecoration(
+                        labelText: 'Título*',
+                        labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                          color: Colors.black,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: AppColors.preto.withOpacity(0.1),
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: AppColors.azulClaro,
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        prefixIcon: Icon(
+                          Icons.title,
+                          color: AppColors.azulClaro,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 16,
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Por favor, insira um título';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Descrição
+                    TextFormField(
+                      controller: _descricaoController,
+                      cursorColor: AppColors.azulClaro,
+                      style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+                      decoration: InputDecoration(
+                        labelText: 'Descrição (opcional)',
+                        labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                          color: Colors.black,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: AppColors.preto.withOpacity(0.1),
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: AppColors.azulClaro,
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        prefixIcon: Icon(
+                          Icons.description,
+                          color: AppColors.azulClaro,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 16,
+                        ),
+                      ),
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // URL (apenas para tipo link)
+                    if (_tipoSelecionado == 'link')
+                      TextFormField(
+                        controller: _urlController,
+                        cursorColor: AppColors.azulClaro,
+                        style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+                        decoration: InputDecoration(
+                          labelText: 'URL*',
+                          labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                            color: Colors.black,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: AppColors.preto.withOpacity(0.1),
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: AppColors.azulClaro,
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          prefixIcon: Icon(
+                            Icons.link,
+                            color: AppColors.azulClaro,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 16,
+                          ),
+                        ),
+                        validator: _tipoSelecionado == 'link'
+                            ? (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Por favor, insira uma URL';
+                                }
+                                return null;
+                              }
+                            : null,
+                      ),
+                    if (_tipoSelecionado == 'link') const SizedBox(height: 16),
+
+                    // Upload de arquivo (para PDF, Imagem e Atividade)
+                    if (_tipoSelecionado == 'pdf' ||
+                        _tipoSelecionado == 'imagem' ||
+                        _tipoSelecionado == 'atividade')
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Arquivo*',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.azulClaro,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: AppColors.azulClaro.withOpacity(0.3),
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              children: [
+                                if (_arquivoSelecionado == null)
                                   ElevatedButton.icon(
                                     onPressed: _selecionarArquivo,
                                     icon: const Icon(
-                                      Icons.swap_horiz,
-                                      size: 16,
-                                    ), // ÍCONE MENOR
-                                    label: const Text(
-                                      'Trocar Arquivo',
-                                      style: TextStyle(fontSize: 12),
-                                    ), // TEXTO MENOR
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.grey[100],
-                                      foregroundColor: Colors.grey[800],
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 8,
-                                      ), // MENOS PADDING
+                                      Icons.upload_file,
+                                      size: 18,
                                     ),
+                                    label: Text(
+                                      _tipoSelecionado == 'atividade'
+                                          ? 'Selecionar PDF'
+                                          : 'Selecionar Arquivo',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.azulClaro,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            _tipoSelecionado == 'pdf' ||
+                                                    _tipoSelecionado ==
+                                                        'atividade'
+                                                ? Icons.picture_as_pdf
+                                                : Icons.image,
+                                            color: AppColors.azulClaro,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  _arquivoSelecionado!.name,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                Text(
+                                                  '${(_arquivoSelecionado!.size / 1024 / 1024).toStringAsFixed(2)} MB',
+                                                  style: TextStyle(
+                                                    color: Colors.grey[600],
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          IconButton(
+                                            onPressed: () {
+                                              setState(() {
+                                                _arquivoSelecionado = null;
+                                              });
+                                            },
+                                            icon: const Icon(
+                                              Icons.delete,
+                                              color: Colors.red,
+                                              size: 20,
+                                            ),
+                                            padding: const EdgeInsets.all(4),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      ElevatedButton.icon(
+                                        onPressed: _selecionarArquivo,
+                                        icon: const Icon(
+                                          Icons.swap_horiz,
+                                          size: 16,
+                                        ),
+                                        label: Text(
+                                          _tipoSelecionado == 'atividade'
+                                              ? 'Trocar PDF'
+                                              : 'Trocar Arquivo',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.grey[100],
+                                          foregroundColor: Colors.grey[800],
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+
+                    // Peso (apenas para atividade)
+                    if (_tipoSelecionado == 'atividade')
+                      TextFormField(
+                        controller: _pesoController,
+                        cursorColor: AppColors.azulClaro,
+                        style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+                        decoration: InputDecoration(
+                          labelText: 'Peso (%) *',
+                          labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                            color: Colors.black,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: AppColors.preto.withOpacity(0.1),
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: AppColors.azulClaro,
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          prefixIcon: Icon(
+                            Icons.assessment,
+                            color: AppColors.azulClaro,
+                          ),
+                          suffixText: '%',
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 16,
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (_tipoSelecionado == 'atividade') {
+                            if (value == null || value.isEmpty) {
+                              return 'Peso é obrigatório para atividades';
+                            }
+                            final peso = double.tryParse(value);
+                            if (peso == null || peso < 0 || peso > 100) {
+                              return 'Peso deve ser entre 0 e 100';
+                            }
+                          }
+                          return null;
+                        },
+                      ),
+                    if (_tipoSelecionado == 'atividade')
+                      const SizedBox(height: 16),
+
+                    // Prazo (apenas para atividade)
+                    if (_tipoSelecionado == 'atividade')
+                      InkWell(
+                        onTap: _selecionarPrazo,
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Prazo *',
+                            labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                              color: Colors.black,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: AppColors.preto.withOpacity(0.1),
                               ),
-                          ],
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: AppColors.azulClaro,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.calendar_today,
+                              color: AppColors.azulClaro,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 16,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _prazoSelecionado != null
+                                    ? '${_prazoSelecionado!.day}/${_prazoSelecionado!.month}/${_prazoSelecionado!.year} ${_prazoSelecionado!.hour}:${_prazoSelecionado!.minute.toString().padLeft(2, '0')}'
+                                    : 'Selecionar prazo',
+                                style: AppTextStyles.fonteUbuntu.copyWith(
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_drop_down,
+                                color: AppColors.azulClaro,
+                                size: 20,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                    ],
-                  ),
+                    if (_tipoSelecionado == 'atividade')
+                      const SizedBox(height: 30),
 
-                // Peso
-                TextFormField(
-                  controller: _pesoController,
-                  decoration: InputDecoration(
-                    labelText: 'Peso (%)',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: Icon(
-                      Icons.assessment,
-                      color: AppColors.azulClaro,
-                    ),
-                    suffixText: '%',
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: AppColors.azulClaro,
-                        width: 2,
-                      ),
-                    ),
-                    labelStyle: TextStyle(color: Colors.black),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 16,
-                    ),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value != null && value.isNotEmpty) {
-                      final peso = double.tryParse(value);
-                      if (peso == null || peso < 0 || peso > 100) {
-                        return 'Peso deve ser entre 0 e 100';
-                      }
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-
-                // Prazo
-                InkWell(
-                  onTap: _selecionarPrazo,
-                  child: InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: 'Prazo (opcional)',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: Icon(
-                        Icons.calendar_today,
-                        color: AppColors.azulClaro,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: AppColors.azulClaro,
-                          width: 2,
+                    // Validação de arquivo
+                    if ((_tipoSelecionado == 'pdf' ||
+                            _tipoSelecionado == 'imagem' ||
+                            _tipoSelecionado == 'atividade') &&
+                        _arquivoSelecionado == null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          '⚠️ Por favor, selecione um arquivo',
+                          style: TextStyle(
+                            color: Colors.orange[700],
+                            fontSize: 11,
+                          ),
                         ),
                       ),
-                      labelStyle: TextStyle(color: Colors.black),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 16,
+
+                    // Validação de prazo para atividade
+                    if (_tipoSelecionado == 'atividade' &&
+                        _prazoSelecionado == null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          '⚠️ Por favor, selecione um prazo',
+                          style: TextStyle(
+                            color: Colors.orange[700],
+                            fontSize: 11,
+                          ),
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+                    // Botões
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Text(
-                          _prazoSelecionado != null
-                              ? '${_prazoSelecionado!.day}/${_prazoSelecionado!.month}/${_prazoSelecionado!.year} ${_prazoSelecionado!.hour}:${_prazoSelecionado!.minute.toString().padLeft(2, '0')}'
-                              : 'Selecionar prazo',
-                          style: const TextStyle(fontSize: 14), // TEXTO MENOR
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                          ),
+                          child: const Text(
+                            'Cancelar',
+                            style: TextStyle(fontSize: 14),
+                          ),
                         ),
-                        Icon(
-                          Icons.arrow_drop_down,
-                          color: AppColors.azulClaro,
-                          size: 20,
-                        ), // ÍCONE MENOR
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: _salvar,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.azulClaro,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                          ),
+                          child: const Text(
+                            'Adicionar',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                        ),
                       ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Validação de arquivo
-                if ((_tipoSelecionado == 'pdf' ||
-                        _tipoSelecionado == 'imagem') &&
-                    _arquivoSelecionado == null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      '⚠️ Por favor, selecione um arquivo',
-                      style: TextStyle(
-                        color: Colors.orange[700],
-                        fontSize: 11, // FONTE MENOR
-                      ),
-                    ),
-                  ),
-
-                // Botões
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ), // MENOS PADDING
-                      ),
-                      child: const Text(
-                        'Cancelar',
-                        style: TextStyle(fontSize: 14),
-                      ), // TEXTO MENOR
-                    ),
-                    const SizedBox(width: 8), // MENOS ESPAÇO
-                    ElevatedButton(
-                      onPressed: _salvar,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.azulClaro,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ), // MENOS PADDING
-                      ),
-                      child: const Text(
-                        'Adicionar',
-                        style: TextStyle(fontSize: 14),
-                      ), // TEXTO MAIS CURTO
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -536,11 +681,20 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
 
   Future<void> _selecionarArquivo() async {
     try {
+      List<String>? allowedExtensions;
+      FileType fileType = FileType.custom;
+
+      if (_tipoSelecionado == 'pdf') {
+        allowedExtensions = ['pdf'];
+      } else if (_tipoSelecionado == 'atividade') {
+        allowedExtensions = ['pdf'];
+      } else if (_tipoSelecionado == 'imagem') {
+        allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+      }
+
       final FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: _tipoSelecionado == 'pdf' ? FileType.custom : FileType.image,
-        allowedExtensions: _tipoSelecionado == 'pdf'
-            ? ['pdf']
-            : ['jpg', 'jpeg', 'png', 'gif'],
+        type: fileType,
+        allowedExtensions: allowedExtensions,
         allowMultiple: false,
       );
 
@@ -566,11 +720,24 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
 
   void _salvar() {
     // Validação especial para arquivos
-    if ((_tipoSelecionado == 'pdf' || _tipoSelecionado == 'imagem') &&
+    if ((_tipoSelecionado == 'pdf' ||
+            _tipoSelecionado == 'imagem' ||
+            _tipoSelecionado == 'atividade') &&
         _arquivoSelecionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Por favor, selecione um arquivo'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Validação especial para prazo em atividade
+    if (_tipoSelecionado == 'atividade' && _prazoSelecionado == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Por favor, selecione um prazo para a atividade'),
           backgroundColor: Colors.orange,
         ),
       );

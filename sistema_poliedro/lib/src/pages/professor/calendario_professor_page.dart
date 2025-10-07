@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../styles/fontes.dart';
 
-class CalendarioPage extends StatefulWidget {
-  const CalendarioPage({super.key});
+class CalendarioPageProfessor extends StatefulWidget {
+  const CalendarioPageProfessor({super.key});
 
   @override
-  State<CalendarioPage> createState() => _CalendarioPageState();
+  State<CalendarioPageProfessor> createState() => _CalendarioPageState();
 }
 
-class _CalendarioPageState extends State<CalendarioPage> {
+class _CalendarioPageState extends State<CalendarioPageProfessor> {
   DateTime mesAtual = DateTime.now();
   List<Evento> eventos = [
     Evento(

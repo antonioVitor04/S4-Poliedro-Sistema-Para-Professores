@@ -87,31 +87,38 @@ class _PerfilPageState extends State<PerfilPage> {
   // MÉTODO DEFINITIVO - ÚNICA VERSÃO QUE VOCÊ PRECISA
   Future<void> _carregarImagem() async {
     try {
-      print('🔄 [DEFINITIVE] Iniciando carregamento de imagem...');
+      print('🔄 [CARREGAR IMAGEM] Verificando se usuário tem imagem...');
 
-      // SEMPRE tenta carregar a imagem primeiro
-      final bytes = await _apiService.getImagemUsuarioBytes(
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-      );
+      // Primeiro verifica se o usuário tem imagem
+      if (_usuario != null && _usuario!.hasImage) {
+        print('📸 Usuário tem imagem, fazendo download...');
 
-      // SE CHEGOU AQUI, TEM IMAGEM
-      print('✅ [DEFINITIVE] Imagem carregada: ${bytes.length} bytes');
-      setState(() {
-        _imagemBytes = bytes;
-        _imageVersion++;
-        if (_usuario != null) {
-          _usuario = _usuario!.copyWith(hasImage: true);
+        final bytes = await _apiService.getImagemUsuarioBytes(
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+        );
+
+        if (bytes.isNotEmpty) {
+          print('✅ Imagem carregada com sucesso: ${bytes.length} bytes');
+          setState(() {
+            _imagemBytes = bytes;
+            _imageVersion++;
+          });
+          return;
         }
-      });
-    } catch (e) {
-      // SE DEU ERRO (404), NÃO TEM IMAGEM
-      print('✅ [DEFINITIVE] Usuário não tem imagem: $e');
+      }
+
+      // Se não tem imagem ou falhou o download
+      print('ℹ️ Usuário não tem imagem ou falha no download');
       setState(() {
         _imagemBytes = null;
         _imageVersion++;
-        if (_usuario != null) {
-          _usuario = _usuario!.copyWith(hasImage: false);
-        }
+      });
+    } catch (e) {
+      print('❌ Erro ao carregar imagem: $e');
+      // Em caso de erro, assume que não tem imagem
+      setState(() {
+        _imagemBytes = null;
+        _imageVersion++;
       });
     }
   }
@@ -134,48 +141,64 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   void _mostrarAlerta(String mensagem, bool sucesso) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.transparent,
-      barrierDismissible: true,
-      builder: (context) => AlertaWidget(mensagem: mensagem, sucesso: sucesso),
+    // Cria um GlobalKey para o Scaffold interno (se necessário) ou usa SnackBar para evitar conflito com Navigator
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor: sucesso ? Colors.green : Colors.red,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
     );
-
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) Navigator.of(context).pop();
-    });
   }
 
   // MÉTODO DEFINITIVO PARA UPLOAD DE IMAGEM
   Future<void> _selecionarImagem() async {
     try {
+      print('📸 Iniciando seleção de imagem...');
+
       final imageFile = await ImageUtils.selecionarImagem();
       if (imageFile != null) {
         _mostrarAlerta('Enviando imagem...', true);
 
+        // Lê os bytes
         final bytes = await imageFile.readAsBytes();
         final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final fileNameWithTimestamp = 'profile_$timestamp.jpg';
+
+        // Verifica tamanho (máximo 5MB)
+        if (bytes.length > 5 * 1024 * 1024) {
+          _mostrarAlerta('Imagem muito grande. Máximo: 5MB', false);
+          return;
+        }
+
+        // Converte para base64
         final base64Image = base64Encode(bytes);
 
-        // FAZ UPLOAD
+        print('📤 Fazendo upload de ${bytes.length} bytes...');
+
+        // Faz upload
         await _apiService.uploadImagemBase64(
           base64Image,
-          fileNameWithTimestamp,
+          'profile_$timestamp.jpg',
         );
 
-        // ATUALIZAÇÃO IMEDIATA
+        // Atualização local IMEDIATA
         setState(() {
-          _imagemBytes = Uint8List.fromList(bytes);
+          _imagemBytes = bytes;
           _imageVersion++;
+          // Atualiza o estado do usuário
           if (_usuario != null) {
             _usuario = _usuario!.copyWith(hasImage: true);
           }
         });
 
+        print('✅ Upload concluído com sucesso!');
         _mostrarAlerta('Imagem atualizada com sucesso!', true);
       }
     } catch (e) {
+      print('❌ Erro no upload: $e');
       _mostrarAlerta('Erro ao atualizar imagem: $e', false);
     }
   }
@@ -605,14 +628,9 @@ class _PerfilPageState extends State<PerfilPage> {
                               ? Image.memory(
                                   _imagemBytes!,
                                   fit: BoxFit.cover,
-                                  key: Key(
-                                    'profile_image_${_imageVersion}_${_imagemBytes!.hashCode}',
-                                  ), // KEY ÚNICA COMBINADA
+                                  key: ValueKey('profile_image_$_imageVersion'),
                                   errorBuilder: (context, error, stackTrace) {
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback(
-                                          (_) => _limparImagem(),
-                                        );
+                                    print('❌ Erro ao exibir imagem: $error');
                                     return _buildIconePadrao();
                                   },
                                 )

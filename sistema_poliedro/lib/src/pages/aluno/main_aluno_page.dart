@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../components/adaptive_navigation.dart';
 import '../../components/auth_guard.dart';
 import '../../styles/cores.dart';
-import 'disciplina/disciplinas_aluno_page.dart';
+import 'disciplina/disciplinas_page.dart';
 import 'disciplina/disciplina_detail_page.dart';
 import 'notas_aluno_page.dart';
 import 'calendario_aluno_page.dart';
@@ -49,7 +49,7 @@ class _MainAlunoPageState extends State<MainAlunoPage>
     ),
   ];
 
-  // 🔥 FUNÇÃO PARA NAVEGAÇÃO INTERNA (AGORA PÚBLICA)
+  //  FUNÇÃO PARA NAVEGAÇÃO INTERNA (AGORA PÚBLICA)
   void _navigateToDetail(String slug, String titulo) {
     _navigatorKey.currentState?.push(
       MaterialPageRoute(
@@ -58,11 +58,11 @@ class _MainAlunoPageState extends State<MainAlunoPage>
     );
   }
 
-  // 🔥 MAP DE PÁGINAS COM CALLBACK
+  //  MAP DE PÁGINAS COM CALLBACK
   Map<String, Widget> get _pages {
     return {
       '/disciplinas': DisciplinasPage(
-        onNavigateToDetail: _navigateToDetail, // 🔥 PASSA A FUNÇÃO
+        onNavigateToDetail: _navigateToDetail, //  PASSA A FUNÇÃO
       ),
       '/notas': const NotasPage(),
       '/calendario': const CalendarioPage(),
@@ -120,17 +120,91 @@ class _MainAlunoPageState extends State<MainAlunoPage>
 
   @override
   Widget build(BuildContext context) {
-    final bool isDesktop = MediaQuery.of(context).size.width >= 600;
+    final bool isWeb = MediaQuery.of(context).size.width >= 600;
+
+    Widget mainContent = Navigator(
+      key: _navigatorKey,
+      onGenerateRoute: (settings) {
+        return MaterialPageRoute(
+          builder: (context) =>
+              _pages[_currentRoute] ?? _pages[_previousRoute]!,
+        );
+      },
+    );
+
+    if (isWeb) {
+      mainContent = Row(
+        children: [
+          AdaptiveNavigation(
+            currentRoute: _currentRoute,
+            items: _navItems,
+            isWeb: true,
+            onTap: _onNavTap,
+            profileSelected: _isProfileOpen,
+          ),
+          // Profile panel animado entre sidebar e conteúdo
+          AnimatedBuilder(
+            animation: _profileAnimation,
+            builder: (context, child) {
+              return Container(
+                width: _profileAnimation.value * 300,
+                height: MediaQuery.of(context).size.height,
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      offset: const Offset(2, 0),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: 0,
+                      child: Container(
+                        width: 300,
+                        height: MediaQuery.of(context).size.height,
+                        color: const Color(0xFFFEF7FF),
+                        child: _isProfileOpen
+                            ? PerfilPage()
+                            : const SizedBox.shrink(),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          Expanded(child: mainContent),
+        ],
+      );
+    } else {
+      // Para mobile, usa overlay full screen
+      mainContent = Stack(
+        children: [
+          mainContent,
+          if (_isProfileOpen)
+            Container(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height,
+              color: const Color(0xFFFEF7FF),
+              child: PerfilPage(),
+            ),
+        ],
+      );
+    }
 
     return AuthGuard(
       child: Scaffold(
         backgroundColor: AppColors.branco,
-        appBar: !isDesktop
+        appBar: !isWeb
             ? AppBar(
                 backgroundColor: AppColors.azulEscuro,
                 leading: IconButton(
                   icon: const Icon(Icons.menu),
-                  onPressed: () {},
+                  onPressed: () => _onNavTap('/perfil'), // Agora abre o perfil
+                  color: AppColors.branco,
                 ),
                 title: Image.asset(
                   'assets/images/logo.png',
@@ -138,73 +212,10 @@ class _MainAlunoPageState extends State<MainAlunoPage>
                   height: 50,
                 ),
                 centerTitle: true,
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () {},
-                  ),
-                ],
               )
             : null,
-        body: Row(
-          children: [
-            if (isDesktop)
-              AdaptiveNavigation(
-                currentRoute: _currentRoute,
-                items: _navItems,
-                isDesktop: true,
-                onTap: _onNavTap,
-                profileSelected: _isProfileOpen,
-              ),
-            if (isDesktop)
-              AnimatedBuilder(
-                animation: _profileAnimation,
-                builder: (context, child) {
-                  return Stack(
-                    children: [
-                      Container(
-                        width: _profileAnimation.value * 300,
-                        height: MediaQuery.of(context).size.height,
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              offset: const Offset(2, 0),
-                              blurRadius: 6,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        child: Container(
-                          width: 300,
-                          height: MediaQuery.of(context).size.height,
-                          color: const Color(0xFFFEF7FF),
-                          child: _isProfileOpen
-                              ? PerfilPage()
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-
-            Expanded(
-              child: Navigator(
-                key: _navigatorKey,
-                onGenerateRoute: (settings) {
-                  return MaterialPageRoute(
-                    builder: (context) =>
-                        _pages[_currentRoute] ?? _pages[_previousRoute]!,
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-        bottomNavigationBar: !isDesktop
+        body: mainContent,
+        bottomNavigationBar: !isWeb
             ? AdaptiveNavigation(
                 currentRoute: _currentRoute,
                 items: _navItems,

@@ -29,7 +29,7 @@ class _NotasPageState extends State<NotasPage> {
           {"tipo": "Prova 1", "nota": 3.5, "peso": 0.5},
           {"tipo": "Prova 2", "nota": 2.5, "peso": 0.5},
           {"tipo": "Atividade 1", "nota": 5.0, "peso": 0.5},
-        ]
+        ],
       },
       {
         "disciplina": "Matemática",
@@ -45,7 +45,7 @@ class _NotasPageState extends State<NotasPage> {
           {"tipo": "Prova 1", "nota": 3.5, "peso": 0.5},
           {"tipo": "Prova 2", "nota": 2.5, "peso": 0.5},
           {"tipo": "Atividade 1", "nota": 5.0, "peso": 0.5},
-        ]
+        ],
       },
     ];
 
@@ -153,7 +153,7 @@ class _NotasPageState extends State<NotasPage> {
             borderSide: BorderSide.none,
           ),
         ),
-      ),
+      ],
     );
   }
 
