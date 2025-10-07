@@ -153,7 +153,7 @@ class _NotasPageState extends State<NotasPage> {
             borderSide: BorderSide.none,
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -165,7 +165,10 @@ class _NotasPageState extends State<NotasPage> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircleAvatar(radius: isMobile ? 4 : 6, backgroundColor: Colors.red),
+            CircleAvatar(
+              radius: isMobile ? 4 : 6, 
+              backgroundColor: Colors.red
+            ),
             SizedBox(width: isMobile ? 4 : 6),
             Text(
               "Abaixo da média",
@@ -176,7 +179,10 @@ class _NotasPageState extends State<NotasPage> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircleAvatar(radius: isMobile ? 4 : 6, backgroundColor: Colors.teal),
+            CircleAvatar(
+              radius: isMobile ? 4 : 6, 
+              backgroundColor: Colors.teal
+            ),
             SizedBox(width: isMobile ? 4 : 6),
             Text(
               "Acima da média",
