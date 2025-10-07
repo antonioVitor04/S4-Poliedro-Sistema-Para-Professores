@@ -11,19 +11,45 @@ class CalculadoraMedias {
     return _calcularMediaPonderada(atividades);
   }
 
-  /// Calcula a média final (70% provas + 30% atividades)
+  /// Calcula a média final baseada nos pesos totais das provas e atividades
   static double calcularMediaFinal(List<dynamic> detalhes) {
-    final mediaProvas = calcularMediaProvas(detalhes);
-    final mediaAtividades = calcularMediaAtividades(detalhes);
+    final provas = _filtrarPorTipo(detalhes, "prova");
+    final atividades = _filtrarPorTipo(detalhes, "atividade");
 
-    // Se não há provas, retorna apenas atividades
-    if (mediaProvas == 0.0) return mediaAtividades;
+    final mediaProvas = _calcularMediaPonderada(provas);
+    final mediaAtividades = _calcularMediaPonderada(atividades);
+
+    // Calcula os pesos totais
+    final pesoTotalProvas = _calcularPesoTotal(provas);
+    final pesoTotalAtividades = _calcularPesoTotal(atividades);
+    final pesoTotalGeral = pesoTotalProvas + pesoTotalAtividades;
+
+    // Se não há itens, retorna 0
+    if (pesoTotalGeral == 0.0) return 0.0;
+
+    // Se só há provas, retorna média das provas
+    if (pesoTotalAtividades == 0.0) return mediaProvas;
+
+    // Se só há atividades, retorna média das atividades
+    if (pesoTotalProvas == 0.0) return mediaAtividades;
+
+    // Calcula a média final ponderada pelos pesos totais
+    final double pesoRelativoProvas = pesoTotalProvas / pesoTotalGeral;
+    final double pesoRelativoAtividades = pesoTotalAtividades / pesoTotalGeral;
+
+    return (mediaProvas * pesoRelativoProvas) + (mediaAtividades * pesoRelativoAtividades);
+  }
+
+  /// Calcula o peso total de uma lista de itens
+  static double _calcularPesoTotal(List<dynamic> itens) {
+    double pesoTotal = 0.0;
     
-    // Se não há atividades, retorna apenas provas
-    if (mediaAtividades == 0.0) return mediaProvas;
-
-    // Aplica pesos: 70% provas + 30% atividades
-    return (mediaProvas * 0.7) + (mediaAtividades * 0.3);
+    for (final item in itens) {
+      final peso = _converterParaDouble(item["peso"]);
+      pesoTotal += peso;
+    }
+    
+    return pesoTotal;
   }
 
   /// Filtra os detalhes por tipo (case insensitive)

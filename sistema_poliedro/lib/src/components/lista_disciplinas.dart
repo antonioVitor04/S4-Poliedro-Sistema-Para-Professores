@@ -41,14 +41,19 @@ class _ListaDisciplinasState extends State<ListaDisciplinas> {
   Widget build(BuildContext context) {
     if (_disciplinasFiltradas.isEmpty) {
       return const Center(
-        child: Text(
-          "Nenhuma disciplina encontrada",
-          style: TextStyle(color: Colors.grey),
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: Text(
+            "Nenhuma disciplina encontrada",
+            style: TextStyle(color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }
 
     return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       children: _disciplinasFiltradas
           .asMap()
           .entries
