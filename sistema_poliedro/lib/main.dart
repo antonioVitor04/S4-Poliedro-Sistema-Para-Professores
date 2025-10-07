@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sistema_poliedro/src/pages/professor/home_professor.dart';
-import 'src/pages/login_page.dart';
-import 'src/pages/aluno/main_aluno_page.dart';
+import 'src/pages/login/login_page.dart';
+import './src/pages/aluno/main_aluno_page.dart';
 import 'src/components/auth_guard.dart';
-import 'src/pages/recuperar_senha.dart';
+import 'src/pages/login/recuperar_senha.dart';
 
 void main() {
   runApp(const MyApp());

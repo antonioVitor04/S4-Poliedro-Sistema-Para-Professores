@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sistema_poliedro/src/pages/Recuperar_Senha.dart';
+import 'package:sistema_poliedro/src/pages/login/Recuperar_Senha.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/usuario.dart';
-import '../components/alerta.dart';
-import '../styles/cores.dart';
-import '../styles/fontes.dart';
+import '../../models/usuario.dart';
+import 'package:sistema_poliedro/src/styles/cores.dart';
+import 'package:sistema_poliedro/src/styles/fontes.dart';
+import 'package:sistema_poliedro/src/components/alerta.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -26,12 +26,15 @@ class _LoginPageState extends State<LoginPage> {
       context: context,
       barrierColor: Colors.transparent,
       barrierDismissible: true,
-      builder: (context) => AlertaWidget(mensagem: mensagem, sucesso: sucesso),
-    );
+      builder: (context) {
+        // Fecha apenas este diálogo após 2 segundos
+        Future.delayed(const Duration(seconds: 2), () {
+          Navigator.of(context, rootNavigator: true).pop();
+        });
 
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) Navigator.of(context).pop();
-    });
+        return AlertaWidget(mensagem: mensagem, sucesso: sucesso);
+      },
+    );
   }
 
   Future<void> login() async {
@@ -58,11 +61,15 @@ class _LoginPageState extends State<LoginPage> {
         await prefs.setString('token', token);
         await prefs.setString('tipoUsuario', paginaAtual);
 
-        Navigator.pushReplacementNamed(
-          context,
-          '/aluno_protected',
-          arguments: {'initialRoute': '/disciplinas'},
-        );
+        if (paginaAtual == "professor") {
+          Navigator.pushReplacementNamed(context, '/professor_protected');
+        } else {
+          Navigator.pushReplacementNamed(
+            context,
+            '/aluno_protected',
+            arguments: {'initialRoute': '/disciplinas'},
+          );
+        }
       } else {
         mostrarAlerta("Erro no login. Verifique suas credenciais.", false);
       }
@@ -342,18 +349,13 @@ class _LoginPageState extends State<LoginPage> {
         hintStyle: AppTextStyles.fonteUbuntu.copyWith(
           color: AppColors.preto.withOpacity(0.4),
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         prefixIcon: Icon(
           tipo == "professor" ? Icons.email : Icons.badge,
           color: AppColors.azulClaro,
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(
-            color: AppColors.azulClaro,
-            width: 2,
-          ),
+          borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
           borderRadius: BorderRadius.circular(12),
         ),
         enabledBorder: OutlineInputBorder(
@@ -380,18 +382,10 @@ class _LoginPageState extends State<LoginPage> {
         hintStyle: AppTextStyles.fonteUbuntu.copyWith(
           color: AppColors.preto.withOpacity(0.4),
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        prefixIcon: Icon(
-          Icons.lock,
-          color: AppColors.azulClaro,
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        prefixIcon: Icon(Icons.lock, color: AppColors.azulClaro),
         focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(
-            color: AppColors.azulClaro,
-            width: 2,
-          ),
+          borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
           borderRadius: BorderRadius.circular(12),
         ),
         enabledBorder: OutlineInputBorder(
