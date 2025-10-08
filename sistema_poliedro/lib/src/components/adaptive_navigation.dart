@@ -27,16 +27,26 @@ class _AdaptiveNavigationState extends State<AdaptiveNavigation> {
   @override
   Widget build(BuildContext context) {
     if (!widget.isWeb) {
+      // Filtra itens para mobile, excluindo o perfil
+      List<NavigationItem> filteredItems = widget.items
+          .where((item) => item.route != '/perfil')
+          .toList();
+
+      // Calcula o índice atual apenas entre os itens filtrados
+      int currentIndex = filteredItems.indexWhere(
+        (i) => i.route == widget.currentRoute,
+      );
+
       return BottomNavigationBar(
-        currentIndex: widget.items.indexWhere(
-          (i) => i.route == widget.currentRoute,
-        ),
-        onTap: (index) => widget.onTap?.call(widget.items[index].route),
+        currentIndex: currentIndex == -1
+            ? 0
+            : currentIndex, // Default para 0 se não encontrar
+        onTap: (index) => widget.onTap?.call(filteredItems[index].route),
         backgroundColor: AppColors.azulEscuro,
         selectedItemColor: AppColors.preto,
         unselectedItemColor: AppColors.branco,
         type: BottomNavigationBarType.fixed,
-        items: widget.items
+        items: filteredItems
             .map(
               (item) => BottomNavigationBarItem(
                 icon: Icon(item.icon),
@@ -75,14 +85,14 @@ class _AdaptiveNavigationState extends State<AdaptiveNavigation> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          // Fundo animado
+                          // Fundo animado - alterado para branco no selecionado
                           Positioned.fill(
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 250),
                               curve: Curves.easeInOut,
                               decoration: BoxDecoration(
                                 color: selected
-                                    ? const Color(0xFFFEF7FF)
+                                    ? Colors.white
                                     : (_hoveredItem == item.route
                                           ? Colors.white.withOpacity(0.1)
                                           : Colors.transparent),

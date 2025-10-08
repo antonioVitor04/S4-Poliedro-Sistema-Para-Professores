@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service_user.dart';
 import '../models/usuario.dart';
 import '../styles/fontes.dart';
-import '../styles/cores.dart';
 import '../utils/image_utils.dart';
 import '../components/alerta.dart';
 
@@ -88,31 +87,38 @@ class _PerfilPageState extends State<PerfilPage> {
   // MÉTODO DEFINITIVO - ÚNICA VERSÃO QUE VOCÊ PRECISA
   Future<void> _carregarImagem() async {
     try {
-      print('🔄 [DEFINITIVE] Iniciando carregamento de imagem...');
+      print('🔄 [CARREGAR IMAGEM] Verificando se usuário tem imagem...');
 
-      // SEMPRE tenta carregar a imagem primeiro
-      final bytes = await _apiService.getImagemUsuarioBytes(
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-      );
+      // Primeiro verifica se o usuário tem imagem
+      if (_usuario != null && _usuario!.hasImage) {
+        print('📸 Usuário tem imagem, fazendo download...');
 
-      // SE CHEGOU AQUI, TEM IMAGEM
-      print('✅ [DEFINITIVE] Imagem carregada: ${bytes.length} bytes');
-      setState(() {
-        _imagemBytes = bytes;
-        _imageVersion++;
-        if (_usuario != null) {
-          _usuario = _usuario!.copyWith(hasImage: true);
+        final bytes = await _apiService.getImagemUsuarioBytes(
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+        );
+
+        if (bytes.isNotEmpty) {
+          print('✅ Imagem carregada com sucesso: ${bytes.length} bytes');
+          setState(() {
+            _imagemBytes = bytes;
+            _imageVersion++;
+          });
+          return;
         }
-      });
-    } catch (e) {
-      // SE DEU ERRO (404), NÃO TEM IMAGEM
-      print('✅ [DEFINITIVE] Usuário não tem imagem: $e');
+      }
+
+      // Se não tem imagem ou falhou o download
+      print('ℹ️ Usuário não tem imagem ou falha no download');
       setState(() {
         _imagemBytes = null;
         _imageVersion++;
-        if (_usuario != null) {
-          _usuario = _usuario!.copyWith(hasImage: false);
-        }
+      });
+    } catch (e) {
+      print('❌ Erro ao carregar imagem: $e');
+      // Em caso de erro, assume que não tem imagem
+      setState(() {
+        _imagemBytes = null;
+        _imageVersion++;
       });
     }
   }
@@ -135,48 +141,64 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   void _mostrarAlerta(String mensagem, bool sucesso) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.transparent,
-      barrierDismissible: true,
-      builder: (context) => AlertaWidget(mensagem: mensagem, sucesso: sucesso),
+    // Cria um GlobalKey para o Scaffold interno (se necessário) ou usa SnackBar para evitar conflito com Navigator
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor: sucesso ? Colors.green : Colors.red,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
     );
-
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) Navigator.of(context).pop();
-    });
   }
 
   // MÉTODO DEFINITIVO PARA UPLOAD DE IMAGEM
   Future<void> _selecionarImagem() async {
     try {
+      print('📸 Iniciando seleção de imagem...');
+
       final imageFile = await ImageUtils.selecionarImagem();
       if (imageFile != null) {
         _mostrarAlerta('Enviando imagem...', true);
 
+        // Lê os bytes
         final bytes = await imageFile.readAsBytes();
         final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final fileNameWithTimestamp = 'profile_$timestamp.jpg';
+
+        // Verifica tamanho (máximo 5MB)
+        if (bytes.length > 5 * 1024 * 1024) {
+          _mostrarAlerta('Imagem muito grande. Máximo: 5MB', false);
+          return;
+        }
+
+        // Converte para base64
         final base64Image = base64Encode(bytes);
 
-        // FAZ UPLOAD
+        print('📤 Fazendo upload de ${bytes.length} bytes...');
+
+        // Faz upload
         await _apiService.uploadImagemBase64(
           base64Image,
-          fileNameWithTimestamp,
+          'profile_$timestamp.jpg',
         );
 
-        // ATUALIZAÇÃO IMEDIATA
+        // Atualização local IMEDIATA
         setState(() {
-          _imagemBytes = Uint8List.fromList(bytes);
+          _imagemBytes = bytes;
           _imageVersion++;
+          // Atualiza o estado do usuário
           if (_usuario != null) {
             _usuario = _usuario!.copyWith(hasImage: true);
           }
         });
 
+        print('✅ Upload concluído com sucesso!');
         _mostrarAlerta('Imagem atualizada com sucesso!', true);
       }
     } catch (e) {
+      print('❌ Erro no upload: $e');
       _mostrarAlerta('Erro ao atualizar imagem: $e', false);
     }
   }
@@ -253,7 +275,7 @@ class _PerfilPageState extends State<PerfilPage> {
                         child: Icon(
                           Icons.edit,
                           size: 32,
-                          color: AppColors.azulClaro,
+                          color: Colors.blue.shade600,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -277,123 +299,105 @@ class _PerfilPageState extends State<PerfilPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                // Email
+                Text(
+                  'Email',
+                  style: AppTextStyles.fonteUbuntu.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 TextFormField(
                   controller: _emailController,
-                  cursorColor: AppColors.azulClaro,
-                  style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
                   decoration: InputDecoration(
-                    labelText: 'Email*',
-                    labelStyle: AppTextStyles.fonteUbuntu.copyWith(
-                      color: Colors.black,
-                    ),
+                    hintText: 'Digite seu email',
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: AppColors.preto.withOpacity(0.1),
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: AppColors.azulClaro,
-                        width: 2,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    prefixIcon: Icon(Icons.email, color: AppColors.azulClaro),
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 16,
+                      horizontal: 16,
+                      vertical: 14,
                     ),
                   ),
                   keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Por favor, insira um email';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Por favor, insira um email válido';
-                    }
-                    return null;
-                  },
                 ),
                 const SizedBox(height: 16),
-
-                // Nova Senha
+                Text(
+                  'Nova Senha (opcional)',
+                  style: AppTextStyles.fonteUbuntu.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 TextFormField(
                   controller: _senhaController,
-                  cursorColor: AppColors.azulClaro,
                   obscureText: true,
-                  style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
                   decoration: InputDecoration(
-                    labelText: 'Nova Senha (opcional)',
-                    labelStyle: AppTextStyles.fonteUbuntu.copyWith(
-                      color: Colors.black,
-                    ),
+                    hintText: 'Digite nova senha',
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: AppColors.preto.withOpacity(0.1),
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: AppColors.azulClaro,
-                        width: 2,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    prefixIcon: Icon(Icons.lock, color: AppColors.azulClaro),
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 16,
+                      horizontal: 16,
+                      vertical: 14,
                     ),
                   ),
                 ),
                 const SizedBox(height: 30),
-
-                // Botões
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton(
-                      onPressed: () {
-                        _senhaController.clear();
-                        Navigator.pop(context);
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          _senhaController.clear();
+                          Navigator.pop(context);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: Colors.grey.shade300),
                         ),
-                      ),
-                      child: const Text(
-                        'Cancelar',
-                        style: TextStyle(fontSize: 14),
+                        child: Text(
+                          'Cancelar',
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: _atualizarPerfil,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.azulClaro,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _atualizarPerfil,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2563EB),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
                         ),
-                      ),
-                      child: const Text(
-                        'Salvar',
-                        style: TextStyle(fontSize: 14),
+                        child: const Text(
+                          'Salvar',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -624,14 +628,9 @@ class _PerfilPageState extends State<PerfilPage> {
                               ? Image.memory(
                                   _imagemBytes!,
                                   fit: BoxFit.cover,
-                                  key: Key(
-                                    'profile_image_${_imageVersion}_${_imagemBytes!.hashCode}',
-                                  ), // KEY ÚNICA COMBINADA
+                                  key: ValueKey('profile_image_$_imageVersion'),
                                   errorBuilder: (context, error, stackTrace) {
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback(
-                                          (_) => _limparImagem(),
-                                        );
+                                    print('❌ Erro ao exibir imagem: $error');
                                     return _buildIconePadrao();
                                   },
                                 )
