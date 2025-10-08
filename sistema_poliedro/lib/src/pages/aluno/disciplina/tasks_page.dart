@@ -33,21 +33,27 @@ class _TasksPageState extends State<TasksPage> {
   }
 
   Widget _buildTarefaItem(MaterialDisciplina tarefa, String topicoId) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: isMobile ? 6 : 8),
       child: Material(
         borderRadius: BorderRadius.circular(8),
         color: _getTarefaColor(tarefa.prazo!),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 8,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 10 : 12,
+            vertical: isMobile ? 8 : 10,
           ),
-          leading: Icon(Icons.assignment, color: Colors.white, size: 20),
+          leading: Icon(
+            Icons.assignment, 
+            color: Colors.white, 
+            size: isMobile ? 18 : 20
+          ),
           title: Text(
             tarefa.titulo,
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: isMobile ? 13 : 14,
               color: Colors.white,
               fontWeight: FontWeight.bold,
             ),
@@ -57,19 +63,25 @@ class _TasksPageState extends State<TasksPage> {
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 4),
+              SizedBox(height: isMobile ? 2 : 4),
               Text(
                 '${tarefa.prazo!.day}/${tarefa.prazo!.month}/${tarefa.prazo!.year} às ${tarefa.prazo!.hour.toString().padLeft(2, '0')}:${tarefa.prazo!.minute.toString().padLeft(2, '0')}',
-                style: const TextStyle(fontSize: 12, color: Colors.white70),
+                style: TextStyle(
+                  fontSize: isMobile ? 11 : 12, 
+                  color: Colors.white70
+                ),
               ),
               if (tarefa.peso > 0)
                 Text(
                   'Peso: ${tarefa.peso}%',
-                  style: const TextStyle(fontSize: 11, color: Colors.white60),
+                  style: TextStyle(
+                    fontSize: isMobile ? 10 : 11, 
+                    color: Colors.white60
+                  ),
                 ),
             ],
           ),
-          dense: true,
+          dense: isMobile,
           onTap: () {
             Navigator.push(
               context,
@@ -89,12 +101,19 @@ class _TasksPageState extends State<TasksPage> {
   }
 
   Widget _buildSectionHeader(String title) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 12 : 16, 
+        isMobile ? 16 : 20, 
+        isMobile ? 12 : 16, 
+        isMobile ? 6 : 8
+      ),
       child: Text(
         title,
-        style: const TextStyle(
-          fontSize: 18,
+        style: TextStyle(
+          fontSize: isMobile ? 16 : 18,
           fontWeight: FontWeight.bold,
           color: Colors.black,
         ),
@@ -103,18 +122,24 @@ class _TasksPageState extends State<TasksPage> {
   }
 
   Widget _buildEmptySection(String title) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isMobile ? 12 : 16),
       child: Center(
         child: Column(
           children: [
-            Icon(Icons.assignment_turned_in, size: 48, color: Colors.grey[400]),
-            const SizedBox(height: 12),
+            Icon(
+              Icons.assignment_turned_in, 
+              size: isMobile ? 40 : 48, 
+              color: Colors.grey[400]
+            ),
+            SizedBox(height: isMobile ? 8 : 12),
             Text(
               'Nenhuma $title',
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.grey,
-                fontSize: 16,
+                fontSize: isMobile ? 14 : 16,
               ),
             ),
           ],
@@ -125,22 +150,28 @@ class _TasksPageState extends State<TasksPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Tarefas',
-          style: TextStyle(color: Colors.black),
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: isMobile ? 18 : 20,
+          ),
         ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        iconTheme: IconThemeData(color: Colors.black),
       ),
       body: FutureBuilder<CardDisciplina>(
         future: _futureCard,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
+            return Center(
               child: CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(AppColors.azulClaro),
               ),
@@ -148,8 +179,34 @@ class _TasksPageState extends State<TasksPage> {
           }
 
           if (snapshot.hasError || !snapshot.hasData) {
-            return const Center(
-              child: Text('Erro ao carregar tarefas', style: TextStyle(color: Colors.black)),
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline, 
+                    size: isMobile ? 48 : 64, 
+                    color: Colors.red
+                  ),
+                  SizedBox(height: isMobile ? 12 : 16),
+                  Text(
+                    'Erro ao carregar tarefas', 
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: isMobile ? 16 : 18,
+                    )
+                  ),
+                  SizedBox(height: isMobile ? 16 : 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _futureCard = CardDisciplinaService.getCardBySlug(widget.slug);
+                      });
+                    },
+                    child: Text('Tentar Novamente'),
+                  ),
+                ],
+              ),
             );
           }
 
@@ -164,8 +221,13 @@ class _TasksPageState extends State<TasksPage> {
           }
 
           final now = DateTime.now();
-          final pendentes = allTarefas.where((record) => record.material.prazo!.isAfter(now) || record.material.prazo!.isAtSameMomentAs(now)).toList();
-          final passadas = allTarefas.where((record) => record.material.prazo!.isBefore(now)).toList();
+          final pendentes = allTarefas.where((record) => 
+            record.material.prazo!.isAfter(now) || 
+            record.material.prazo!.isAtSameMomentAs(now)
+          ).toList();
+          final passadas = allTarefas.where((record) => 
+            record.material.prazo!.isBefore(now)
+          ).toList();
 
           pendentes.sort((a, b) => a.material.prazo!.compareTo(b.material.prazo!));
           passadas.sort((a, b) => b.material.prazo!.compareTo(a.material.prazo!));
@@ -173,7 +235,7 @@ class _TasksPageState extends State<TasksPage> {
           return CustomScrollView(
             physics: const ClampingScrollPhysics(),
             slivers: [
-              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+              SliverToBoxAdapter(child: SizedBox(height: isMobile ? 12 : 20)),
               SliverToBoxAdapter(
                 child: pendentes.isEmpty
                     ? _buildEmptySection('tarefa pendente')
@@ -182,19 +244,27 @@ class _TasksPageState extends State<TasksPage> {
                         children: [
                           _buildSectionHeader('Tarefas Pendentes'),
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            padding: EdgeInsets.fromLTRB(
+                              isMobile ? 12 : 16, 
+                              0, 
+                              isMobile ? 12 : 16, 
+                              isMobile ? 8 : 12
+                            ),
                             child: Text(
                               'Tarefas com prazo futuro ou atual',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: isMobile ? 12 : 14,
                                 color: Colors.grey[600],
                               ),
                             ),
                           ),
                           ...pendentes.map((record) => Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isMobile ? 12 : 16
+                                ),
                                 child: _buildTarefaItem(record.material, record.topicoId),
                               )),
+                          SizedBox(height: isMobile ? 16 : 20),
                         ],
                       ),
               ),
@@ -206,19 +276,27 @@ class _TasksPageState extends State<TasksPage> {
                         children: [
                           _buildSectionHeader('Tarefas Passadas'),
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            padding: EdgeInsets.fromLTRB(
+                              isMobile ? 12 : 16, 
+                              0, 
+                              isMobile ? 12 : 16, 
+                              isMobile ? 8 : 12
+                            ),
                             child: Text(
                               'Tarefas vencidas',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: isMobile ? 12 : 14,
                                 color: Colors.grey[600],
                               ),
                             ),
                           ),
                           ...passadas.map((record) => Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isMobile ? 12 : 16
+                                ),
                                 child: _buildTarefaItem(record.material, record.topicoId),
                               )),
+                          SizedBox(height: isMobile ? 16 : 20),
                         ],
                       ),
               ),

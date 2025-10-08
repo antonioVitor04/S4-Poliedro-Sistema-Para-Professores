@@ -39,7 +39,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     super.initState();
     print('🔍 Iniciando discipline: ${widget.slug}');
     _carregarDisciplina();
-    
+
     _scrollController.addListener(_onScroll);
   }
 
@@ -55,10 +55,10 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     if (now.difference(_lastScrollUpdate).inMilliseconds < 16) {
       return;
     }
-    
+
     const threshold = 100.0;
     final newIsScrolled = _scrollController.offset > threshold;
-    
+
     if (newIsScrolled != _isScrolled) {
       _lastScrollUpdate = now;
       setState(() {
@@ -206,7 +206,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     final topico = card.topicos[topicoIndex];
 
     final tituloController = TextEditingController(text: topico.titulo);
-    final descricaoController = TextEditingController(text: topico.descricao ?? '');
+    final descricaoController = TextEditingController(
+      text: topico.descricao ?? '',
+    );
     final _formKey = GlobalKey<FormState>();
 
     await showDialog(
@@ -279,12 +281,16 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                         style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
                         decoration: InputDecoration(
                           labelText: 'Título do Tópico*',
-                          labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+                          labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                            color: Colors.black,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+                            borderSide: BorderSide(
+                              color: AppColors.preto.withOpacity(0.1),
+                            ),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           focusedBorder: OutlineInputBorder(
@@ -294,7 +300,10 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                             ),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          prefixIcon: Icon(Icons.title, color: AppColors.azulClaro),
+                          prefixIcon: Icon(
+                            Icons.title,
+                            color: AppColors.azulClaro,
+                          ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 16,
@@ -314,12 +323,16 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                         style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
                         decoration: InputDecoration(
                           labelText: 'Descrição (opcional)',
-                          labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+                          labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                            color: Colors.black,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+                            borderSide: BorderSide(
+                              color: AppColors.preto.withOpacity(0.1),
+                            ),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           focusedBorder: OutlineInputBorder(
@@ -329,7 +342,10 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                             ),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          prefixIcon: Icon(Icons.description, color: AppColors.azulClaro),
+                          prefixIcon: Icon(
+                            Icons.description,
+                            color: AppColors.azulClaro,
+                          ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 16,
@@ -359,7 +375,10 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                           ElevatedButton(
                             onPressed: () async {
                               if (_formKey.currentState!.validate()) {
-                                final descricao = descricaoController.text.trim().isEmpty ? null : descricaoController.text.trim();
+                                final descricao =
+                                    descricaoController.text.trim().isEmpty
+                                    ? null
+                                    : descricaoController.text.trim();
                                 await _atualizarTopico(
                                   topicoIndex,
                                   tituloController.text.trim(),
@@ -446,9 +465,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.black,
-            ),
+            style: TextButton.styleFrom(foregroundColor: Colors.black),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
@@ -504,9 +521,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.black,
-            ),
+            style: TextButton.styleFrom(foregroundColor: Colors.black),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
@@ -669,13 +684,17 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                       floating: false,
                       pinned: true,
                       automaticallyImplyLeading: false,
-                      backgroundColor: _isScrolled ? Colors.white : Colors.transparent,
-                      foregroundColor: _isScrolled ? Colors.black : Colors.white,
+                      backgroundColor: _isScrolled
+                          ? Colors.white
+                          : Colors.transparent,
+                      foregroundColor: _isScrolled
+                          ? Colors.black
+                          : Colors.white,
                       elevation: _isScrolled ? 4 : 0,
                       actions: [
                         PopupMenuButton<String>(
                           icon: Icon(
-                            Icons.assignment, 
+                            Icons.assignment,
                             color: _isScrolled ? Colors.black : Colors.white,
                           ),
                           onSelected: (value) {
@@ -683,7 +702,8 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => TasksPage(slug: widget.slug),
+                                  builder: (context) =>
+                                      TasksPage(slug: widget.slug),
                                 ),
                               );
                             }
@@ -693,9 +713,16 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                               value: 'tasks',
                               child: Row(
                                 children: [
-                                  Icon(Icons.assignment, size: 20, color: Colors.black),
+                                  Icon(
+                                    Icons.assignment,
+                                    size: 20,
+                                    color: Colors.black,
+                                  ),
                                   SizedBox(width: 8),
-                                  Text('Tarefas', style: TextStyle(color: Colors.black)),
+                                  Text(
+                                    'Tarefas',
+                                    style: TextStyle(color: Colors.black),
+                                  ),
                                 ],
                               ),
                             ),
@@ -714,7 +741,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                   card.icone,
                                   width: 24,
                                   height: 24,
-                                  color: _isScrolled ? Colors.black : Colors.white,
+                                  color: _isScrolled
+                                      ? Colors.black
+                                      : Colors.white,
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -723,7 +752,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
-                                      color: _isScrolled ? Colors.black : Colors.white,
+                                      color: _isScrolled
+                                          ? Colors.black
+                                          : Colors.white,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -738,20 +769,26 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                             Image.network(
                               card.imagem,
                               fit: BoxFit.cover,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Container(
-                                  color: Colors.grey[200],
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded /
-                                              loadingProgress.expectedTotalBytes!
-                                          : null,
-                                    ),
-                                  ),
-                                );
-                              },
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      color: Colors.grey[200],
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          value:
+                                              loadingProgress
+                                                      .expectedTotalBytes !=
+                                                  null
+                                              ? loadingProgress
+                                                        .cumulativeBytesLoaded /
+                                                    loadingProgress
+                                                        .expectedTotalBytes!
+                                              : null,
+                                        ),
+                                      ),
+                                    );
+                                  },
                             ),
                             Container(
                               decoration: BoxDecoration(
@@ -760,7 +797,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                   end: Alignment.topCenter,
                                   colors: [
                                     Colors.black.withOpacity(0.7),
-                                    Colors.transparent
+                                    Colors.transparent,
                                   ],
                                 ),
                               ),
@@ -780,7 +817,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
-                          child: _buildBotaoAdicionarTopico(card.topicos.isEmpty),
+                          child: _buildBotaoAdicionarTopico(
+                            card.topicos.isEmpty,
+                          ),
                         ),
                       ),
                       SliverList(
@@ -789,7 +828,10 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                           final isExpanded = _expandedTopicos.contains(index);
 
                           return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             child: Card(
                               elevation: 2,
                               shape: RoundedRectangleBorder(
@@ -801,23 +843,28 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                     leading: Container(
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: AppColors.azulClaro.withOpacity(0.1),
+                                        color: AppColors.azulClaro.withOpacity(
+                                          0.1,
+                                        ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
-                                      child: Icon(Icons.folder, color: AppColors.azulClaro),
+                                      child: Icon(
+                                        Icons.folder,
+                                        color: AppColors.azulClaro,
+                                      ),
                                     ),
                                     title: Text(
                                       topico.titulo,
-                                      style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: AppTextStyles.fonteUbuntuSans
+                                          .copyWith(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                     ),
                                     subtitle: Text(
                                       '${topico.materiais.length} materiais',
-                                      style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                        color: Colors.grey[600],
-                                      ),
+                                      style: AppTextStyles.fonteUbuntuSans
+                                          .copyWith(color: Colors.grey[600]),
                                     ),
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -857,7 +904,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                                   SizedBox(width: 8),
                                                   Text(
                                                     'Excluir',
-                                                    style: TextStyle(color: Colors.black),
+                                                    style: TextStyle(
+                                                      color: Colors.black,
+                                                    ),
                                                   ),
                                                 ],
                                               ),
@@ -866,7 +915,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                         ),
                                         const SizedBox(width: 8),
                                         Icon(
-                                          isExpanded ? Icons.expand_less : Icons.expand_more,
+                                          isExpanded
+                                              ? Icons.expand_less
+                                              : Icons.expand_more,
                                           color: AppColors.azulClaro,
                                         ),
                                       ],
@@ -877,8 +928,13 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                   if (isExpanded) ...[
                                     const Divider(height: 1),
                                     if (topico.materiais.isEmpty)
-                                      _buildEmptyMaterialState(topico.titulo, index),
-                                    ...topico.materiais.asMap().entries.map((entry) {
+                                      _buildEmptyMaterialState(
+                                        topico.titulo,
+                                        index,
+                                      ),
+                                    ...topico.materiais.asMap().entries.map((
+                                      entry,
+                                    ) {
                                       final materialIndex = entry.key;
                                       final material = entry.value;
                                       return _buildMaterialItem(
@@ -941,10 +997,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  flex: 3,
-                  child: _buildListaTopicos(card, false),
-                ),
+                Expanded(flex: 3, child: _buildListaTopicos(card, false)),
                 const SizedBox(width: 16),
                 Expanded(flex: 1, child: _buildSidebarTarefas(card)),
               ],
@@ -1353,8 +1406,16 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
 
     final now = DateTime.now();
     // Considerar hora no cálculo de pendentes e passadas
-    final pendentes = tarefas.where((t) => t.material.prazo!.isAfter(now) || t.material.prazo!.isAtSameMomentAs(now)).toList();
-    final passadas = tarefas.where((t) => t.material.prazo!.isBefore(now)).toList();
+    final pendentes = tarefas
+        .where(
+          (t) =>
+              t.material.prazo!.isAfter(now) ||
+              t.material.prazo!.isAtSameMomentAs(now),
+        )
+        .toList();
+    final passadas = tarefas
+        .where((t) => t.material.prazo!.isBefore(now))
+        .toList();
 
     return Container(
       margin: const EdgeInsets.only(top: 16, right: 16, bottom: 16),
@@ -1415,7 +1476,10 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                 itemCount: pendentes.length,
                                 itemBuilder: (context, index) {
                                   final tarefa = pendentes[index];
-                                  return _buildTarefaItem(tarefa.material, tarefa.topicoId);
+                                  return _buildTarefaItem(
+                                    tarefa.material,
+                                    tarefa.topicoId,
+                                  );
                                 },
                               ),
                             ),
@@ -1439,12 +1503,16 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                 itemCount: passadas.length,
                                 itemBuilder: (context, index) {
                                   final tarefa = passadas[index];
-                                  return _buildTarefaItem(tarefa.material, tarefa.topicoId);
+                                  return _buildTarefaItem(
+                                    tarefa.material,
+                                    tarefa.topicoId,
+                                  );
                                 },
                               ),
                             ),
                           ],
-                          if (pendentes.isEmpty && passadas.isEmpty) _buildEmptyTarefasState(),
+                          if (pendentes.isEmpty && passadas.isEmpty)
+                            _buildEmptyTarefasState(),
                         ],
                       ),
               ),
@@ -1503,21 +1571,27 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
   }
 
   Widget _buildTarefaItem(MaterialDisciplina tarefa, String topicoId) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: isMobile ? 6 : 8),
       child: Material(
         borderRadius: BorderRadius.circular(8),
         color: _getTarefaColor(tarefa.prazo!),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 8,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 10 : 12,
+            vertical: isMobile ? 8 : 10,
           ),
-          leading: Icon(Icons.assignment, color: Colors.white, size: 20),
+          leading: Icon(
+            Icons.assignment,
+            color: Colors.white,
+            size: isMobile ? 18 : 20,
+          ),
           title: Text(
             tarefa.titulo,
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: isMobile ? 13 : 14,
               color: Colors.white,
               fontWeight: FontWeight.bold,
             ),
@@ -1527,19 +1601,25 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 4),
+              SizedBox(height: isMobile ? 2 : 4),
               Text(
                 '${tarefa.prazo!.day}/${tarefa.prazo!.month}/${tarefa.prazo!.year}',
-                style: const TextStyle(fontSize: 12, color: Colors.white70),
+                style: TextStyle(
+                  fontSize: isMobile ? 11 : 12,
+                  color: Colors.white70,
+                ),
               ),
               if (tarefa.peso > 0)
                 Text(
                   'Peso: ${tarefa.peso}%',
-                  style: const TextStyle(fontSize: 11, color: Colors.white60),
+                  style: TextStyle(
+                    fontSize: isMobile ? 10 : 11,
+                    color: Colors.white60,
+                  ),
                 ),
             ],
           ),
-          dense: true,
+          dense: isMobile,
           onTap: () {
             Navigator.push(
               context,
@@ -1557,6 +1637,4 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
       ),
     );
   }
-
-
 }
