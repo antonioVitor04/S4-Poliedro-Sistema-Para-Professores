@@ -5,7 +5,14 @@ import 'dart:typed_data';
 import 'dart:convert' as convert;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'package:open_file/open_file.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:universal_html/html.dart' as html;
+
+// IMPORT CONDICIONAL CORRETO para web
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../../services/material_service.dart';
 import '../../../models/modelo_card_disciplina.dart';
@@ -75,11 +82,292 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
+  // NOVO: Método universal para download
+  Future<void> _downloadFileMobile(Uint8List bytes, String fileName, String mimeType) async {
+    try {
+      if (Platform.isAndroid) {
+        await _downloadAndroid(bytes, fileName, mimeType);
+      } else if (Platform.isIOS) {
+        await _downloadIOS(bytes, fileName, mimeType);
+      }
+    } catch (e) {
+      print('=== DEBUG ERRO download mobile: $e ===');
+      _showError('Erro ao salvar arquivo: $e');
+    }
+  }
+
+  // Método específico para Android
+  Future<void> _downloadAndroid(Uint8List bytes, String fileName, String mimeType) async {
+    try {
+      // Solicitar permissão (Android 10+)
+      final status = await Permission.storage.request();
+      if (!status.isGranted) {
+        _showError('Permissão de armazenamento necessária');
+        return;
+      }
+
+      // Para Android 10+, usar getExternalStorageDirectory
+      final directory = await getExternalStorageDirectory();
+      if (directory != null) {
+        final folder = Directory('${directory.path}/Download');
+        if (!await folder.exists()) {
+          await folder.create(recursive: true);
+        }
+        
+        final file = File('${folder.path}/$fileName');
+        await file.writeAsBytes(bytes);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Arquivo salvo em: Downloads/$fileName'),
+            backgroundColor: AppColors.verdeConfirmacao,
+          ),
+        );
+        
+        // Tentar abrir o arquivo
+        final result = await OpenFile.open(file.path);
+        if (result.type != ResultType.done) {
+          print('=== DEBUG: Não foi possível abrir o arquivo automaticamente ===');
+        }
+      } else {
+        _showError('Não foi possível acessar o armazenamento');
+      }
+    } catch (e) {
+      print('=== DEBUG ERRO Android download: $e ===');
+      _showError('Erro no Android: $e');
+    }
+  }
+
+  // Método específico para iOS
+  Future<void> _downloadIOS(Uint8List bytes, String fileName, String mimeType) async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsBytes(bytes);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Arquivo salvo com sucesso'),
+          backgroundColor: AppColors.verdeConfirmacao,
+        ),
+      );
+      
+      // Abrir o arquivo
+      final result = await OpenFile.open(file.path);
+      if (result.type != ResultType.done) {
+        print('=== DEBUG iOS: Resultado da abertura: $result ===');
+      }
+    } catch (e) {
+      print('=== DEBUG ERRO iOS download: $e ===');
+      _showError('Erro no iOS: $e');
+    }
+  }
+
+  // MÉTODOS ESPECÍFICOS PARA WEB (serão chamados apenas se kIsWeb for true)
+  void _downloadPdfWeb(Uint8List bytes, String fileName) {
+    if (!kIsWeb) return;
+    
+    
+    try {
+      final base64Pdf = convert.base64Encode(bytes);
+      final anchor =
+          html.AnchorElement(href: 'data:application/pdf;base64,$base64Pdf')
+            ..download = fileName
+            ..style.display = 'none';
+
+      html.document.body?.append(anchor);
+      anchor.click();
+      anchor.remove();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Download iniciado: $fileName'),
+          backgroundColor: AppColors.verdeConfirmacao,
+        ),
+      );
+    } catch (e) {
+      print('=== DEBUG ERRO download web: $e ===');
+      _showError('Erro ao fazer download');
+    }
+  }
+
+  void _downloadImageWeb(Uint8List? bytes, String? url, String fileName) {
+    if (!kIsWeb) return;
+    
+
+    
+    try {
+      if (bytes != null) {
+        final base64Image = convert.base64Encode(bytes);
+        final anchor =
+            html.AnchorElement(href: 'data:image/jpeg;base64,$base64Image')
+              ..download = fileName
+              ..style.display = 'none';
+
+        html.document.body?.append(anchor);
+        anchor.click();
+        anchor.remove();
+      } else if (url != null && url.isNotEmpty) {
+        final anchor = html.AnchorElement(href: url)
+          ..download = fileName
+          ..style.display = 'none';
+
+        html.document.body?.append(anchor);
+        anchor.click();
+        anchor.remove();
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Download iniciado: ${widget.material.titulo}'),
+          backgroundColor: AppColors.verdeConfirmacao,
+        ),
+      );
+    } catch (e) {
+      print('=== DEBUG ERRO download imagem web: $e ===');
+      _showError('Erro ao fazer download da imagem');
+    }
+  }
+
+  void _openPdfInNewTabWeb(Uint8List bytes) {
+    if (!kIsWeb) return;
+    
+
+    try {
+      final blob = html.Blob([bytes], 'application/pdf');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+
+      final anchor = html.AnchorElement(href: url)
+        ..target = '_blank'
+        ..rel = 'noopener noreferrer'
+        ..style.display = 'none';
+
+      html.document.body?.append(anchor);
+      anchor.click();
+
+      Future.delayed(Duration(seconds: 1), () {
+        anchor.remove();
+        html.Url.revokeObjectUrl(url);
+      });
+
+      print('=== DEBUG: PDF aberto com Blob URL ===');
+    } catch (e) {
+      print('=== DEBUG ERRO Blob URL: $e ===');
+      _tryAlternativePdfOpenWeb(bytes);
+    }
+  }
+
+  void _tryAlternativePdfOpenWeb(Uint8List bytes) {
+    if (!kIsWeb) return;
+    
+    try {
+      final base64Pdf = convert.base64Encode(bytes);
+      final pdfUrl = 'data:application/pdf;base64,$base64Pdf';
+      final window = html.window.open(pdfUrl, '_blank');
+      if (window == null) {
+        throw Exception('Popup bloqueado pelo navegador');
+      }
+    } catch (e2) {
+      print('=== DEBUG ERRO Data URL: $e2 ===');
+      _showOpenPdfDialogWeb(bytes);
+    }
+  }
+
+  void _showOpenPdfDialogWeb(Uint8List bytes) {
+    final corPrincipal = _getMaterialColor(widget.material.tipo);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Abrir PDF', style: AppTextStyles.fonteUbuntu),
+        content: Text(
+          'O navegador bloqueou a abertura automática do PDF. Clique no botão abaixo para abrir manualmente.',
+          style: AppTextStyles.fonteUbuntuSans,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancelar', style: AppTextStyles.fonteUbuntuSans),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: corPrincipal,
+              foregroundColor: AppColors.branco,
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              _forceOpenPdfWeb(bytes);
+            },
+            child: Text('Abrir PDF', style: AppTextStyles.fonteUbuntuSans),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _forceOpenPdfWeb(Uint8List bytes) {
+    if (!kIsWeb) return;
+
+    
+    try {
+      final base64Pdf = convert.base64Encode(bytes);
+      final pdfUrl = 'data:application/pdf;base64,$base64Pdf';
+      final anchor = html.AnchorElement(href: pdfUrl)
+        ..target = '_blank'
+        ..text = 'Abrir PDF'
+        ..style.position = 'absolute'
+        ..style.left = '0'
+        ..style.top = '0';
+
+      html.document.body?.append(anchor);
+      anchor.click();
+
+      Future.delayed(Duration(seconds: 2), () {
+        anchor.remove();
+      });
+    } catch (e) {
+      _showError(
+        'Não foi possível abrir o PDF. Faça o download e abra manualmente.',
+      );
+    }
+  }
+
+  void _openImageInNewTabWeb(Uint8List? bytes, String? url) {
+    if (!kIsWeb) return;
+
+    
+    try {
+      String imageUrl;
+      if (bytes != null) {
+        final base64Image = convert.base64Encode(bytes);
+        imageUrl = 'data:image/jpeg;base64,$base64Image';
+      } else if (url != null && url.isNotEmpty) {
+        imageUrl = url;
+      } else {
+        return;
+      }
+
+      final window = html.window.open(imageUrl, '_blank');
+      if (window == null) {
+        throw Exception('Popup bloqueado pelo navegador');
+      }
+    } catch (e) {
+      print('=== DEBUG ERRO abrir imagem web: $e ===');
+      _showError('Erro ao abrir imagem em nova aba');
+    }
+  }
+
+  void _openLinkInNewTabWeb(String url) {
+    if (!kIsWeb) return;
+
+    html.window.open(url, '_blank');
+  }
+
   Widget _buildPdfWeb(Uint8List bytes) {
     if (kIsWeb) {
       return _buildPdfIframe(bytes);
     } else {
-      return _buildPdfSyncfusion(bytes);
+      return _buildPdfMobile(bytes);
     }
   }
 
@@ -90,9 +378,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       final base64Pdf = convert.base64Encode(bytes);
       final pdfDataUrl = 'data:application/pdf;base64,$base64Pdf';
 
-      final corIcone = _getMaterialColor(
-        widget.material.tipo,
-      ); // Cor do ícone (vermelho para PDF)
+      final corIcone = _getMaterialColor(widget.material.tipo);
       final tipoDisplay = _getTipoNome(widget.material.tipo);
       final downloadText = widget.material.tipo == 'atividade'
           ? 'Fazer Download da Atividade'
@@ -128,7 +414,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         icon: Icon(
                           Icons.open_in_new,
                           size: 20,
-                          color: AppColors.azulClaro, // Ícone vermelho para PDF
+                          color: AppColors.azulClaro,
                         ),
                         onPressed: () => _openPdfInNewTab(bytes),
                         tooltip: 'Abrir em nova aba',
@@ -137,7 +423,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         icon: Icon(
                           Icons.download,
                           size: 20,
-                          color: AppColors.azulClaro, // Ícone vermelho para PDF
+                          color: AppColors.azulClaro,
                         ),
                         onPressed: () => _downloadPdf(bytes),
                         tooltip: 'Fazer download',
@@ -155,7 +441,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                     Icon(
                       _getMaterialIconData(widget.material.tipo),
                       size: 64,
-                      color: corIcone, // Ícone vermelho para PDF
+                      color: corIcone,
                     ),
                     SizedBox(height: 16),
                     Text(
@@ -176,15 +462,14 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                     SizedBox(height: 24),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            AppColors.azulClaro, // Botão azul claro
+                        backgroundColor: AppColors.azulClaro,
                         foregroundColor: AppColors.branco,
                       ),
                       onPressed: () => _openPdfInNewTab(bytes),
                       icon: Icon(
                         Icons.open_in_new,
                         color: AppColors.branco,
-                      ), // Ícone vermelho
+                      ),
                       label: Text(
                         openText,
                         style: AppTextStyles.fonteUbuntuSans,
@@ -193,15 +478,14 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                     SizedBox(height: 12),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor:
-                            AppColors.azulClaro, // Botão azul claro
+                        foregroundColor: AppColors.azulClaro,
                         side: BorderSide(color: AppColors.azulClaro),
                       ),
                       onPressed: () => _downloadPdf(bytes),
                       icon: Icon(
                         Icons.download,
                         color: AppColors.azulClaro,
-                      ), // Ícone vermelho
+                      ),
                       label: Text(
                         downloadText,
                         style: AppTextStyles.fonteUbuntuSans,
@@ -220,270 +504,166 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
-  Widget _buildPdfSyncfusion(Uint8List bytes) {
+  // NOVO: Widget para PDF no mobile
+  Widget _buildPdfMobile(Uint8List bytes) {
+    final corIcone = _getMaterialColor(widget.material.tipo);
+    final tipoDisplay = _getTipoNome(widget.material.tipo);
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
-      child: SfPdfViewer.memory(
-        bytes,
-        key: Key('pdf_${widget.material.id}'),
-        canShowScrollHead: true,
-        canShowScrollStatus: true,
-        onDocumentLoaded: (PdfDocumentLoadedDetails details) {
-          print(
-            '=== DEBUG PDF Syncfusion: Documento carregado com ${details.document.pages.count} páginas ===',
-          );
-        },
-        onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
-          print('=== DEBUG PDF Syncfusion: Falha - ${details.error} ===');
-        },
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
       ),
-    );
-  }
-
-  Widget _buildPdfFallback(Uint8List bytes, [String? reason]) {
-    final corIcone = _getMaterialColor(
-      widget.material.tipo,
-    ); // Cor do ícone (vermelho para PDF)
-    final tipoDisplay = _getTipoNome(widget.material.tipo);
-    final downloadText = widget.material.tipo == 'atividade'
-        ? 'Fazer Download da Atividade'
-        : 'Fazer Download';
-    final openText = widget.material.tipo == 'atividade'
-        ? 'Abrir Atividade em Nova Aba'
-        : 'Abrir em Nova Aba';
-
-    return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            _getMaterialIconData(widget.material.tipo),
-            size: 64,
-            color: corIcone, // Ícone vermelho para PDF
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Visualizador de $tipoDisplay',
-            style: AppTextStyles.fonteUbuntu.copyWith(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+          Container(
+            padding: EdgeInsets.all(isMobile ? 12 : 16),
+            color: Colors.grey[100],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    '$tipoDisplay: ${widget.material.titulo}',
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: isMobile ? 14 : 16,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 8),
-          Text(
-            'Use os botões abaixo para visualizar o $tipoDisplay',
-            style: AppTextStyles.fonteUbuntuSans.copyWith(
-              fontSize: 16,
-              color: Colors.grey[600],
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _getMaterialIconData(widget.material.tipo),
+                    size: isMobile ? 48 : 64,
+                    color: corIcone,
+                  ),
+                  SizedBox(height: isMobile ? 12 : 16),
+                  Text(
+                    '$tipoDisplay disponível',
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: isMobile ? 16 : 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: isMobile ? 6 : 8),
+                  Text(
+                    'Tamanho: ${(bytes.length / 1024).toStringAsFixed(1)} KB',
+                    style: AppTextStyles.fonteUbuntuSans.copyWith(
+                      color: Colors.grey,
+                      fontSize: isMobile ? 12 : 14,
+                    ),
+                  ),
+                  SizedBox(height: isMobile ? 20 : 24),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.azulClaro,
+                      foregroundColor: AppColors.branco,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 16 : 20,
+                        vertical: isMobile ? 12 : 16,
+                      ),
+                    ),
+                    onPressed: () => _downloadPdf(bytes),
+                    icon: Icon(
+                      Icons.download, 
+                      size: isMobile ? 18 : 20,
+                      color: AppColors.branco,
+                    ),
+                    label: Text(
+                      'Baixar e Abrir',
+                      style: AppTextStyles.fonteUbuntuSans.copyWith(
+                        fontSize: isMobile ? 14 : 16,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: isMobile ? 10 : 12),
+                  if (widget.material.tipo == 'atividade')
+                    Text(
+                      'A atividade será salva e aberta automaticamente',
+                      style: AppTextStyles.fonteUbuntuSans.copyWith(
+                        color: Colors.grey,
+                        fontSize: isMobile ? 12 : 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                ],
+              ),
             ),
-          ),
-          SizedBox(height: 24),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.azulClaro, // Botão azul claro
-              foregroundColor: AppColors.branco,
-            ),
-            onPressed: () => _openPdfInNewTab(bytes),
-            icon: Icon(Icons.open_in_new, color: AppColors.branco), // Ícone vermelho
-            label: Text(openText, style: AppTextStyles.fonteUbuntuSans),
-          ),
-          SizedBox(height: 12),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.azulClaro, // Botão azul claro
-              side: BorderSide(color: AppColors.azulClaro),
-            ),
-            onPressed: () => _downloadPdf(bytes),
-            icon: Icon(Icons.download, color: AppColors.azulClaro), // Ícone vermelho
-            label: Text(downloadText, style: AppTextStyles.fonteUbuntuSans),
           ),
         ],
       ),
     );
   }
 
+  // MÉTODOS PRINCIPAIS QUE CHAMAM AS VERSÕES WEB/MOBILE
   void _downloadPdf(Uint8List bytes) {
+    final fileName = '${_sanitizeFileName(widget.material.titulo)}.pdf';
+    
     if (kIsWeb) {
-      try {
-        final base64Pdf = convert.base64Encode(bytes);
-        final anchor =
-            html.AnchorElement(href: 'data:application/pdf;base64,$base64Pdf')
-              ..download = '${_sanitizeFileName(widget.material.titulo)}.pdf'
-              ..style.display = 'none';
-
-        html.document.body?.append(anchor);
-        anchor.click();
-        anchor.remove();
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Download iniciado: ${widget.material.titulo}.pdf'),
-            backgroundColor: AppColors.verdeConfirmacao,
-          ),
-        );
-      } catch (e) {
-        print('=== DEBUG ERRO download: $e ===');
-        _showError('Erro ao fazer download');
-      }
+      _downloadPdfWeb(bytes, fileName);
+    } else {
+      _downloadFileMobile(bytes, fileName, 'application/pdf');
     }
   }
 
   void _downloadImage(Uint8List? bytes, String? url) {
+    final fileName = '${_sanitizeFileName(widget.material.titulo)}.jpg';
+    
     if (kIsWeb) {
-      try {
-        if (bytes != null) {
-          final base64Image = convert.base64Encode(bytes);
-          final anchor =
-              html.AnchorElement(href: 'data:image/jpeg;base64,$base64Image')
-                ..download = '${_sanitizeFileName(widget.material.titulo)}.jpg'
-                ..style.display = 'none';
+      _downloadImageWeb(bytes, url, fileName);
+    } else if (bytes != null) {
+      _downloadFileMobile(bytes, fileName, 'image/jpeg');
+    } else {
+      _showError('Imagem não disponível para download');
+    }
+  }
 
-          html.document.body?.append(anchor);
-          anchor.click();
-          anchor.remove();
-        } else if (url != null && url.isNotEmpty) {
-          final anchor = html.AnchorElement(href: url)
-            ..download = '${_sanitizeFileName(widget.material.titulo)}.jpg'
-            ..style.display = 'none';
-
-          html.document.body?.append(anchor);
-          anchor.click();
-          anchor.remove();
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Download iniciado: ${widget.material.titulo}'),
-            backgroundColor: AppColors.verdeConfirmacao,
-          ),
-        );
-      } catch (e) {
-        print('=== DEBUG ERRO download imagem: $e ===');
-        _showError('Erro ao fazer download da imagem');
-      }
+  void _openPdfInNewTab(Uint8List bytes) {
+    if (kIsWeb) {
+      _openPdfInNewTabWeb(bytes);
+    } else {
+      // No mobile, fazer download
+      _downloadPdf(bytes);
     }
   }
 
   void _openImageInNewTab(Uint8List? bytes, String? url) {
     if (kIsWeb) {
-      try {
-        String imageUrl;
-        if (bytes != null) {
-          final base64Image = convert.base64Encode(bytes);
-          imageUrl = 'data:image/jpeg;base64,$base64Image';
-        } else if (url != null && url.isNotEmpty) {
-          imageUrl = url;
-        } else {
-          return;
-        }
-
-        final window = html.window.open(imageUrl, '_blank');
-        if (window == null) {
-          throw Exception('Popup bloqueado pelo navegador');
-        }
-      } catch (e) {
-        print('=== DEBUG ERRO abrir imagem: $e ===');
-        _showError('Erro ao abrir imagem em nova aba');
+      _openImageInNewTabWeb(bytes, url);
+    } else {
+      // No mobile, fazer download
+      if (bytes != null) {
+        _downloadImage(bytes, url);
       }
     }
   }
 
+  void _openLinkInNewTab(String url) {
+    if (kIsWeb) {
+      _openLinkInNewTabWeb(url);
+    } else {
+      // No mobile, mostrar mensagem
+      _showError('Funcionalidade disponível apenas na versão web');
+    }
+  }
+
+  // ... (o resto do código permanece igual - métodos auxiliares, build, etc.)
+
+  // MÉTODOS AUXILIARES (mantenha os mesmos do código anterior)
   String _sanitizeFileName(String name) {
     return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-  }
-
-  void _openPdfInNewTab(Uint8List bytes) {
-    if (kIsWeb) {
-      try {
-        final blob = html.Blob([bytes], 'application/pdf');
-        final url = html.Url.createObjectUrlFromBlob(blob);
-
-        final anchor = html.AnchorElement(href: url)
-          ..target = '_blank'
-          ..rel = 'noopener noreferrer'
-          ..style.display = 'none';
-
-        html.document.body?.append(anchor);
-        anchor.click();
-
-        Future.delayed(Duration(seconds: 1), () {
-          anchor.remove();
-          html.Url.revokeObjectUrl(url);
-        });
-
-        print('=== DEBUG: PDF aberto com Blob URL ===');
-      } catch (e) {
-        print('=== DEBUG ERRO Blob URL: $e ===');
-        try {
-          final base64Pdf = convert.base64Encode(bytes);
-          final pdfUrl = 'data:application/pdf;base64,$base64Pdf';
-          final window = html.window.open(pdfUrl, '_blank');
-          if (window == null) {
-            throw Exception('Popup bloqueado pelo navegador');
-          }
-        } catch (e2) {
-          print('=== DEBUG ERRO Data URL: $e2 ===');
-          _showOpenPdfDialog(bytes);
-        }
-      }
-    }
-  }
-
-  void _showOpenPdfDialog(Uint8List bytes) {
-    // Use cor dinâmica baseada no tipo
-    final corPrincipal = _getMaterialColor(widget.material.tipo);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Abrir PDF', style: AppTextStyles.fonteUbuntu),
-        content: Text(
-          'O navegador bloqueou a abertura automática do PDF. Clique no botão abaixo para abrir manualmente.',
-          style: AppTextStyles.fonteUbuntuSans,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar', style: AppTextStyles.fonteUbuntuSans),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: corPrincipal,
-              foregroundColor: AppColors.branco,
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              _forceOpenPdf(bytes);
-            },
-            child: Text('Abrir PDF', style: AppTextStyles.fonteUbuntuSans),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _forceOpenPdf(Uint8List bytes) {
-    try {
-      final base64Pdf = convert.base64Encode(bytes);
-      final pdfUrl = 'data:application/pdf;base64,$base64Pdf';
-      final anchor = html.AnchorElement(href: pdfUrl)
-        ..target = '_blank'
-        ..text = 'Abrir PDF'
-        ..style.position = 'absolute'
-        ..style.left = '0'
-        ..style.top = '0';
-
-      html.document.body?.append(anchor);
-      anchor.click();
-
-      Future.delayed(Duration(seconds: 2), () {
-        anchor.remove();
-      });
-    } catch (e) {
-      _showError(
-        'Não foi possível abrir o PDF. Faça o download e abra manualmente.',
-      );
-    }
   }
 
   void _showError(String message) {
@@ -496,16 +676,22 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   }
 
   Widget _buildErrorWidget(String message) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 64, color: AppColors.vermelhoErro),
-          SizedBox(height: 16),
+          Icon(
+            Icons.error_outline, 
+            size: isMobile ? 48 : 64, 
+            color: AppColors.vermelhoErro
+          ),
+          SizedBox(height: isMobile ? 12 : 16),
           Text(
             message,
             style: AppTextStyles.fonteUbuntuSans.copyWith(
-              fontSize: 18,
+              fontSize: isMobile ? 16 : 18,
               color: AppColors.vermelhoErro,
             ),
             textAlign: TextAlign.center,
@@ -515,436 +701,264 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     );
   }
 
-  // Método principal de construção de conteúdo
-  Widget _buildConteudoMaterial(BuildContext context, Uint8List? bytes) {
-    print(
-      '=== DEBUG Conteúdo: Tipo=${widget.material.tipo}, URL=${widget.material.url}, Bytes=${bytes?.length} ===',
-    );
+  // ... (continue com todos os outros métodos: _buildConteudoMaterial, _buildImageContainer, etc.)
 
-    switch (widget.material.tipo) {
-      case 'imagem':
-        return _buildImageContainer(bytes, widget.material.url);
-
-      case 'pdf':
-        print('=== DEBUG: Renderizando PDF - Bytes: ${bytes?.length} ===');
-        if (bytes == null || bytes.isEmpty) {
-          return _buildErrorWidget('PDF não disponível');
-        }
-        return FutureBuilder<bool>(
-          future: _isPdfValid(bytes),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasData == true) {
-              return _buildPdfWeb(bytes);
-            } else {
-              return _buildPdfFallback(bytes);
-            }
-          },
-        );
-
-      case 'link':
-        print('=== DEBUG: Renderizando link ===');
-        return _buildLinkContainer(widget.material.url);
-
-      case 'atividade':
-        print('=== DEBUG: Renderizando atividade ===');
-        return _buildAtividadeContainer(bytes);
-
-      default:
-        return Center(
+  // MÉTODO BUILD (mantenha igual)
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    
+    try {
+      return Scaffold(
+        backgroundColor: AppColors.branco,
+        appBar: AppBar(
+          title: Text(
+            widget.material.titulo,
+            style: AppTextStyles.fonteUbuntu.copyWith(
+              color: AppColors.branco,
+              fontSize: isMobile ? 16 : 18,
+            ),
+          ),
+          backgroundColor: AppColors.azulClaro,
+          foregroundColor: AppColors.branco,
+          actions: [],
+        ),
+        body: Padding(
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.insert_drive_file, size: 64, color: Colors.grey),
-              SizedBox(height: 16),
-              Text(
-                'Tipo de material não suportado: ${widget.material.tipo}',
-                style: AppTextStyles.fonteUbuntuSans.copyWith(
-                  fontSize: 18,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        );
-    }
-  }
-
-  Widget _buildImageContainer(Uint8List? bytes, String? url) {
-    Widget imageWidget;
-    if (url != null && url.isNotEmpty) {
-      print('=== DEBUG: Carregando imagem de URL ===');
-      imageWidget = Image.network(
-        url,
-        fit: BoxFit.contain,
-        height: MediaQuery.of(context).size.height * 0.4,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return const Center(
-            child: CircularProgressIndicator(color: AppColors.azulClaro),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) {
-          print('=== DEBUG ERRO imagem URL: $error ===');
-          return Text(
-            'Erro na imagem',
-            style: AppTextStyles.fonteUbuntuSans.copyWith(
-              color: AppColors.vermelhoErro,
-            ),
-          );
-        },
-      );
-    } else if (bytes != null) {
-      print('=== DEBUG: Carregando imagem de bytes ===');
-      imageWidget = Image.memory(
-        bytes,
-        fit: BoxFit.contain,
-        height: MediaQuery.of(context).size.height * 0.4,
-        errorBuilder: (context, error, stackTrace) {
-          print('=== DEBUG ERRO imagem memory: $error ===');
-          return Text(
-            'Erro na imagem de memória',
-            style: AppTextStyles.fonteUbuntuSans.copyWith(
-              color: AppColors.vermelhoErro,
-            ),
-          );
-        },
-      );
-    } else {
-      print('=== DEBUG: Sem imagem disponível ===');
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
-          SizedBox(height: 16),
-          Text(
-            'Imagem não disponível',
-            style: AppTextStyles.fonteUbuntuSans.copyWith(
-              fontSize: 18,
-              color: Colors.grey,
-            ),
-          ),
-        ],
-      );
-    }
-
-    final corIcone = _getMaterialColor(
-      widget.material.tipo,
-    ); // Cor do ícone baseada no tipo
-
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.all(8),
-            color: Colors.grey[100],
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Imagem: ${widget.material.titulo}',
-                  style: AppTextStyles.fonteUbuntu.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.download, size: 20, color: AppColors.azulClaro),
-                      onPressed: () => _downloadImage(bytes, url),
-                      tooltip: 'Fazer download',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              child: Material(
-                elevation: 4,
-                borderRadius: BorderRadius.circular(12),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: imageWidget,
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.azulClaro, // Cor do botão
-                side: BorderSide(color: AppColors.azulClaro),
-              ),
-              onPressed: () => _downloadImage(bytes, url),
-              icon: Icon(
-                Icons.download,
-                color: AppColors.azulClaro,
-              ), // Ícone com cor do material
-              label: Text(
-                'Fazer Download',
-                style: AppTextStyles.fonteUbuntuSans,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLinkContainer(String? url) {
-    if (url == null || url.isEmpty) {
-      return Text(
-        'URL não disponível',
-        style: AppTextStyles.fonteUbuntuSans.copyWith(
-          color: AppColors.vermelhoErro,
-        ),
-      );
-    }
-
-    final corIcone = _getMaterialColor(
-      widget.material.tipo,
-    ); // Cor do ícone (azul claro para links)
-
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.all(8),
-            color: Colors.grey[100],
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Link: ${widget.material.titulo}',
-                  style: AppTextStyles.fonteUbuntu.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.open_in_new, size: 20, color: AppColors.azulClaro),
-                      onPressed: () => _openLinkInNewTab(url),
-                      tooltip: 'Abrir em nova aba',
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.copy, size: 20, color: AppColors.azulClaro),
-                      onPressed: () => _copyLink(url),
-                      tooltip: 'Copiar link',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.link, size: 64, color: corIcone),
-                  SizedBox(height: 16),
-                  Text(
-                    'Link Externo',
-                    style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 20),
-                  ),
-                  SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: SelectableText(
-                      url,
-                      style: AppTextStyles.fonteUbuntuSans.copyWith(
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.azulClaro, // Botão azul claro
-                      foregroundColor: AppColors.branco,
-                    ),
-                    onPressed: () => _openLinkInNewTab(url),
-                    icon: Icon(Icons.open_in_new, color: AppColors.branco),
-                    label: Text(
-                      'Abrir Link',
-                      style: AppTextStyles.fonteUbuntuSans,
-                    ),
-                  ),
-                  SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.azulClaro, // Botão azul claro
-                      side: BorderSide(color: AppColors.azulClaro),
-                    ),
-                    onPressed: () => _copyLink(url),
-                    icon: Icon(Icons.copy, color: AppColors.azulClaro),
-                    label: Text(
-                      'Copiar Link',
-                      style: AppTextStyles.fonteUbuntuSans,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _openLinkInNewTab(String url) {
-    if (kIsWeb) {
-      html.window.open(url, '_blank');
-    }
-  }
-
-  void _copyLink(String url) async {
-    await Clipboard.setData(ClipboardData(text: url));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Link copiado para a área de transferência',
-          style: AppTextStyles.fonteUbuntuSans,
-        ),
-        backgroundColor: AppColors.verdeConfirmacao,
-      ),
-    );
-  }
-
-  Widget _buildAtividadeContainer(Uint8List? bytes) {
-    bool isPastDue =
-        widget.material.prazo != null &&
-        widget.material.prazo!.isBefore(DateTime.now());
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.all(8),
-            color: Colors.grey[100],
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Atividade: ${widget.material.titulo}',
-                  style: AppTextStyles.fonteUbuntu.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Título: ${widget.material.titulo}',
-                      style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 18),
-                    ),
-                    if (widget.material.descricao != null) ...[
-                      const SizedBox(height: 16),
+              Card(
+                color: Colors.blue[50],
+                child: Padding(
+                  padding: EdgeInsets.all(isMobile ? 12 : 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        'Descrição: ${widget.material.descricao!}',
+                        'Tópico: ${widget.topicoTitulo}',
                         style: AppTextStyles.fonteUbuntuSans.copyWith(
-                          fontSize: 16,
+                          color: Colors.grey,
+                          fontSize: isMobile ? 12 : 14,
                         ),
-                        textAlign: TextAlign.center,
                       ),
-                    ],
-                    if (widget.material.prazo != null) ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: isMobile ? 6 : 8),
+                      Text(
+                        widget.material.titulo,
+                        style: AppTextStyles.fonteUbuntu.copyWith(
+                          fontSize: isMobile ? 20 : 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (widget.material.descricao != null) ...[
+                        SizedBox(height: isMobile ? 8 : 12),
+                        Text(
+                          widget.material.descricao!,
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: isMobile ? 14 : 16,
+                          ),
+                        ),
+                      ],
+                      if (widget.material.prazo != null) ...[
+                        SizedBox(height: isMobile ? 8 : 12),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.access_time,
+                              color: widget.material.prazo!.isBefore(DateTime.now())
+                                  ? AppColors.vermelhoErro
+                                  : AppColors.vermelho,
+                              size: isMobile ? 16 : 18,
+                            ),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                widget.material.prazo!.isBefore(DateTime.now())
+                                    ? 'Prazo Expirado: ${_formatarData(widget.material.prazo!)}'
+                                    : 'Prazo: ${_formatarData(widget.material.prazo!)}',
+                                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                  color: widget.material.prazo!.isBefore(DateTime.now())
+                                      ? AppColors.vermelhoErro
+                                      : AppColors.vermelho,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: isMobile ? 14 : 16,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (widget.material.peso > 0) ...[
+                        SizedBox(height: isMobile ? 6 : 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.assessment,
+                              color: AppColors.azulClaro,
+                              size: isMobile ? 16 : 18,
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              'Peso: ${widget.material.peso}%',
+                              style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                color: AppColors.azulClaro,
+                                fontWeight: FontWeight.bold,
+                                fontSize: isMobile ? 14 : 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      SizedBox(height: isMobile ? 6 : 8),
                       Row(
                         children: [
                           Icon(
-                            Icons.access_time,
-                            size: 16,
-                            color: isPastDue
-                                ? AppColors.vermelhoErro
-                                : AppColors.azulClaro,
+                            _getMaterialIconData(widget.material.tipo),
+                            color: _getMaterialColor(widget.material.tipo),
+                            size: isMobile ? 16 : 18,
                           ),
-                          SizedBox(width: 4),
+                          SizedBox(width: 6),
                           Text(
-                            isPastDue
-                                ? 'Prazo Expirado: ${_formatarData(widget.material.prazo!)}'
-                                : 'Prazo: ${_formatarData(widget.material.prazo!)}',
+                            _getTipoNome(widget.material.tipo),
                             style: AppTextStyles.fonteUbuntuSans.copyWith(
-                              fontSize: 16,
-                              color: isPastDue
-                                  ? AppColors.vermelhoErro
-                                  : AppColors.azulClaro,
-                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[600],
+                              fontSize: isMobile ? 14 : 16,
                             ),
                           ),
                         ],
                       ),
                     ],
-                    if (bytes != null && bytes.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      Text(
-                        'Arquivo Anexado:',
-                        style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      FutureBuilder<bool>(
-                        future: _isPdfValid(bytes),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return Center(child: CircularProgressIndicator());
-                          }
-                          if (snapshot.hasData == true) {
-                            return _buildPdfWeb(bytes);
-                          } else {
-                            return _buildPdfFallback(bytes);
-                          }
-                        },
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
-            ),
+              SizedBox(height: isMobile ? 12 : 16),
+              Expanded(
+                child: FutureBuilder<Uint8List?>(
+                  future: _fileBytesFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppColors.azulClaro,
+                              ),
+                            ),
+                            SizedBox(height: isMobile ? 12 : 16),
+                            Text(
+                              'Carregando material...',
+                              style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                fontSize: isMobile ? 14 : 16,
+                                color: AppColors.azulClaro,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error,
+                              size: isMobile ? 48 : 64,
+                              color: AppColors.vermelhoErro,
+                            ),
+                            SizedBox(height: isMobile ? 12 : 16),
+                            Text(
+                              'Erro ao carregar arquivo',
+                              style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                fontSize: isMobile ? 16 : 18,
+                                color: AppColors.vermelhoErro,
+                              ),
+                            ),
+                            SizedBox(height: isMobile ? 8 : 12),
+                            Text(
+                              '${snapshot.error}',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: isMobile ? 12 : 14,
+                              ),
+                            ),
+                            SizedBox(height: isMobile ? 16 : 20),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.azulClaro,
+                                foregroundColor: AppColors.branco,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isMobile ? 16 : 20,
+                                  vertical: isMobile ? 12 : 16,
+                                ),
+                              ),
+                              onPressed: () => setState(() {
+                                _fileBytesFuture = MaterialService.getFileBytes(
+                                  slug: widget.slug,
+                                  topicoId: widget.topicoId,
+                                  materialId: widget.material.id,
+                                );
+                              }),
+                              child: Text(
+                                'Tentar Novamente',
+                                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                  fontSize: isMobile ? 14 : 16,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    final bytes = snapshot.data;
+                    return _buildConteudoMaterial(context, bytes);
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    } catch (e, stackTrace) {
+      print('=== DEBUG ERRO GLOBAL no BUILD: $e\nStack: $stackTrace ===');
+      return Scaffold(
+        backgroundColor: Colors.red[50],
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.bug_report, 
+                size: isMobile ? 48 : 64, 
+                color: AppColors.vermelhoErro
+              ),
+              SizedBox(height: isMobile ? 12 : 16),
+              Text(
+                'Erro crítico',
+                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                  fontSize: isMobile ? 16 : 18,
+                  color: AppColors.vermelhoErro,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Recarregue a página',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: isMobile ? 12 : 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
+  // ... (mantenha todos os outros métodos auxiliares: _formatarData, _getMaterialColor, etc.)
   String _formatarData(DateTime data) {
     return '${data.day}/${data.month}/${data.year} às ${data.hour}:${data.minute.toString().padLeft(2, '0')}';
   }
@@ -994,226 +1008,571 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    try {
-      return Scaffold(
-        backgroundColor: AppColors.branco,
-        appBar: AppBar(
-          title: Text(
-            widget.material.titulo,
-            style: AppTextStyles.fonteUbuntu.copyWith(color: AppColors.branco),
-          ),
-          backgroundColor: AppColors.azulClaro,
-          foregroundColor: AppColors.branco,
-          actions: [],
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Card(
-                color: Colors.blue[50],
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Tópico: ${widget.topicoTitulo}',
-                        style: AppTextStyles.fonteUbuntuSans.copyWith(
-                          color: Colors.grey,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        widget.material.titulo,
-                        style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (widget.material.descricao != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          widget.material.descricao!,
-                          style: AppTextStyles.fonteUbuntuSans.copyWith(
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                      if (widget.material.prazo != null) ...[
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.access_time,
-                              color:
-                                  widget.material.prazo!.isBefore(
-                                    DateTime.now(),
-                                  )
-                                  ? AppColors.vermelhoErro
-                                  : AppColors.vermelho,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              widget.material.prazo!.isBefore(DateTime.now())
-                                  ? 'Prazo Expirado: ${_formatarData(widget.material.prazo!)}'
-                                  : 'Prazo: ${_formatarData(widget.material.prazo!)}',
-                              style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                color:
-                                    widget.material.prazo!.isBefore(
-                                      DateTime.now(),
-                                    )
-                                    ? AppColors.vermelhoErro
-                                    : AppColors.vermelho,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      if (widget.material.peso > 0) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.assessment,
-                              color: AppColors.azulClaro,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Peso: ${widget.material.peso}%',
-                              style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                color: AppColors.azulClaro,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(
-                            _getMaterialIconData(widget.material.tipo),
-                            color: _getMaterialColor(widget.material.tipo),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _getTipoNome(widget.material.tipo),
-                            style: AppTextStyles.fonteUbuntuSans.copyWith(
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: FutureBuilder<Uint8List?>(
-                  future: _fileBytesFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                AppColors.azulClaro,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Carregando material...',
-                              style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                fontSize: 16,
-                                color: AppColors.azulClaro,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.error,
-                              size: 64,
-                              color: AppColors.vermelhoErro,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Erro ao carregar arquivo: ${snapshot.error}',
-                              style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                fontSize: 16,
-                                color: AppColors.vermelhoErro,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.azulClaro,
-                                foregroundColor: AppColors.branco,
-                              ),
-                              onPressed: () => setState(() {
-                                _fileBytesFuture = MaterialService.getFileBytes(
-                                  slug: widget.slug,
-                                  topicoId: widget.topicoId,
-                                  materialId: widget.material.id,
-                                );
-                              }),
-                              child: Text(
-                                'Tentar Novamente',
-                                style: AppTextStyles.fonteUbuntuSans,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    final bytes = snapshot.data;
-                    return _buildConteudoMaterial(context, bytes);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    } catch (e, stackTrace) {
-      print('=== DEBUG ERRO GLOBAL no BUILD: $e\nStack: $stackTrace ===');
-      return Scaffold(
-        backgroundColor: Colors.red[50],
-        body: Center(
+  // ... (mantenha _buildConteudoMaterial, _buildImageContainer, _buildLinkContainer, _buildAtividadeContainer)
+  Widget _buildConteudoMaterial(BuildContext context, Uint8List? bytes) {
+    print(
+      '=== DEBUG Conteúdo: Tipo=${widget.material.tipo}, URL=${widget.material.url}, Bytes=${bytes?.length} ===',
+    );
+
+    switch (widget.material.tipo) {
+      case 'imagem':
+        return _buildImageContainer(bytes, widget.material.url);
+
+      case 'pdf':
+        print('=== DEBUG: Renderizando PDF - Bytes: ${bytes?.length} ===');
+        if (bytes == null || bytes.isEmpty) {
+          return _buildErrorWidget('PDF não disponível');
+        }
+        return FutureBuilder<bool>(
+          future: _isPdfValid(bytes),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasData == true && snapshot.data!) {
+              return _buildPdfWeb(bytes);
+            } else {
+              return _buildPdfFallback(bytes, 'PDF inválido ou corrompido');
+            }
+          },
+        );
+
+      case 'link':
+        print('=== DEBUG: Renderizando link ===');
+        return _buildLinkContainer(widget.material.url);
+
+      case 'atividade':
+        print('=== DEBUG: Renderizando atividade ===');
+        return _buildAtividadeContainer(bytes);
+
+      default:
+        return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.bug_report, size: 64, color: AppColors.vermelhoErro),
-              const SizedBox(height: 16),
+              Icon(Icons.insert_drive_file, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
               Text(
-                'Erro crítico: $e',
+                'Tipo de material não suportado: ${widget.material.tipo}',
                 style: AppTextStyles.fonteUbuntuSans.copyWith(
                   fontSize: 18,
-                  color: AppColors.vermelhoErro,
+                  color: Colors.grey,
                 ),
               ),
             ],
           ),
-        ),
+        );
+    }
+  }
+
+  Widget _buildImageContainer(Uint8List? bytes, String? url) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    
+    Widget imageWidget;
+    if (url != null && url.isNotEmpty) {
+      print('=== DEBUG: Carregando imagem de URL ===');
+      imageWidget = Image.network(
+        url,
+        fit: BoxFit.contain,
+        height: isMobile ? 
+          MediaQuery.of(context).size.height * 0.3 : 
+          MediaQuery.of(context).size.height * 0.4,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.azulClaro),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          print('=== DEBUG ERRO imagem URL: $error ===');
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.broken_image, size: 48, color: Colors.grey),
+              SizedBox(height: 8),
+              Text(
+                'Erro ao carregar imagem',
+                style: TextStyle(color: AppColors.vermelhoErro),
+              ),
+            ],
+          );
+        },
+      );
+    } else if (bytes != null) {
+      print('=== DEBUG: Carregando imagem de bytes ===');
+      imageWidget = Image.memory(
+        bytes,
+        fit: BoxFit.contain,
+        height: isMobile ? 
+          MediaQuery.of(context).size.height * 0.3 : 
+          MediaQuery.of(context).size.height * 0.4,
+        errorBuilder: (context, error, stackTrace) {
+          print('=== DEBUG ERRO imagem memory: $error ===');
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.broken_image, size: 48, color: Colors.grey),
+              SizedBox(height: 8),
+              Text(
+                'Erro na imagem',
+                style: TextStyle(color: AppColors.vermelhoErro),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      print('=== DEBUG: Sem imagem disponível ===');
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
+          Text(
+            'Imagem não disponível',
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              fontSize: 18,
+              color: Colors.grey,
+            ),
+          ),
+        ],
       );
     }
+
+    final corIcone = _getMaterialColor(widget.material.tipo);
+
+    return Container(
+      height: isMobile ? 
+        MediaQuery.of(context).size.height * 0.6 : 
+        MediaQuery.of(context).size.height * 0.7,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(isMobile ? 10 : 12),
+            color: Colors.grey[100],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Imagem: ${widget.material.titulo}',
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: isMobile ? 14 : 16,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (!isMobile)
+                  IconButton(
+                    icon: Icon(Icons.download, size: 20, color: AppColors.azulClaro),
+                    onPressed: () => _downloadImage(bytes, url),
+                    tooltip: 'Fazer download',
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: isMobile ? 16.0 : 24.0),
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(12),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: imageWidget,
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(bottom: isMobile ? 12.0 : 16.0),
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.azulClaro,
+                side: BorderSide(color: AppColors.azulClaro),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 16 : 20,
+                  vertical: isMobile ? 10 : 12,
+                ),
+              ),
+              onPressed: () => _downloadImage(bytes, url),
+              icon: Icon(
+                Icons.download,
+                color: AppColors.azulClaro,
+                size: isMobile ? 18 : 20,
+              ),
+              label: Text(
+                'Fazer Download',
+                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                  fontSize: isMobile ? 14 : 16,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinkContainer(String? url) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    
+    if (url == null || url.isEmpty) {
+      return _buildErrorWidget('URL não disponível');
+    }
+
+    final corIcone = _getMaterialColor(widget.material.tipo);
+
+    return Container(
+      height: isMobile ? 
+        MediaQuery.of(context).size.height * 0.6 : 
+        MediaQuery.of(context).size.height * 0.7,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(isMobile ? 10 : 12),
+            color: Colors.grey[100],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Link: ${widget.material.titulo}',
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: isMobile ? 14 : 16,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (!isMobile)
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.open_in_new, size: 20, color: AppColors.azulClaro),
+                        onPressed: () => _openLinkInNewTab(url),
+                        tooltip: 'Abrir em nova aba',
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.copy, size: 20, color: AppColors.azulClaro),
+                        onPressed: () => _copyLink(url),
+                        tooltip: 'Copiar link',
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(isMobile ? 16 : 24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.link, size: isMobile ? 48 : 64, color: corIcone),
+                    SizedBox(height: isMobile ? 12 : 16),
+                    Text(
+                      'Link Externo',
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontSize: isMobile ? 18 : 20,
+                      ),
+                    ),
+                    SizedBox(height: isMobile ? 12 : 16),
+                    Container(
+                      padding: EdgeInsets.all(isMobile ? 12 : 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: SelectableText(
+                        url,
+                        style: AppTextStyles.fonteUbuntuSans.copyWith(
+                          fontSize: isMobile ? 12 : 14,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: isMobile ? 20 : 24),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.azulClaro,
+                        foregroundColor: AppColors.branco,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 16 : 20,
+                          vertical: isMobile ? 12 : 16,
+                        ),
+                      ),
+                      onPressed: () => _openLinkInNewTab(url),
+                      icon: Icon(
+                        Icons.open_in_new, 
+                        size: isMobile ? 18 : 20,
+                        color: AppColors.branco
+                      ),
+                      label: Text(
+                        'Abrir Link',
+                        style: AppTextStyles.fonteUbuntuSans.copyWith(
+                          fontSize: isMobile ? 14 : 16,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: isMobile ? 10 : 12),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.azulClaro,
+                        side: BorderSide(color: AppColors.azulClaro),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 16 : 20,
+                          vertical: isMobile ? 10 : 12,
+                        ),
+                      ),
+                      onPressed: () => _copyLink(url),
+                      icon: Icon(
+                        Icons.copy, 
+                        size: isMobile ? 18 : 20,
+                        color: AppColors.azulClaro
+                      ),
+                      label: Text(
+                        'Copiar Link',
+                        style: AppTextStyles.fonteUbuntuSans.copyWith(
+                          fontSize: isMobile ? 14 : 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _copyLink(String url) async {
+    await Clipboard.setData(ClipboardData(text: url));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Link copiado para a área de transferência',
+          style: AppTextStyles.fonteUbuntuSans,
+        ),
+        backgroundColor: AppColors.verdeConfirmacao,
+      ),
+    );
+  }
+
+  Widget _buildAtividadeContainer(Uint8List? bytes) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    bool isPastDue =
+        widget.material.prazo != null &&
+        widget.material.prazo!.isBefore(DateTime.now());
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(isMobile ? 10 : 12),
+            color: Colors.grey[100],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Atividade: ${widget.material.titulo}',
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: isMobile ? 14 : 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(isMobile ? 12 : 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Título: ${widget.material.titulo}',
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: isMobile ? 16 : 18
+                    ),
+                  ),
+                  if (widget.material.descricao != null) ...[
+                    SizedBox(height: isMobile ? 12 : 16),
+                    Text(
+                      'Descrição:',
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: isMobile ? 14 : 16,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      widget.material.descricao!,
+                      style: AppTextStyles.fonteUbuntuSans.copyWith(
+                        fontSize: isMobile ? 14 : 16,
+                      ),
+                    ),
+                  ],
+                  if (widget.material.prazo != null) ...[
+                    SizedBox(height: isMobile ? 12 : 16),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          size: isMobile ? 16 : 18,
+                          color: isPastDue
+                              ? AppColors.vermelhoErro
+                              : AppColors.azulClaro,
+                        ),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            isPastDue
+                                ? 'Prazo Expirado: ${_formatarData(widget.material.prazo!)}'
+                                : 'Prazo: ${_formatarData(widget.material.prazo!)}',
+                            style: AppTextStyles.fonteUbuntuSans.copyWith(
+                              fontSize: isMobile ? 14 : 16,
+                              color: isPastDue
+                                  ? AppColors.vermelhoErro
+                                  : AppColors.azulClaro,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (widget.material.peso > 0) ...[
+                    SizedBox(height: isMobile ? 8 : 12),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.assessment,
+                          size: isMobile ? 16 : 18,
+                          color: AppColors.azulClaro,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Peso: ${widget.material.peso}%',
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: isMobile ? 14 : 16,
+                            color: AppColors.azulClaro,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (bytes != null && bytes.isNotEmpty) ...[
+                    SizedBox(height: isMobile ? 16 : 24),
+                    Text(
+                      'Arquivo Anexado:',
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontSize: isMobile ? 16 : 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: isMobile ? 8 : 12),
+                    FutureBuilder<bool>(
+                      future: _isPdfValid(bytes),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return Center(child: CircularProgressIndicator());
+                        }
+                        if (snapshot.hasData == true && snapshot.data!) {
+                          return _buildPdfWeb(bytes);
+                        } else {
+                          return _buildPdfFallback(bytes);
+                        }
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPdfFallback(Uint8List bytes, [String? reason]) {
+    final corIcone = _getMaterialColor(widget.material.tipo);
+    final tipoDisplay = _getTipoNome(widget.material.tipo);
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _getMaterialIconData(widget.material.tipo),
+            size: isMobile ? 48 : 64,
+            color: corIcone,
+          ),
+          SizedBox(height: isMobile ? 12 : 16),
+          Text(
+            'Visualizador de $tipoDisplay',
+            style: AppTextStyles.fonteUbuntu.copyWith(
+              fontSize: isMobile ? 18 : 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: isMobile ? 8 : 12),
+          Text(
+            'Use o botão abaixo para baixar o $tipoDisplay',
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              fontSize: isMobile ? 14 : 16,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (reason != null) ...[
+            SizedBox(height: 8),
+            Text(
+              reason,
+              style: TextStyle(color: Colors.red, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          SizedBox(height: isMobile ? 20 : 24),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.azulClaro,
+              foregroundColor: AppColors.branco,
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 16 : 20,
+                vertical: isMobile ? 12 : 16,
+              ),
+            ),
+            onPressed: () => _downloadPdf(bytes),
+            icon: Icon(Icons.download, color: AppColors.branco),
+            label: Text(
+              'Baixar $tipoDisplay',
+              style: AppTextStyles.fonteUbuntuSans,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
