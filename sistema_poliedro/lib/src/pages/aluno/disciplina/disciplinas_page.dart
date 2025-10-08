@@ -9,11 +9,13 @@ import '../../../dialogs/adicionar_card_dialog.dart';
 import '../../../dialogs/editar_card_dialog.dart';
 
 class DisciplinasPage extends StatefulWidget {
-  final Function(String, String) onNavigateToDetail;
+
+  final Function(String, String) onNavigateToDetail; 
 
   const DisciplinasPage({
     super.key,
-    required this.onNavigateToDetail,
+    required this.onNavigateToDetail, 
+
   });
 
   @override

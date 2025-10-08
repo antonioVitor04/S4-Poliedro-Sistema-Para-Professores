@@ -1,14 +1,16 @@
 // services/material_service.dart
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/modelo_card_disciplina.dart';
-import 'package:file_picker/file_picker.dart'; 
+
 class MaterialService {
   static const String baseUrl = 'http://localhost:5000/api/cardsDisciplinas';
 
-  // Criar material COM arquivo
-  static Future<MaterialDisciplina> criarMaterial({
+  // POST: Adicionar material a um tópico
+  static Future<void> criarMaterial({
     required String slug,
     required String topicoId,
     required String tipo,
@@ -25,7 +27,6 @@ class MaterialService {
         Uri.parse('$baseUrl/$slug/topicos/$topicoId/materiais'),
       );
 
-      // Adicionar campos de texto
       request.fields['tipo'] = tipo;
       request.fields['titulo'] = titulo;
       if (descricao != null) request.fields['descricao'] = descricao;
@@ -33,7 +34,6 @@ class MaterialService {
       request.fields['peso'] = peso.toString();
       if (prazo != null) request.fields['prazo'] = prazo.toIso8601String();
 
-      // Adicionar arquivo se existir
       if (arquivo != null && arquivo.bytes != null) {
         final file = http.MultipartFile.fromBytes(
           'arquivo',
@@ -47,20 +47,14 @@ class MaterialService {
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
 
-      if (response.statusCode == 201) {
-        final data = json.decode(responseBody);
-        if (data['success'] == true) {
-          return MaterialDisciplina.fromJson(data['data']);
-        }
+      if (response.statusCode != 201) {
+        throw Exception('Erro ao criar material: $responseBody');
       }
-      
-      throw Exception('Erro ao criar material: ${response.statusCode} - $responseBody');
     } catch (e) {
-      throw Exception('Erro ao conectar com o servidor: $e');
+      throw Exception('Erro ao criar material: $e');
     }
   }
 
-  // Helper para determinar o tipo MIME
   static MediaType _getMediaType(String fileName) {
     final extension = fileName.split('.').last.toLowerCase();
     switch (extension) {
@@ -78,8 +72,8 @@ class MaterialService {
     }
   }
 
-  // Resto dos métodos permanecem iguais...
-  static Future<MaterialDisciplina> atualizarMaterial({
+  // PUT: Atualizar material
+  static Future<void> atualizarMaterial({
     required String slug,
     required String topicoId,
     required String materialId,
@@ -89,34 +83,43 @@ class MaterialService {
     String? url,
     double? peso,
     DateTime? prazo,
+    PlatformFile? arquivo,
   }) async {
     try {
-      final Map<String, dynamic> body = {};
-      if (tipo != null) body['tipo'] = tipo;
-      if (titulo != null) body['titulo'] = titulo;
-      if (descricao != null) body['descricao'] = descricao;
-      if (url != null) body['url'] = url;
-      if (peso != null) body['peso'] = peso;
-      if (prazo != null) body['prazo'] = prazo.toIso8601String();
-
-      final response = await http.put(
+      var request = http.MultipartRequest(
+        'PUT',
         Uri.parse('$baseUrl/$slug/topicos/$topicoId/materiais/$materialId'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(body),
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true) {
-          return MaterialDisciplina.fromJson(data['data']);
-        }
+      if (tipo != null) request.fields['tipo'] = tipo;
+      if (titulo != null) request.fields['titulo'] = titulo;
+      if (descricao != null) request.fields['descricao'] = descricao;
+      if (url != null) request.fields['url'] = url;
+      if (peso != null) request.fields['peso'] = peso.toString();
+      if (prazo != null) request.fields['prazo'] = prazo.toIso8601String();
+
+      if (arquivo != null && arquivo.bytes != null) {
+        final file = http.MultipartFile.fromBytes(
+          'arquivo',
+          arquivo.bytes!,
+          filename: arquivo.name,
+          contentType: _getMediaType(arquivo.name),
+        );
+        request.files.add(file);
       }
-      throw Exception('Erro ao atualizar material: ${response.statusCode}');
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      if (response.statusCode != 200) {
+        throw Exception('Erro ao atualizar material: $responseBody');
+      }
     } catch (e) {
-      throw Exception('Erro ao conectar com o servidor: $e');
+      throw Exception('Erro ao atualizar material: $e');
     }
   }
 
+  // DELETE: Deletar material
   static Future<void> deletarMaterial({
     required String slug,
     required String topicoId,
@@ -128,7 +131,28 @@ class MaterialService {
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Erro ao deletar material: ${response.statusCode}');
+        throw Exception('Erro ao deletar material: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erro ao deletar material: $e');
+    }
+  }
+
+  // GET: Baixar bytes do arquivo
+  static Future<Uint8List> getFileBytes({
+    required String slug,
+    required String topicoId,
+    required String materialId,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/$slug/topicos/$topicoId/materiais/$materialId/download'),
+      );
+
+      if (response.statusCode == 200) {
+        return response.bodyBytes;
+      } else {
+        throw Exception('Erro ao baixar arquivo: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       throw Exception('Erro ao conectar com o servidor: $e');
