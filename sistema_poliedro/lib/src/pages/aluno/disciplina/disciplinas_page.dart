@@ -10,11 +10,11 @@ import '../../../dialogs/adicionar_card_dialog.dart';
 import '../../../dialogs/editar_card_dialog.dart';
 
 class DisciplinasPage extends StatefulWidget {
-  final Function(String, String) onNavigateToDetail; // 🔥 Novo parâmetro
+  final Function(String, String) onNavigateToDetail; 
 
   const DisciplinasPage({
     super.key,
-    required this.onNavigateToDetail, // 🔥 Recebe a função
+    required this.onNavigateToDetail, 
   });
 
   @override

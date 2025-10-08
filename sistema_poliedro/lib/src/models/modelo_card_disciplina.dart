@@ -1,4 +1,4 @@
-// models/card_disciplina.dart
+// Atualize models/modelo_card_disciplina.dart (adicionando campos para arquivo em MaterialDisciplina)
 class CardDisciplina {
   final String id;
   final String imagem;
@@ -82,6 +82,8 @@ class MaterialDisciplina {
   final DateTime? prazo;
   final DateTime dataCriacao;
   final int ordem;
+  final String? contentType;  // Adicionado: do arquivo.contentType
+  final String? nomeOriginal; // Adicionado: do arquivo.nomeOriginal
 
   MaterialDisciplina({
     required this.id,
@@ -93,6 +95,8 @@ class MaterialDisciplina {
     this.prazo,
     required this.dataCriacao,
     required this.ordem,
+    this.contentType,
+    this.nomeOriginal,
   });
 
   factory MaterialDisciplina.fromJson(Map<String, dynamic> json) {
@@ -106,6 +110,10 @@ class MaterialDisciplina {
       prazo: json['prazo'] != null ? DateTime.parse(json['prazo']) : null,
       dataCriacao: DateTime.parse(json['dataCriacao']),
       ordem: json['ordem'] ?? 0,
+      contentType: json['arquivo']?['contentType'],
+      nomeOriginal: json['arquivo']?['nomeOriginal'],
     );
   }
+
+  bool get hasArquivo => nomeOriginal != null && nomeOriginal!.isNotEmpty;
 }

@@ -1,4 +1,4 @@
-// pages/disciplina/disciplina_detail_page.dart
+// pages/disciplina/disciplina_detail_page.dart (ajustado para passar slug e topicoId)
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../services/card_disciplina_service.dart';
@@ -9,6 +9,7 @@ import '../../../styles/cores.dart';
 import '../../../styles/fontes.dart';
 import '../../../dialogs/adicionar_topico_dialog.dart';
 import '../../../dialogs/adicionar_material_dialog.dart';
+import 'tasks_page.dart';
 import 'visualizacao_material_page.dart';
 
 class DisciplinaDetailPage extends StatefulWidget {
@@ -36,10 +37,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
   @override
   void initState() {
     super.initState();
-    print('🔍 Iniciando disciplina: ${widget.slug}');
+    print('🔍 Iniciando discipline: ${widget.slug}');
     _carregarDisciplina();
     
-    // Adicione o listener para o scroll
     _scrollController.addListener(_onScroll);
   }
 
@@ -51,17 +51,14 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
   }
 
   void _onScroll() {
-    // Otimização: throttle para evitar updates muito frequentes
     final now = DateTime.now();
     if (now.difference(_lastScrollUpdate).inMilliseconds < 16) {
-      return; // Limita a ~60fps
+      return;
     }
     
-    // Define um threshold (pode ajustar conforme necessário)
     const threshold = 100.0;
     final newIsScrolled = _scrollController.offset > threshold;
     
-    // Só atualiza se o valor mudou
     if (newIsScrolled != _isScrolled) {
       _lastScrollUpdate = now;
       setState(() {
@@ -109,7 +106,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
         descricao: descricao,
       );
 
-      // Forçar um pequeno delay antes de recarregar
       await Future.delayed(const Duration(milliseconds: 500));
 
       print('🔄 Recarregando dados após criar tópico...');
@@ -666,7 +662,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
               if (isMobile) {
                 return CustomScrollView(
                   controller: _scrollController,
-                  physics: const ClampingScrollPhysics(), // Física mais suave
+                  physics: const ClampingScrollPhysics(),
                   slivers: [
                     SliverAppBar(
                       expandedHeight: 200.0,
@@ -801,7 +797,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                               ),
                               child: Column(
                                 children: [
-                                  // Header do tópico
                                   ListTile(
                                     leading: Container(
                                       padding: const EdgeInsets.all(8),
@@ -879,7 +874,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                     onTap: () => _toggleTopico(index),
                                   ),
 
-                                  // Conteúdo expandido
                                   if (isExpanded) ...[
                                     const Divider(height: 1),
                                     if (topico.materiais.isEmpty)
@@ -892,6 +886,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                         materialIndex,
                                         topico.titulo,
                                         topicoIndex: index,
+                                        topicoId: topico.id,
                                       );
                                     }).toList(),
                                     Padding(
@@ -931,7 +926,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     );
   }
 
-  // ... (os métodos restantes permanecem iguais)
   Widget _buildLayoutDesktop(CardDisciplina card) {
     return Column(
       children: [
@@ -1169,6 +1163,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                           materialIndex,
                           topico.titulo,
                           topicoIndex: index,
+                          topicoId: topico.id,
                         );
                       }).toList(),
                       if (isMobile && topico.materiais.isNotEmpty)
@@ -1240,6 +1235,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     int materialIndex,
     String topicoTitulo, {
     required int topicoIndex,
+    required String topicoId,
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1297,7 +1293,17 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
             ],
           ),
           onTap: () {
-            _abrirVisualizacaoMaterial(material, topicoTitulo);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VisualizacaoMaterialPage(
+                  material: material,
+                  topicoTitulo: topicoTitulo,
+                  topicoId: topicoId,
+                  slug: widget.slug,
+                ),
+              ),
+            );
           },
         ),
       ),
@@ -1335,19 +1341,20 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
   }
 
   Widget _buildSidebarTarefas(CardDisciplina card) {
-    final tarefas = <MaterialDisciplina>[];
+    final tarefas = <({MaterialDisciplina material, String topicoId})>[];
     for (final topico in card.topicos) {
       for (final material in topico.materiais) {
         if (material.prazo != null) {
-          tarefas.add(material);
+          tarefas.add((material: material, topicoId: topico.id));
         }
       }
     }
-    tarefas.sort((a, b) => a.prazo!.compareTo(b.prazo!));
+    tarefas.sort((a, b) => a.material.prazo!.compareTo(b.material.prazo!));
 
     final now = DateTime.now();
-    final pendentes = tarefas.where((t) => t.prazo!.isAfter(now.subtract(const Duration(days: 1)))).toList();
-    final passadas = tarefas.where((t) => t.prazo!.isBefore(now)).toList();
+    // Considerar hora no cálculo de pendentes e passadas
+    final pendentes = tarefas.where((t) => t.material.prazo!.isAfter(now) || t.material.prazo!.isAtSameMomentAs(now)).toList();
+    final passadas = tarefas.where((t) => t.material.prazo!.isBefore(now)).toList();
 
     return Container(
       margin: const EdgeInsets.only(top: 16, right: 16, bottom: 16),
@@ -1389,13 +1396,12 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                     ? _buildEmptyTarefasState()
                     : Column(
                         children: [
-                          // Seção Pendentes
                           if (pendentes.isNotEmpty) ...[
                             _buildSectionHeader('Pendentes'),
                             Padding(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: Text(
-                                'Tarefas com prazo futuro ou em até 1 dia',
+                                'Tarefas com prazo futuro ou atual',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[600],
@@ -1409,13 +1415,12 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                 itemCount: pendentes.length,
                                 itemBuilder: (context, index) {
                                   final tarefa = pendentes[index];
-                                  return _buildTarefaItem(tarefa);
+                                  return _buildTarefaItem(tarefa.material, tarefa.topicoId);
                                 },
                               ),
                             ),
                             const SizedBox(height: 16),
                           ],
-                          // Seção Passadas
                           if (passadas.isNotEmpty) ...[
                             _buildSectionHeader('Passadas'),
                             Padding(
@@ -1434,7 +1439,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                 itemCount: passadas.length,
                                 itemBuilder: (context, index) {
                                   final tarefa = passadas[index];
-                                  return _buildTarefaItem(tarefa);
+                                  return _buildTarefaItem(tarefa.material, tarefa.topicoId);
                                 },
                               ),
                             ),
@@ -1448,6 +1453,12 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
         ),
       ),
     );
+  }
+
+  Color _getTarefaColor(DateTime prazo) {
+    final now = DateTime.now();
+    if (prazo.isBefore(now)) return Colors.red;
+    return AppColors.azulClaro;
   }
 
   Widget _buildSectionHeader(String title) {
@@ -1491,109 +1502,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     );
   }
 
-  Widget _buildTarefaItem(MaterialDisciplina tarefa) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        borderRadius: BorderRadius.circular(8),
-        color: _getTarefaColor(tarefa.prazo!),
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 8,
-          ),
-          leading: Icon(Icons.assignment, color: Colors.white, size: 20),
-          title: Text(
-            tarefa.titulo,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 4),
-              Text(
-                '${tarefa.prazo!.day}/${tarefa.prazo!.month}/${tarefa.prazo!.year}',
-                style: const TextStyle(fontSize: 12, color: Colors.white70),
-              ),
-              if (tarefa.peso > 0)
-                Text(
-                  'Peso: ${tarefa.peso}%',
-                  style: const TextStyle(fontSize: 11, color: Colors.white60),
-                ),
-            ],
-          ),
-          dense: true,
-          onTap: () {
-            _abrirVisualizacaoMaterial(tarefa, 'Tarefa');
-          },
-        ),
-      ),
-    );
-  }
-
-  Color _getTarefaColor(DateTime prazo) {
-    final now = DateTime.now();
-    final difference = prazo.difference(now);
-
-    if (difference.inDays < 0) return Colors.red;
-    if (difference.inDays <= 3) return Colors.orange;
-    return AppColors.azulClaro;
-  }
-
-  void _abrirVisualizacaoMaterial(
-    MaterialDisciplina material,
-    String topicoTitulo,
-  ) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => VisualizacaoMaterialPage(
-          material: material,
-          topicoTitulo: topicoTitulo,
-        ),
-      ),
-    );
-  }
-}
-
-// ... (TasksPage permanece igual)
-class TasksPage extends StatefulWidget {
-  final String slug;
-
-  const TasksPage({
-    super.key,
-    required this.slug,
-  });
-
-  @override
-  State<TasksPage> createState() => _TasksPageState();
-}
-
-class _TasksPageState extends State<TasksPage> {
-  late Future<CardDisciplina> _futureCard;
-
-  @override
-  void initState() {
-    super.initState();
-    _futureCard = CardDisciplinaService.getCardBySlug(widget.slug);
-  }
-
-  Color _getTarefaColor(DateTime prazo) {
-    final now = DateTime.now();
-    final difference = prazo.difference(now);
-
-    if (difference.inDays < 0) return Colors.red;
-    if (difference.inDays <= 3) return Colors.orange;
-    return AppColors.azulClaro;
-  }
-
-  Widget _buildTarefaItem(MaterialDisciplina tarefa) {
+  Widget _buildTarefaItem(MaterialDisciplina tarefa, String topicoId) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -1638,6 +1547,8 @@ class _TasksPageState extends State<TasksPage> {
                 builder: (context) => VisualizacaoMaterialPage(
                   material: tarefa,
                   topicoTitulo: 'Tarefa',
+                  topicoId: topicoId,
+                  slug: widget.slug,
                 ),
               ),
             );
@@ -1647,144 +1558,5 @@ class _TasksPageState extends State<TasksPage> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
-      ),
-    );
-  }
 
-  Widget _buildEmptySection(String title) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(Icons.assignment_turned_in, size: 48, color: Colors.grey[400]),
-            const SizedBox(height: 12),
-            Text(
-              'Nenhuma $title',
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Tarefas',
-          style: TextStyle(color: Colors.black),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: FutureBuilder<CardDisciplina>(
-        future: _futureCard,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.azulClaro),
-              ),
-            );
-          }
-
-          if (snapshot.hasError || !snapshot.hasData) {
-            return const Center(
-              child: Text('Erro ao carregar tarefas', style: TextStyle(color: Colors.black)),
-            );
-          }
-
-          final card = snapshot.data!;
-          final allTarefas = <MaterialDisciplina>[];
-          for (final topico in card.topicos) {
-            for (final material in topico.materiais) {
-              if (material.prazo != null) {
-                allTarefas.add(material);
-              }
-            }
-          }
-
-          final now = DateTime.now();
-          final pendentes = allTarefas.where((t) => t.prazo!.isAfter(now.subtract(const Duration(days: 1)))).toList();
-          final passadas = allTarefas.where((t) => t.prazo!.isBefore(now)).toList();
-
-          pendentes.sort((a, b) => a.prazo!.compareTo(b.prazo!));
-          passadas.sort((a, b) => b.prazo!.compareTo(a.prazo!));
-
-          return CustomScrollView(
-            physics: const ClampingScrollPhysics(),
-            slivers: [
-              const SliverToBoxAdapter(child: SizedBox(height: 20)),
-              SliverToBoxAdapter(
-                child: pendentes.isEmpty
-                    ? _buildEmptySection('tarefa pendente')
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionHeader('Tarefas Pendentes'),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                            child: Text(
-                              'Tarefas com prazo futuro ou em até 1 dia',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ),
-                          ...pendentes.map((tarefa) => Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: _buildTarefaItem(tarefa),
-                              )),
-                        ],
-                      ),
-              ),
-              SliverToBoxAdapter(
-                child: passadas.isEmpty
-                    ? _buildEmptySection('tarefa passada')
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionHeader('Tarefas Passadas'),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                            child: Text(
-                              'Tarefas vencidas',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ),
-                          ...passadas.map((tarefa) => Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: _buildTarefaItem(tarefa),
-                              )),
-                        ],
-                      ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
 }
