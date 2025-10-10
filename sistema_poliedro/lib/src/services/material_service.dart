@@ -2,12 +2,17 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http_parser/http_parser.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/modelo_card_disciplina.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class MaterialService {
-  static const String baseUrl = 'http://localhost:5000/api/cardsDisciplinas';
+  static String get _baseUrl {
+    if (kIsWeb) return 'http://localhost:5000';
+    return 'http://10.2.3.3:5000'; // Direto, sem dotenv
+  }
 
   // POST: Adicionar material a um tópico
   static Future<void> criarMaterial({
@@ -24,7 +29,7 @@ class MaterialService {
     try {
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('$baseUrl/$slug/topicos/$topicoId/materiais'),
+        Uri.parse('$_baseUrl/$slug/topicos/$topicoId/materiais'),
       );
 
       request.fields['tipo'] = tipo;
@@ -88,7 +93,7 @@ class MaterialService {
     try {
       var request = http.MultipartRequest(
         'PUT',
-        Uri.parse('$baseUrl/$slug/topicos/$topicoId/materiais/$materialId'),
+        Uri.parse('$_baseUrl/$slug/topicos/$topicoId/materiais/$materialId'),
       );
 
       if (tipo != null) request.fields['tipo'] = tipo;
@@ -127,7 +132,7 @@ class MaterialService {
   }) async {
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/$slug/topicos/$topicoId/materiais/$materialId'),
+        Uri.parse('$_baseUrl/$slug/topicos/$topicoId/materiais/$materialId'),
       );
 
       if (response.statusCode != 200) {
@@ -146,13 +151,17 @@ class MaterialService {
   }) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/$slug/topicos/$topicoId/materiais/$materialId/download'),
+        Uri.parse(
+          '$_baseUrl/$slug/topicos/$topicoId/materiais/$materialId/download',
+        ),
       );
 
       if (response.statusCode == 200) {
         return response.bodyBytes;
       } else {
-        throw Exception('Erro ao baixar arquivo: ${response.statusCode} - ${response.body}');
+        throw Exception(
+          'Erro ao baixar arquivo: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
       throw Exception('Erro ao conectar com o servidor: $e');

@@ -1,4 +1,3 @@
-// pages/disciplina/disciplina_detail_page.dart (ajustado para passar slug e topicoId)
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../services/card_disciplina_service.dart';
@@ -99,7 +98,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     setState(() => _isLoading = true);
 
     try {
-      print('➕ Criando tópico: $titulo');
       await TopicoService.criarTopico(
         widget.slug,
         titulo,
@@ -108,7 +106,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
 
       await Future.delayed(const Duration(milliseconds: 500));
 
-      print('🔄 Recarregando dados após criar tópico...');
       _carregarDisciplina();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -665,8 +662,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
               }
 
               final card = snapshot.data!;
-              print('✅ Dados carregados: ${card.titulo}');
-              print('📂 Tópicos encontrados: ${card.topicos.length}');
 
               for (var topico in card.topicos) {
                 print(
@@ -771,24 +766,23 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                               fit: BoxFit.cover,
                               loadingBuilder:
                                   (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Container(
-                                      color: Colors.grey[200],
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          value:
-                                              loadingProgress
-                                                      .expectedTotalBytes !=
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      value:
+                                          loadingProgress.expectedTotalBytes !=
                                                   null
                                               ? loadingProgress
-                                                        .cumulativeBytesLoaded /
-                                                    loadingProgress
-                                                        .expectedTotalBytes!
+                                                      .cumulativeBytesLoaded /
+                                                  loadingProgress
+                                                      .expectedTotalBytes!
                                               : null,
-                                        ),
-                                      ),
-                                    );
-                                  },
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                             Container(
                               decoration: BoxDecoration(
@@ -833,6 +827,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                               vertical: 8,
                             ),
                             child: Card(
+                              color: AppColors.branco, // Explicitly set topic background to white
                               elevation: 2,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -857,9 +852,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                       topico.titulo,
                                       style: AppTextStyles.fonteUbuntuSans
                                           .copyWith(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                     subtitle: Text(
                                       '${topico.materiais.length} materiais',
@@ -924,7 +919,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                     ),
                                     onTap: () => _toggleTopico(index),
                                   ),
-
                                   if (isExpanded) ...[
                                     const Divider(height: 1),
                                     if (topico.materiais.isEmpty)
@@ -994,13 +988,16 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
             child: _buildBotaoAdicionarTopico(card.topicos.isEmpty),
           ),
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 3, child: _buildListaTopicos(card, false)),
-                const SizedBox(width: 16),
-                Expanded(flex: 1, child: _buildSidebarTarefas(card)),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: _buildListaTopicos(card, false)),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 1, child: _buildSidebarTarefas(card)),
+                ],
+              ),
             ),
           ),
         ],
@@ -1114,10 +1111,10 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
           delegate: SliverChildBuilderDelegate((context, index) {
             final topico = card.topicos[index];
             final isExpanded = _expandedTopicos.contains(index);
-
             return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8), // Adjusted horizontal margin to 0
               child: Card(
+                color: AppColors.branco, // Explicitly set topic background to white
                 elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -1203,7 +1200,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                       ),
                       onTap: () => _toggleTopico(index),
                     ),
-
                     if (isExpanded) ...[
                       const Divider(height: 1),
                       if (topico.materiais.isEmpty)
@@ -1240,6 +1236,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
   Widget _buildEmptyMaterialState(String topicoTitulo, int topicoIndex) {
     return Container(
       padding: const EdgeInsets.all(24),
+      color: AppColors.branco, // Set material container background to white
       child: Column(
         children: [
           Icon(Icons.insert_drive_file, size: 48, color: Colors.grey[400]),
@@ -1293,6 +1290,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Card(
+        color: AppColors.branco, // Set material item background to white
         elevation: 1,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -1405,7 +1403,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     tarefas.sort((a, b) => a.material.prazo!.compareTo(b.material.prazo!));
 
     final now = DateTime.now();
-    // Considerar hora no cálculo de pendentes e passadas
     final pendentes = tarefas
         .where(
           (t) =>
@@ -1418,8 +1415,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
         .toList();
 
     return Container(
-      margin: const EdgeInsets.only(top: 16, right: 16, bottom: 16),
+      margin: const EdgeInsets.only(top: 8, right: 16, bottom: 16),
       child: Card(
+        color: AppColors.branco,
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(

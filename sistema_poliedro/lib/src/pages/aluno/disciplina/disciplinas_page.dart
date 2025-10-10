@@ -9,14 +9,9 @@ import '../../../dialogs/adicionar_card_dialog.dart';
 import '../../../dialogs/editar_card_dialog.dart';
 
 class DisciplinasPage extends StatefulWidget {
+  final Function(String, String) onNavigateToDetail;
 
-  final Function(String, String) onNavigateToDetail; 
-
-  const DisciplinasPage({
-    super.key,
-    required this.onNavigateToDetail, 
-
-  });
+  const DisciplinasPage({super.key, required this.onNavigateToDetail});
 
   @override
   State<DisciplinasPage> createState() => _DisciplinasPageState();
@@ -178,7 +173,11 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
     final isMobile = screenWidth < 600;
 
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppColors.azulClaro),
+        ),
+      );
     }
 
     if (_errorMessage.isNotEmpty) {
@@ -186,17 +185,27 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('Erro ao carregar disciplinas', style: TextStyle(fontSize: 16, color: Colors.red)),
-            Text(_errorMessage, style: const TextStyle(fontSize: 14, color: Colors.grey), textAlign: TextAlign.center),
+            const Text(
+              'Erro ao carregar disciplinas',
+              style: TextStyle(fontSize: 16, color: Colors.red),
+            ),
+            Text(
+              _errorMessage,
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 20),
-            ElevatedButton(onPressed: _refreshCards, child: const Text('Tentar Novamente')),
+            ElevatedButton(
+              onPressed: _refreshCards,
+              child: const Text('Tentar Novamente'),
+            ),
           ],
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: Colors.white, // 
+      backgroundColor: Colors.white, //
       body: RefreshIndicator(
         onRefresh: () async {
           _refreshCards();
@@ -206,7 +215,13 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
           future: _futureCards,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppColors.azulClaro,
+                  ),
+                ),
+              );
             }
 
             if (snapshot.hasError) {
@@ -233,10 +248,18 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.menu_book, size: 64, color: Colors.grey),
+                          const Icon(
+                            Icons.menu_book,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
                           const SizedBox(height: 16),
-                          Text('Nenhuma disciplina encontrada.',
-                              style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 18)),
+                          Text(
+                            'Nenhuma disciplina encontrada.',
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: 18,
+                            ),
+                          ),
                           const SizedBox(height: 16),
                           ElevatedButton.icon(
                             onPressed: _adicionarCard,
@@ -245,7 +268,10 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.azulClaro,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
                             ),
                           ),
                         ],
@@ -259,7 +285,8 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
             final cards = snapshot.data!;
 
             return Container(
-              color: Colors.white, // ✅ Fundo branco, garantindo que o Scaffold não herde lilás
+              color: Colors
+                  .white, // ✅ Fundo branco, garantindo que o Scaffold não herde lilás
               child: CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(
@@ -283,62 +310,66 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
                         mainAxisSpacing: 12,
                         childAspectRatio: _getAspectRatio(screenWidth),
                       ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final card = cards[index];
-                          return Stack(
-                            children: [
-                              DisciplinaCard(
-                                disciplina: card.titulo,
-                                imageUrl: card.imagem,
-                                iconUrl: card.icone,
-                                isMobile: isMobile,
-                                onTap: () => widget.onNavigateToDetail(
-                                  card.slug,
-                                  card.titulo,
-                                ),
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final card = cards[index];
+                        return Stack(
+                          children: [
+                            DisciplinaCard(
+                              disciplina: card.titulo,
+                              imageUrl: card.imagem,
+                              iconUrl: card.icone,
+                              isMobile: isMobile,
+                              onTap: () => widget.onNavigateToDetail(
+                                card.slug,
+                                card.titulo,
                               ),
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: PopupMenuButton<String>(
-                                  icon: const Icon(Icons.more_vert, color: Colors.white),
-                                  onSelected: (value) {
-                                    if (value == 'edit') {
-                                      _editarCard(card);
-                                    } else if (value == 'delete') {
-                                      _deletarCard(card);
-                                    }
-                                  },
-                                  itemBuilder: (context) => [
-                                    const PopupMenuItem(
-                                      value: 'edit',
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.edit, size: 20),
-                                          SizedBox(width: 8),
-                                          Text('Editar'),
-                                        ],
-                                      ),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'delete',
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.delete, size: 20, color: Colors.red),
-                                          SizedBox(width: 8),
-                                          Text('Excluir'),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                            ),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: PopupMenuButton<String>(
+                                icon: const Icon(
+                                  Icons.more_vert,
+                                  color: Colors.white,
                                 ),
+                                onSelected: (value) {
+                                  if (value == 'edit') {
+                                    _editarCard(card);
+                                  } else if (value == 'delete') {
+                                    _deletarCard(card);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'edit',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.edit, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('Editar'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.delete,
+                                          size: 20,
+                                          color: Colors.red,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text('Excluir'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          );
-                        },
-                        childCount: cards.length,
-                      ),
+                            ),
+                          ],
+                        );
+                      }, childCount: cards.length),
                     ),
                   ),
                 ],

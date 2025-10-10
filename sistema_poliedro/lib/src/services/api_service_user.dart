@@ -1,11 +1,16 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/usuario.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:5000/api';
+  static String get _baseUrl {
+    if (kIsWeb) return 'http://localhost:5000';
+    return 'http://10.2.3.3:5000'; // Direto, sem dotenv
+  }
+
   final Map<String, String> headers = {
     'Content-Type': 'application/json',
     'Authorization': '',
@@ -23,8 +28,8 @@ class ApiService {
 
   String get endpointBase {
     return _tipoUsuario == TipoUsuario.professor
-        ? '$baseUrl/professores'
-        : '$baseUrl/alunos';
+        ? '$_baseUrl/professores'
+        : '$_baseUrl/alunos';
   }
 
   Future<Usuario> getPerfilUsuario() async {

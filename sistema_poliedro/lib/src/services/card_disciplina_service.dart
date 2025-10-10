@@ -3,17 +3,26 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import '../models/modelo_card_disciplina.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class CardDisciplinaService {
-  static const String baseUrl = 'http://localhost:5000/api/cardsDisciplinas';
+  static String get _baseUrl {
+    if (kIsWeb) return 'http://localhost:5000';
+    return 'http://10.2.3.3:5000'; // Direto, sem dotenv
+  }
+
+  static const String _apiPrefix = '/api/cardsDisciplinas';
 
   // Buscar card por slug - ADICIONE UM TIMESTAMP PARA EVITAR CACHE
   static Future<CardDisciplina> getCardBySlug(String slug) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/disciplina/$slug?t=${DateTime.now().millisecondsSinceEpoch}'),
+        Uri.parse(
+          '$_baseUrl$_apiPrefix/disciplina/$slug?t=${DateTime.now().millisecondsSinceEpoch}',
+        ),
       );
-      
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
@@ -32,13 +41,15 @@ class CardDisciplinaService {
   // Método para buscar TODOS os cards
   static Future<List<CardDisciplina>> getAllCards() async {
     try {
-      final response = await http.get(Uri.parse(baseUrl));
-      
+      final response = await http.get(Uri.parse('$_baseUrl$_apiPrefix'));
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
           final cardsJson = data['data'] as List;
-          return cardsJson.map((json) => CardDisciplina.fromJson(json)).toList();
+          return cardsJson
+              .map((json) => CardDisciplina.fromJson(json))
+              .toList();
         }
       }
       throw Exception('Erro ao carregar cards: ${response.statusCode}');
@@ -48,9 +59,16 @@ class CardDisciplinaService {
   }
 
   // Criar um novo card
-  static Future<void> criarCard(String titulo, PlatformFile imagemFile, PlatformFile iconeFile) async {
+  static Future<void> criarCard(
+    String titulo,
+    PlatformFile imagemFile,
+    PlatformFile iconeFile,
+  ) async {
     try {
-      var request = http.MultipartRequest('POST', Uri.parse(baseUrl));
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$_baseUrl$_apiPrefix'),
+      );
       request.fields['titulo'] = titulo;
 
       // Adicionar imagem
@@ -88,9 +106,17 @@ class CardDisciplinaService {
   }
 
   // Atualizar um card existente
-  static Future<void> atualizarCard(String id, String titulo, PlatformFile? imagemFile, PlatformFile? iconeFile) async {
+  static Future<void> atualizarCard(
+    String id,
+    String titulo,
+    PlatformFile? imagemFile,
+    PlatformFile? iconeFile,
+  ) async {
     try {
-      var request = http.MultipartRequest('PUT', Uri.parse('$baseUrl/$id'));
+      var request = http.MultipartRequest(
+        'PUT',
+        Uri.parse('$_baseUrl$_apiPrefix/$id'),
+      );
 
       if (titulo.isNotEmpty) {
         request.fields['titulo'] = titulo;
@@ -135,7 +161,7 @@ class CardDisciplinaService {
   // Deletar um card
   static Future<void> deletarCard(String id) async {
     try {
-      final response = await http.delete(Uri.parse('$baseUrl/$id'));
+      final response = await http.delete(Uri.parse('$_baseUrl$_apiPrefix/$id'));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
