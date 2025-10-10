@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/api_service_user.dart';
-import '../models/usuario.dart';
+import '../services/user_service.dart';
+import '../models/modelo_usuario.dart';
 import '../styles/fontes.dart';
 import '../utils/image_utils.dart';
 import '../components/alerta.dart';
@@ -16,7 +16,7 @@ class PerfilPage extends StatefulWidget {
 }
 
 class _PerfilPageState extends State<PerfilPage> {
-  final ApiService _apiService = ApiService();
+  final UserService _userService = UserService();
   Usuario? _usuario;
   bool _isLoading = true;
   final TextEditingController _emailController = TextEditingController();
@@ -39,10 +39,10 @@ class _PerfilPageState extends State<PerfilPage> {
       final token = prefs.getString('token');
 
       if (token != null && token.isNotEmpty) {
-        _apiService.setToken(token);
+        _userService.setToken(token);
         final tipoUsuario = await _determinarTipoUsuario();
         _tipoUsuarioAtual = tipoUsuario;
-        _apiService.setTipoUsuario(tipoUsuario);
+        _userService.setTipoUsuario(tipoUsuario);
         await _carregarDadosUsuario();
       } else {
         _mostrarErro('Usuário não autenticado. Faça login novamente.');
@@ -60,7 +60,7 @@ class _PerfilPageState extends State<PerfilPage> {
 
   Future<void> _carregarDadosUsuario() async {
     try {
-      final usuario = await _apiService.getPerfilUsuario();
+      final usuario = await _userService.getPerfilUsuario();
 
       setState(() {
         _usuario = usuario;
@@ -75,7 +75,7 @@ class _PerfilPageState extends State<PerfilPage> {
       if (e.toString().contains('401') &&
           _tipoUsuarioAtual == TipoUsuario.aluno) {
         _tipoUsuarioAtual = TipoUsuario.professor;
-        _apiService.setTipoUsuario(TipoUsuario.professor);
+        _userService.setTipoUsuario(TipoUsuario.professor);
         await _carregarDadosUsuario();
         return;
       }
@@ -93,7 +93,7 @@ class _PerfilPageState extends State<PerfilPage> {
       if (_usuario != null && _usuario!.hasImage) {
         print('📸 Usuário tem imagem, fazendo download...');
 
-        final bytes = await _apiService.getImagemUsuarioBytes(
+        final bytes = await _userService.getImagemUsuarioBytes(
           timestamp: DateTime.now().millisecondsSinceEpoch,
         );
 
@@ -179,7 +179,7 @@ class _PerfilPageState extends State<PerfilPage> {
         print('📤 Fazendo upload de ${bytes.length} bytes...');
 
         // Faz upload
-        await _apiService.uploadImagemBase64(
+        await _userService.uploadImagemBase64(
           base64Image,
           'profile_$timestamp.jpg',
         );
@@ -208,7 +208,7 @@ class _PerfilPageState extends State<PerfilPage> {
     try {
       print('🗑️ [REMOVE] Iniciando remoção de imagem...');
 
-      await _apiService.removerImagemUsuario();
+      await _userService.removerImagemUsuario();
 
       // ATUALIZAÇÃO IMEDIATA E DEFINITIVA
       setState(() {
@@ -419,7 +419,7 @@ class _PerfilPageState extends State<PerfilPage> {
           ? null
           : _senhaController.text;
 
-      await _apiService.atualizarPerfilUsuario(
+      await _userService.atualizarPerfilUsuario(
         email: novoEmail,
         senha: novaSenha,
       );

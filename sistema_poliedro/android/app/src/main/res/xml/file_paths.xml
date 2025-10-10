@@ -4,17 +4,17 @@
     <external-path name="external_files" path="." />
     
     <!-- Diretório de downloads -->
-    <downloads-path name="downloads" path="." />
+    <external-path name="downloads" path="Download" />
     
-    <!-- Cache externo -->
+    <!-- Diretório de arquivos externos públicos -->
+    <external-path name="external_storage_root" path="." />
+    
+    <!-- Diretório de cache externo -->
     <external-cache-path name="external_cache" path="." />
     
-    <!-- Cache interno -->
+    <!-- Diretório de cache interno -->
     <cache-path name="internal_cache" path="." />
     
-    <!-- Arquivos internos -->
-    <files-path name="files" path="." />
-    
-    <!-- Para Android 10+ (Scoped Storage) -->
-    <external-files-path name="external_storage" path="." />
+    <!-- Diretório de arquivos internos -->
+    <files-path name="internal_files" path="." />
 </paths>

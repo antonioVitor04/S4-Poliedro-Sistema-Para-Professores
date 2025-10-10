@@ -18,6 +18,8 @@ class _NovaSenhaState extends State<NovaSenha> {
   final TextEditingController confirmarSenhaController =
       TextEditingController();
   bool _carregando = false;
+  bool _senhaVisivel = false;
+  bool _confirmarSenhaVisivel = false;
 
   //funcao pra mostrar alerta
   void mostrarAlerta(String mensagem, bool sucesso) {
@@ -289,85 +291,17 @@ class _NovaSenhaState extends State<NovaSenha> {
           ),
 
           // CAMPO NOVA SENHA
-          Text(
-            "Nova Senha",
-            style: AppTextStyles.fonteUbuntu.copyWith(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.preto,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: novaSenhaController,
-            cursorColor: AppColors.azulClaro,
-            obscureText: true,
-            style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
-            decoration: InputDecoration(
-              hintText: "Digite sua nova senha",
-              hintStyle: AppTextStyles.fonteUbuntu.copyWith(
-                color: AppColors.preto.withOpacity(0.4),
-              ),
-              filled: true,
-              fillColor: AppColors.azulClaro.withOpacity(0.05),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 16,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
+          SizedBox(
+            width: double.infinity,
+            child: _campoNovaSenha(),
           ),
 
           const SizedBox(height: 20),
 
           // CAMPO CONFIRMAR SENHA
-          Text(
-            "Confirmar Senha",
-            style: AppTextStyles.fonteUbuntu.copyWith(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.preto,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: confirmarSenhaController,
-            cursorColor: AppColors.azulClaro,
-            obscureText: true,
-            style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
-            decoration: InputDecoration(
-              hintText: "Confirme sua nova senha",
-              hintStyle: AppTextStyles.fonteUbuntu.copyWith(
-                color: AppColors.preto.withOpacity(0.4),
-              ),
-              filled: true,
-              fillColor: AppColors.azulClaro.withOpacity(0.05),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 16,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
+          SizedBox(
+            width: double.infinity,
+            child: _campoConfirmarSenha(),
           ),
 
           const SizedBox(height: 30),
@@ -457,6 +391,88 @@ class _NovaSenhaState extends State<NovaSenha> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _campoNovaSenha() {
+    return TextFormField(
+      controller: novaSenhaController,
+      cursorColor: AppColors.azulClaro,
+      obscureText: !_senhaVisivel,
+      style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+      decoration: InputDecoration(
+        labelText: 'Nova Senha*',
+        labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+        hintStyle: AppTextStyles.fonteUbuntu.copyWith(
+          color: AppColors.preto.withOpacity(0.4),
+        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        prefixIcon: Icon(Icons.lock, color: AppColors.azulClaro),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 16,
+        ),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _senhaVisivel ? Icons.visibility : Icons.visibility_off,
+            color: AppColors.azulClaro,
+          ),
+          onPressed: () {
+            setState(() {
+              _senhaVisivel = !_senhaVisivel;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _campoConfirmarSenha() {
+    return TextFormField(
+      controller: confirmarSenhaController,
+      cursorColor: AppColors.azulClaro,
+      obscureText: !_confirmarSenhaVisivel,
+      style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+      decoration: InputDecoration(
+        labelText: 'Confirmar Senha*',
+        labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+        hintStyle: AppTextStyles.fonteUbuntu.copyWith(
+          color: AppColors.preto.withOpacity(0.4),
+        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        prefixIcon: Icon(Icons.lock, color: AppColors.azulClaro),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 16,
+        ),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _confirmarSenhaVisivel ? Icons.visibility : Icons.visibility_off,
+            color: AppColors.azulClaro,
+          ),
+          onPressed: () {
+            setState(() {
+              _confirmarSenhaVisivel = !_confirmarSenhaVisivel;
+            });
+          },
+        ),
       ),
     );
   }

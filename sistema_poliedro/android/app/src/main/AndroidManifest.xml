@@ -1,12 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Permissões necessárias -->
+    <!-- Permissões básicas -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- Permissões de armazenamento para Android abaixo da versão 10 -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    
+    <!-- Para Android 10 (API 29) -->
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
+    
+    <!-- Para Android 11+ (API 30+) - Scoped Storage -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    
+    <!-- Para Android 13+ (API 33+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
     <application
         android:label="sistema_poliedro"

@@ -455,6 +455,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppColors.branco,
         title: const Text('Confirmar Exclusão'),
         content: Text(
           'Tem certeza que deseja excluir o tópico "${topico.titulo}"? Esta ação não pode ser desfeita.',
@@ -511,6 +512,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppColors.branco,
         title: const Text('Confirmar Exclusão'),
         content: Text(
           'Tem certeza que deseja excluir o material "${material.titulo}"?',
@@ -680,17 +682,18 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                       pinned: true,
                       automaticallyImplyLeading: false,
                       backgroundColor: _isScrolled
-                          ? Colors.white
-                          : Colors.transparent,
+                          ? AppColors.branco
+                          : AppColors.preto,
                       foregroundColor: _isScrolled
-                          ? Colors.black
-                          : Colors.white,
+                          ? AppColors.preto
+                          : AppColors.branco,
                       elevation: _isScrolled ? 4 : 0,
                       actions: [
                         PopupMenuButton<String>(
+                          color: AppColors.branco,
                           icon: Icon(
                             Icons.assignment,
-                            color: _isScrolled ? Colors.black : Colors.white,
+                            color: _isScrolled ? AppColors.preto : AppColors.branco,
                           ),
                           onSelected: (value) {
                             if (value == 'tasks') {
@@ -706,7 +709,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                           itemBuilder: (context) => [
                             const PopupMenuItem(
                               value: 'tasks',
-                              child: Row(
+                              child: Row(                     
                                 children: [
                                   Icon(
                                     Icons.assignment,
@@ -865,6 +868,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         PopupMenuButton<String>(
+                                          color: AppColors.branco,
                                           icon: Icon(
                                             Icons.more_vert,
                                             color: Colors.grey[600],
@@ -1150,6 +1154,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                             _buildBotaoAdicionarMaterial(topicoIndex: index),
                           const SizedBox(width: 8),
                           PopupMenuButton<String>(
+                            color: AppColors.branco,
                             icon: Icon(
                               Icons.more_vert,
                               color: Colors.grey[600],
@@ -1324,6 +1329,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPage> {
                 )
               : null,
           trailing: PopupMenuButton<String>(
+            color: AppColors.branco,
             icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
             onSelected: (value) {
               if (value == 'delete') {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sistema_poliedro/src/pages/login/Recuperar_Senha.dart';
 import 'package:sistema_poliedro/src/services/auth_service.dart';
-import '../../models/usuario.dart';
+import '../../models/modelo_usuario.dart';
 import 'package:sistema_poliedro/src/styles/cores.dart';
 import 'package:sistema_poliedro/src/styles/fontes.dart';
 import 'package:sistema_poliedro/src/components/alerta.dart';

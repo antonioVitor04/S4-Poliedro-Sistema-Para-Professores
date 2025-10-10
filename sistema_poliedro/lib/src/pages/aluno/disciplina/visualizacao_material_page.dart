@@ -1,16 +1,13 @@
 // pages/material/visualizacao_material_page.dart
 import 'package:flutter/material.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
-import 'dart:typed_data';
 import 'dart:convert' as convert;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:open_file/open_file.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:universal_html/html.dart' as html;
-
+import '../../../services/permission_service.dart'; 
 import '../../../services/material_service.dart';
 import '../../../models/modelo_card_disciplina.dart';
 import '../../../styles/cores.dart';
@@ -80,12 +77,14 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   }
 
   // NOVO: Método universal para download
-  Future<void> _downloadFileMobile(Uint8List bytes, String fileName, String mimeType) async {
+  Future<void> _downloadFileMobile(
+    Uint8List bytes,
+    String fileName,
+    String mimeType,
+  ) async {
     try {
       if (Platform.isAndroid) {
         await _downloadAndroid(bytes, fileName, mimeType);
-      } else if (Platform.isIOS) {
-        await _downloadIOS(bytes, fileName, mimeType);
       }
     } catch (e) {
       print('=== DEBUG ERRO download mobile: $e ===');
@@ -93,78 +92,190 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
-  // Método específico para Android
-  Future<void> _downloadAndroid(Uint8List bytes, String fileName, String mimeType) async {
+  // Método específico para Android - VERSÃO CORRIGIDA
+  Future<void> _downloadAndroid(
+    Uint8List bytes,
+    String fileName,
+    String mimeType,
+  ) async {
     try {
-      // Solicitar permissão (Android 10+)
-      final status = await Permission.storage.request();
-      if (!status.isGranted) {
-        _showError('Permissão de armazenamento necessária');
+      print('=== DEBUG: Iniciando download no Android ===');
+      print('=== DEBUG: Nome do arquivo: $fileName ===');
+      print('=== DEBUG: Tamanho: ${bytes.length} bytes ===');
+
+      // SOLICITAÇÃO DE PERMISSÃO MELHORADA
+      final hasPermission = await PermissionService.requestStoragePermissions();
+
+      if (!hasPermission) {
+        _showError(
+          'Permissão de armazenamento necessária para salvar o arquivo',
+        );
         return;
       }
 
-      // Para Android 10+, usar getExternalStorageDirectory
-      final directory = await getExternalStorageDirectory();
+      // Estratégia de fallback para diferentes versões do Android
+      Directory? directory;
+
+      // Tentar usar o diretório de downloads primeiro
+      directory = await getDownloadsDirectory();
+
+      // Se não conseguir, tentar diretório externo
+      if (directory == null) {
+        directory = await getExternalStorageDirectory();
+      }
+
+      // Se ainda não conseguir, usar diretório de documentos
+      if (directory == null) {
+        directory = await getApplicationDocumentsDirectory();
+      }
+
       if (directory != null) {
-        final folder = Directory('${directory.path}/Download');
+        // Criar subpasta "SistemaPoliedro" para organizar melhor
+        final folder = Directory('${directory.path}/SistemaPoliedro');
         if (!await folder.exists()) {
           await folder.create(recursive: true);
         }
-        
+
         final file = File('${folder.path}/$fileName');
         await file.writeAsBytes(bytes);
-        
+
+        print('=== DEBUG: Arquivo salvo em: ${file.path} ===');
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Arquivo salvo em: Downloads/$fileName'),
+            content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Download concluído!',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  'Arquivo salvo em: SistemaPoliedro/$fileName',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
             backgroundColor: AppColors.verdeConfirmacao,
+            duration: Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Abrir',
+              textColor: Colors.white,
+              onPressed: () async {
+                final result = await OpenFile.open(file.path);
+                if (result.type != ResultType.done) {
+                  _showFileLocationDialog(file.path);
+                }
+              },
+            ),
           ),
         );
-        
-        // Tentar abrir o arquivo
+
+        // Tentar abrir o arquivo automaticamente
         final result = await OpenFile.open(file.path);
         if (result.type != ResultType.done) {
-          print('=== DEBUG: Não foi possível abrir o arquivo automaticamente ===');
+          print(
+            '=== DEBUG: Não foi possível abrir o arquivo automaticamente ===',
+          );
+          print('=== DEBUG: Resultado: $result ===');
+          // Não mostrar erro aqui, pois o arquivo foi salvo com sucesso
         }
       } else {
-        _showError('Não foi possível acessar o armazenamento');
+        _showError('Não foi possível acessar o armazenamento do dispositivo');
       }
     } catch (e) {
       print('=== DEBUG ERRO Android download: $e ===');
-      _showError('Erro no Android: $e');
+      _showError('Erro ao salvar arquivo: $e');
     }
   }
 
-  // Método específico para iOS
-  Future<void> _downloadIOS(Uint8List bytes, String fileName, String mimeType) async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/$fileName');
-      await file.writeAsBytes(bytes);
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Arquivo salvo com sucesso'),
-          backgroundColor: AppColors.verdeConfirmacao,
+  // Diálogo para mostrar local do arquivo
+  void _showFileLocationDialog(String filePath) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Download Concluído', style: AppTextStyles.fonteUbuntu),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'O arquivo foi salvo em:',
+              style: AppTextStyles.fonteUbuntuSans,
+            ),
+            SizedBox(height: 8),
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: SelectableText(
+                filePath,
+                style: TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Você pode abri-lo manualmente usando um app de arquivos.',
+              style: AppTextStyles.fonteUbuntuSans.copyWith(fontSize: 12),
+            ),
+          ],
         ),
-      );
-      
-      // Abrir o arquivo
-      final result = await OpenFile.open(file.path);
-      if (result.type != ResultType.done) {
-        print('=== DEBUG iOS: Resultado da abertura: $result ===');
-      }
-    } catch (e) {
-      print('=== DEBUG ERRO iOS download: $e ===');
-      _showError('Erro no iOS: $e');
-    }
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK', style: AppTextStyles.fonteUbuntuSans),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Tentar abrir o gerenciador de arquivos
+              OpenFile.open(filePath);
+            },
+            child: Text('Abrir Local', style: AppTextStyles.fonteUbuntuSans),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Diálogo para quando a permissão é negada permanentemente
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Permissão Necessária', style: AppTextStyles.fonteUbuntu),
+        content: Text(
+          'Para salvar arquivos no seu dispositivo, é necessário conceder permissão de armazenamento. '
+          'Você será redirecionado para as configurações do aplicativo.',
+          style: AppTextStyles.fonteUbuntuSans,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancelar', style: AppTextStyles.fonteUbuntuSans),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              PermissionService.openAppSettings();
+            },
+            child: Text(
+              'Abrir Configurações',
+              style: AppTextStyles.fonteUbuntuSans,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // MÉTODOS ESPECÍFICOS PARA WEB (serão chamados apenas se kIsWeb for true)
   void _downloadPdfWeb(Uint8List bytes, String fileName) {
     if (!kIsWeb) return;
-    
-    
+
     try {
       final base64Pdf = convert.base64Encode(bytes);
       final anchor =
@@ -190,9 +301,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   void _downloadImageWeb(Uint8List? bytes, String? url, String fileName) {
     if (!kIsWeb) return;
-    
 
-    
     try {
       if (bytes != null) {
         final base64Image = convert.base64Encode(bytes);
@@ -228,7 +337,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   void _openPdfInNewTabWeb(Uint8List bytes) {
     if (!kIsWeb) return;
-    
 
     try {
       final blob = html.Blob([bytes], 'application/pdf');
@@ -256,7 +364,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   void _tryAlternativePdfOpenWeb(Uint8List bytes) {
     if (!kIsWeb) return;
-    
+
     try {
       final base64Pdf = convert.base64Encode(bytes);
       final pdfUrl = 'data:application/pdf;base64,$base64Pdf';
@@ -302,7 +410,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   void _forceOpenPdfWeb(Uint8List bytes) {
     if (!kIsWeb) return;
 
-    
     try {
       final base64Pdf = convert.base64Encode(bytes);
       final pdfUrl = 'data:application/pdf;base64,$base64Pdf';
@@ -435,10 +542,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         foregroundColor: AppColors.branco,
                       ),
                       onPressed: () => _openPdfInNewTab(bytes),
-                      icon: Icon(
-                        Icons.open_in_new,
-                        color: AppColors.branco,
-                      ),
+                      icon: Icon(Icons.open_in_new, color: AppColors.branco),
                       label: Text(
                         openText,
                         style: AppTextStyles.fonteUbuntuSans,
@@ -451,10 +555,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         side: BorderSide(color: AppColors.azulClaro),
                       ),
                       onPressed: () => _downloadPdf(bytes),
-                      icon: Icon(
-                        Icons.download,
-                        color: AppColors.azulClaro,
-                      ),
+                      icon: Icon(Icons.download, color: AppColors.azulClaro),
                       label: Text(
                         downloadText,
                         style: AppTextStyles.fonteUbuntuSans,
@@ -546,7 +647,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                     ),
                     onPressed: () => _downloadPdf(bytes),
                     icon: Icon(
-                      Icons.download, 
+                      Icons.download,
                       size: isMobile ? 18 : 20,
                       color: AppColors.branco,
                     ),
@@ -579,7 +680,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   // MÉTODOS PRINCIPAIS QUE CHAMAM AS VERSÕES WEB/MOBILE
   void _downloadPdf(Uint8List bytes) {
     final fileName = '${_sanitizeFileName(widget.material.titulo)}.pdf';
-    
+
     if (kIsWeb) {
       _downloadPdfWeb(bytes, fileName);
     } else {
@@ -589,7 +690,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   void _downloadImage(Uint8List? bytes, String? url) {
     final fileName = '${_sanitizeFileName(widget.material.titulo)}.jpg';
-    
+
     if (kIsWeb) {
       _downloadImageWeb(bytes, url, fileName);
     } else if (bytes != null) {
@@ -632,15 +733,15 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   Widget _buildErrorWidget(String message) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-    
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.error_outline, 
-            size: isMobile ? 48 : 64, 
-            color: AppColors.vermelhoErro
+            Icons.error_outline,
+            size: isMobile ? 48 : 64,
+            color: AppColors.vermelhoErro,
           ),
           SizedBox(height: isMobile ? 12 : 16),
           Text(
@@ -656,11 +757,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-    
+
     try {
       return Scaffold(
         backgroundColor: AppColors.branco,
@@ -718,7 +818,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                           children: [
                             Icon(
                               Icons.access_time,
-                              color: widget.material.prazo!.isBefore(DateTime.now())
+                              color:
+                                  widget.material.prazo!.isBefore(
+                                    DateTime.now(),
+                                  )
                                   ? AppColors.vermelhoErro
                                   : AppColors.vermelho,
                               size: isMobile ? 16 : 18,
@@ -730,7 +833,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                                     ? 'Prazo Expirado: ${_formatarData(widget.material.prazo!)}'
                                     : 'Prazo: ${_formatarData(widget.material.prazo!)}',
                                 style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                  color: widget.material.prazo!.isBefore(DateTime.now())
+                                  color:
+                                      widget.material.prazo!.isBefore(
+                                        DateTime.now(),
+                                      )
                                       ? AppColors.vermelhoErro
                                       : AppColors.vermelho,
                                   fontWeight: FontWeight.bold,
@@ -884,9 +990,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.bug_report, 
-                size: isMobile ? 48 : 64, 
-                color: AppColors.vermelhoErro
+                Icons.bug_report,
+                size: isMobile ? 48 : 64,
+                color: AppColors.vermelhoErro,
               ),
               SizedBox(height: isMobile ? 12 : 16),
               Text(
@@ -1018,16 +1124,16 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   Widget _buildImageContainer(Uint8List? bytes, String? url) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-    
+
     Widget imageWidget;
     if (url != null && url.isNotEmpty) {
       print('=== DEBUG: Carregando imagem de URL ===');
       imageWidget = Image.network(
         url,
         fit: BoxFit.contain,
-        height: isMobile ? 
-          MediaQuery.of(context).size.height * 0.3 : 
-          MediaQuery.of(context).size.height * 0.4,
+        height: isMobile
+            ? MediaQuery.of(context).size.height * 0.3
+            : MediaQuery.of(context).size.height * 0.4,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return const Center(
@@ -1054,9 +1160,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       imageWidget = Image.memory(
         bytes,
         fit: BoxFit.contain,
-        height: isMobile ? 
-          MediaQuery.of(context).size.height * 0.3 : 
-          MediaQuery.of(context).size.height * 0.4,
+        height: isMobile
+            ? MediaQuery.of(context).size.height * 0.3
+            : MediaQuery.of(context).size.height * 0.4,
         errorBuilder: (context, error, stackTrace) {
           print('=== DEBUG ERRO imagem memory: $error ===');
           return Column(
@@ -1091,9 +1197,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
 
     return Container(
-      height: isMobile ? 
-        MediaQuery.of(context).size.height * 0.6 : 
-        MediaQuery.of(context).size.height * 0.7,
+      height: isMobile
+          ? MediaQuery.of(context).size.height * 0.6
+          : MediaQuery.of(context).size.height * 0.7,
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -1119,7 +1225,11 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                 ),
                 if (!isMobile)
                   IconButton(
-                    icon: Icon(Icons.download, size: 20, color: AppColors.azulClaro),
+                    icon: Icon(
+                      Icons.download,
+                      size: 20,
+                      color: AppColors.azulClaro,
+                    ),
                     onPressed: () => _downloadImage(bytes, url),
                     tooltip: 'Fazer download',
                   ),
@@ -1171,7 +1281,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   Widget _buildLinkContainer(String? url) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-    
+
     if (url == null || url.isEmpty) {
       return _buildErrorWidget('URL não disponível');
     }
@@ -1179,9 +1289,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     final corIcone = _getMaterialColor(widget.material.tipo);
 
     return Container(
-      height: isMobile ? 
-        MediaQuery.of(context).size.height * 0.6 : 
-        MediaQuery.of(context).size.height * 0.7,
+      height: isMobile
+          ? MediaQuery.of(context).size.height * 0.6
+          : MediaQuery.of(context).size.height * 0.7,
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -1209,12 +1319,20 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                   Row(
                     children: [
                       IconButton(
-                        icon: Icon(Icons.open_in_new, size: 20, color: AppColors.azulClaro),
+                        icon: Icon(
+                          Icons.open_in_new,
+                          size: 20,
+                          color: AppColors.azulClaro,
+                        ),
                         onPressed: () => _openLinkInNewTab(url),
                         tooltip: 'Abrir em nova aba',
                       ),
                       IconButton(
-                        icon: Icon(Icons.copy, size: 20, color: AppColors.azulClaro),
+                        icon: Icon(
+                          Icons.copy,
+                          size: 20,
+                          color: AppColors.azulClaro,
+                        ),
                         onPressed: () => _copyLink(url),
                         tooltip: 'Copiar link',
                       ),
@@ -1264,9 +1382,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                       ),
                       onPressed: () => _openLinkInNewTab(url),
                       icon: Icon(
-                        Icons.open_in_new, 
+                        Icons.open_in_new,
                         size: isMobile ? 18 : 20,
-                        color: AppColors.branco
+                        color: AppColors.branco,
                       ),
                       label: Text(
                         'Abrir Link',
@@ -1287,9 +1405,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                       ),
                       onPressed: () => _copyLink(url),
                       icon: Icon(
-                        Icons.copy, 
+                        Icons.copy,
                         size: isMobile ? 18 : 20,
-                        color: AppColors.azulClaro
+                        color: AppColors.azulClaro,
                       ),
                       label: Text(
                         'Copiar Link',
@@ -1361,7 +1479,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                   Text(
                     'Título: ${widget.material.titulo}',
                     style: AppTextStyles.fonteUbuntu.copyWith(
-                      fontSize: isMobile ? 16 : 18
+                      fontSize: isMobile ? 16 : 18,
                     ),
                   ),
                   if (widget.material.descricao != null) ...[
@@ -1444,7 +1562,8 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                     FutureBuilder<bool>(
                       future: _isPdfValid(bytes),
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
                           return Center(child: CircularProgressIndicator());
                         }
                         if (snapshot.hasData == true && snapshot.data!) {

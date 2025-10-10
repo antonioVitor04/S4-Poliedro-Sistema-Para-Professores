@@ -335,44 +335,33 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
   }
 
   Widget _campoEmail() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Email",
-          style: AppTextStyles.fonteUbuntu.copyWith(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.preto,
-          ),
+    return TextFormField(
+      controller: emailController,
+      cursorColor: AppColors.azulClaro,
+      style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+      keyboardType: TextInputType.emailAddress,
+      decoration: InputDecoration(
+        labelText: 'Email*',
+        labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+        hintText: "exemplo@poliedro.com",
+        hintStyle: AppTextStyles.fonteUbuntu.copyWith(
+          color: AppColors.preto.withOpacity(0.4),
         ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: emailController,
-          cursorColor: AppColors.azulClaro,
-          style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
-          keyboardType: TextInputType.emailAddress,
-          decoration: InputDecoration(
-            hintText: "exemplo@poliedro.com",
-            hintStyle: TextStyle(color: AppColors.preto.withOpacity(0.4)),
-            filled: true,
-            fillColor: AppColors.azulClaro.withOpacity(0.05),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            prefixIcon: Icon(Icons.email_outlined, color: AppColors.azulClaro),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.transparent),
-            ),
-          ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        prefixIcon: Icon(Icons.email, color: AppColors.azulClaro),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
+          borderRadius: BorderRadius.circular(12),
         ),
-      ],
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 16,
+        ),
+      ),
     );
   }
 }
