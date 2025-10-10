@@ -1,4 +1,3 @@
-// services/topico_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/modelo_card_disciplina.dart';
@@ -8,13 +7,15 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class TopicoService {
   static String get _baseUrl {
     if (kIsWeb) return 'http://localhost:5000';
-    return 'http://10.2.3.3:5000'; // Direto, sem dotenv
+    return 'http://192.168.15.123:5000'; // Direto, sem dotenv
   }
+
+  static const String _apiPrefix = '/api/cardsDisciplinas';  // Prefixo correto para o backend
 
   // Buscar todos os tópicos de uma disciplina
   static Future<List<TopicoDisciplina>> getTopicosBySlug(String slug) async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/$slug/topicos'));
+      final response = await http.get(Uri.parse('$_baseUrl$_apiPrefix/$slug/topicos'));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -39,7 +40,7 @@ class TopicoService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/$slug/topicos'),
+        Uri.parse('$_baseUrl$_apiPrefix/$slug/topicos'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'titulo': titulo, 'descricao': descricao}),
       );
@@ -71,7 +72,7 @@ class TopicoService {
       if (ordem != null) body['ordem'] = ordem;
 
       final response = await http.put(
-        Uri.parse('$_baseUrl/$slug/topicos/$topicoId'),
+        Uri.parse('$_baseUrl$_apiPrefix/$slug/topicos/$topicoId'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(body),
       );
@@ -92,7 +93,7 @@ class TopicoService {
   static Future<void> deletarTopico(String slug, String topicoId) async {
     try {
       final response = await http.delete(
-        Uri.parse('$_baseUrl/$slug/topicos/$topicoId'),
+        Uri.parse('$_baseUrl$_apiPrefix/$slug/topicos/$topicoId'),
       );
 
       if (response.statusCode != 200) {
@@ -111,7 +112,7 @@ class TopicoService {
   ) async {
     try {
       final response = await http.put(
-        Uri.parse('$_baseUrl/$slug/topicos/$topicoId/reordenar'),
+        Uri.parse('$_baseUrl$_apiPrefix/$slug/topicos/$topicoId/reordenar'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'novaOrdem': novaOrdem}),
       );

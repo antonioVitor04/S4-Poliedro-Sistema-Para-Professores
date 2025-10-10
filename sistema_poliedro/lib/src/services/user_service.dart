@@ -5,11 +5,13 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/usuario.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-class ApiService {
+class UserService {
   static String get _baseUrl {
     if (kIsWeb) return 'http://localhost:5000';
-    return 'http://10.2.3.3:5000'; // Direto, sem dotenv
+    return 'http://192.168.15.123:5000'; // Direto, sem dotenv
   }
+
+  static const String _apiPrefix = '/api';  
 
   final Map<String, String> headers = {
     'Content-Type': 'application/json',
@@ -27,25 +29,32 @@ class ApiService {
   }
 
   String get endpointBase {
-    return _tipoUsuario == TipoUsuario.professor
-        ? '$_baseUrl/professores'
-        : '$_baseUrl/alunos';
+    final basePath = _tipoUsuario == TipoUsuario.professor ? 'professores' : 'alunos';
+    return '$_baseUrl$_apiPrefix/$basePath';  
   }
 
   Future<Usuario> getPerfilUsuario() async {
-    final response = await http.get(
-      Uri.parse('$endpointBase/'),
-      headers: headers,
-    );
+    try {
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final usuarioData = data['professor'] ?? data['aluno'] ?? data;
-      return Usuario.fromJson(usuarioData, _tipoUsuario);
-    } else {
-      throw Exception(
-        'Falha ao carregar perfil - Status: ${response.statusCode}',
+
+      final response = await http.get(
+        Uri.parse('$endpointBase/'), 
+        headers: headers,
       );
+
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final usuarioData = data['professor'] ?? data['aluno'] ?? data;
+        return Usuario.fromJson(usuarioData, _tipoUsuario);
+      } else {
+        throw Exception(
+          'Falha ao carregar perfil - Status: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      print('❌ [DEBUG] Erro no perfil: $e');
+      rethrow;
     }
   }
 
@@ -54,23 +63,29 @@ class ApiService {
     String? email,
     String? senha,
   }) async {
-    final Map<String, dynamic> body = {};
-    if (nome != null) body['nome'] = nome;
-    if (email != null) body['email'] = email;
-    if (senha != null) body['senha'] = senha;
+    try {
+      final Map<String, dynamic> body = {};
+      if (nome != null) body['nome'] = nome;
+      if (email != null) body['email'] = email;
+      if (senha != null) body['senha'] = senha;
 
-    final response = await http.put(
-      Uri.parse('$endpointBase/update'),
-      headers: headers,
-      body: jsonEncode(body),
-    );
 
-    if (response.statusCode != 200) {
-      throw Exception('Falha ao atualizar perfil');
+      final response = await http.put(
+        Uri.parse('$endpointBase/update'),  // Agora com /api/
+        headers: headers,
+        body: jsonEncode(body),
+      );
+
+
+      if (response.statusCode != 200) {
+        final errorData = jsonDecode(response.body);
+        throw Exception('Falha ao atualizar perfil: ${errorData['msg'] ?? response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
     }
   }
 
-  // ✅ VERSÃO CORRIGIDA - getImagemUsuarioBytes
   Future<Uint8List> getImagemUsuarioBytes({int? timestamp}) async {
     try {
       print('🔍 [DEBUG] Iniciando download da imagem...');
@@ -79,7 +94,7 @@ class ApiService {
           ? '$endpointBase/image?t=$timestamp'
           : '$endpointBase/image';
 
-      print('🔍 [DEBUG] URL da imagem: $url');
+      print('🔍 [DEBUG] URL da imagem: $url');  // Agora com /api/
       print(
         '🔍 [DEBUG] Headers: ${headers['Authorization']?.substring(0, 20)}...',
       );
@@ -91,7 +106,6 @@ class ApiService {
       print('🔍 [DEBUG] Tamanho dos bytes: ${response.bodyBytes.length}');
 
       if (response.statusCode == 200) {
-        // ✅ CORREÇÃO: Aceita resposta vazia como "sem imagem"
         if (response.bodyBytes.isEmpty) {
           print('⚠️ [DEBUG] Resposta vazia - tratando como sem imagem');
           throw Exception('Usuário não tem imagem');
@@ -105,7 +119,7 @@ class ApiService {
         print('❌ [DEBUG] Imagem não encontrada (404)');
         throw Exception('Usuário não tem imagem');
       } else {
-        print('❌ [DEBUG] Erro HTTP: ${response.statusCode}');
+        print('❌ [DEBUG] Erro HTTP: ${response.statusCode} - ${response.body}');
         throw Exception('Falha ao carregar imagem: ${response.statusCode}');
       }
     } catch (e) {
@@ -119,7 +133,7 @@ class ApiService {
       print('🗑️ [DEBUG] Iniciando remoção de imagem...');
 
       final response = await http.delete(
-        Uri.parse('$endpointBase/remove-image'),
+        Uri.parse('$endpointBase/remove-image'),  // Agora com /api/
         headers: headers,
       );
 
@@ -173,7 +187,7 @@ class ApiService {
       print('📤 [DEBUG] Tamanho do body: ${body.length} caracteres');
 
       final response = await http.put(
-        Uri.parse('$endpointBase/update-image-base64'),
+        Uri.parse('$endpointBase/update-image-base64'),  // Agora com /api/
         headers: headers,
         body: body,
       );
@@ -195,7 +209,6 @@ class ApiService {
     }
   }
 
-  // ✅ MÉTODO ADICIONAL: Verificar se usuário tem imagem
   Future<bool> verificarSeTemImagem() async {
     try {
       // Tenta baixar a imagem
@@ -203,6 +216,7 @@ class ApiService {
       return bytes.isNotEmpty;
     } catch (e) {
       // Se deu erro (404 ou vazio), não tem imagem
+      print('⚠️ [DEBUG] Verificação: Não tem imagem ($e)');
       return false;
     }
   }

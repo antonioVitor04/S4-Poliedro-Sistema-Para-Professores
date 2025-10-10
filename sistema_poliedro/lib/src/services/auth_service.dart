@@ -7,7 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class AuthService {
   static String get _baseUrl {
     if (kIsWeb) return 'http://localhost:5000';
-    return 'http://10.2.3.3:5000'; // Direto, sem dotenv
+    return 'http://192.168.15.123:5000'; // Direto, sem dotenv
   }
 
   static Future<String?> login(
