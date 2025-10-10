@@ -1,14 +1,11 @@
 // pages/material/visualizacao_material_page.dart
 import 'package:flutter/material.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
-import 'dart:typed_data';
 import 'dart:convert' as convert;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:open_file/open_file.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:universal_html/html.dart' as html;
 import '../../../services/permission_service.dart'; 
 import '../../../services/material_service.dart';

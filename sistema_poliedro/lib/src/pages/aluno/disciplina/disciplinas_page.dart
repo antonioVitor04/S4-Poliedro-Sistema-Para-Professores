@@ -124,6 +124,7 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppColors.branco,
         title: const Text('Confirmar Exclusão'),
         content: Text(
           'Tem certeza que deseja excluir a disciplina "${card.titulo}"? Esta ação não pode ser desfeita.',
@@ -328,6 +329,7 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
                               top: 8,
                               right: 8,
                               child: PopupMenuButton<String>(
+                                color: AppColors.branco,
                                 icon: const Icon(
                                   Icons.more_vert,
                                   color: Colors.white,

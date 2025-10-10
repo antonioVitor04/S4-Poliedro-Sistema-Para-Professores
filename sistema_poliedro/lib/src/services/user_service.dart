@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import '../models/usuario.dart';
+import '../models/modelo_usuario.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class UserService {

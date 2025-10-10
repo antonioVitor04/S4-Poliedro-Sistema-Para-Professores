@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_service.dart';
-import '../models/usuario.dart';
+import '../models/modelo_usuario.dart';
 import '../styles/fontes.dart';
 import '../utils/image_utils.dart';
 import '../components/alerta.dart';
