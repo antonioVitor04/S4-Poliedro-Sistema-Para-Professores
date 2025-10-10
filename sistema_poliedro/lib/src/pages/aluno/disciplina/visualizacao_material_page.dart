@@ -11,9 +11,6 @@ import 'package:open_file/open_file.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:universal_html/html.dart' as html;
 
-// IMPORT CONDICIONAL CORRETO para web
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 import '../../../services/material_service.dart';
 import '../../../models/modelo_card_disciplina.dart';
 import '../../../styles/cores.dart';
@@ -264,9 +261,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       final base64Pdf = convert.base64Encode(bytes);
       final pdfUrl = 'data:application/pdf;base64,$base64Pdf';
       final window = html.window.open(pdfUrl, '_blank');
-      if (window == null) {
-        throw Exception('Popup bloqueado pelo navegador');
-      }
     } catch (e2) {
       print('=== DEBUG ERRO Data URL: $e2 ===');
       _showOpenPdfDialogWeb(bytes);
@@ -329,31 +323,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       _showError(
         'Não foi possível abrir o PDF. Faça o download e abra manualmente.',
       );
-    }
-  }
-
-  void _openImageInNewTabWeb(Uint8List? bytes, String? url) {
-    if (!kIsWeb) return;
-
-    
-    try {
-      String imageUrl;
-      if (bytes != null) {
-        final base64Image = convert.base64Encode(bytes);
-        imageUrl = 'data:image/jpeg;base64,$base64Image';
-      } else if (url != null && url.isNotEmpty) {
-        imageUrl = url;
-      } else {
-        return;
-      }
-
-      final window = html.window.open(imageUrl, '_blank');
-      if (window == null) {
-        throw Exception('Popup bloqueado pelo navegador');
-      }
-    } catch (e) {
-      print('=== DEBUG ERRO abrir imagem web: $e ===');
-      _showError('Erro ao abrir imagem em nova aba');
     }
   }
 
@@ -639,17 +608,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
-  void _openImageInNewTab(Uint8List? bytes, String? url) {
-    if (kIsWeb) {
-      _openImageInNewTabWeb(bytes, url);
-    } else {
-      // No mobile, fazer download
-      if (bytes != null) {
-        _downloadImage(bytes, url);
-      }
-    }
-  }
-
   void _openLinkInNewTab(String url) {
     if (kIsWeb) {
       _openLinkInNewTabWeb(url);
@@ -659,9 +617,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
-  // ... (o resto do código permanece igual - métodos auxiliares, build, etc.)
-
-  // MÉTODOS AUXILIARES (mantenha os mesmos do código anterior)
   String _sanitizeFileName(String name) {
     return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
   }
@@ -701,9 +656,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     );
   }
 
-  // ... (continue com todos os outros métodos: _buildConteudoMaterial, _buildImageContainer, etc.)
 
-  // MÉTODO BUILD (mantenha igual)
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
@@ -958,7 +911,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
-  // ... (mantenha todos os outros métodos auxiliares: _formatarData, _getMaterialColor, etc.)
   String _formatarData(DateTime data) {
     return '${data.day}/${data.month}/${data.year} às ${data.hour}:${data.minute.toString().padLeft(2, '0')}';
   }
@@ -1008,7 +960,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
-  // ... (mantenha _buildConteudoMaterial, _buildImageContainer, _buildLinkContainer, _buildAtividadeContainer)
   Widget _buildConteudoMaterial(BuildContext context, Uint8List? bytes) {
     print(
       '=== DEBUG Conteúdo: Tipo=${widget.material.tipo}, URL=${widget.material.url}, Bytes=${bytes?.length} ===',
@@ -1138,8 +1089,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         ],
       );
     }
-
-    final corIcone = _getMaterialColor(widget.material.tipo);
 
     return Container(
       height: isMobile ? 

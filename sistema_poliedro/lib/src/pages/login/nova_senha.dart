@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:sistema_poliedro/src/services/auth_service.dart';
 import 'package:sistema_poliedro/src/styles/cores.dart';
 import 'package:sistema_poliedro/src/styles/fontes.dart';
 import 'package:sistema_poliedro/src/components/alerta.dart';
@@ -101,67 +100,25 @@ class _NovaSenhaState extends State<NovaSenha> {
         _carregando = true;
       });
 
-      final response = await _chamarApiAtualizarSenha();
+      await AuthService.updatePassword(widget.email, widget.codigo, novaSenhaController.text);
 
-      if (response['sucesso'] == true) {
-        mostrarAlerta("Senha alterada com sucesso!", true);
+      mostrarAlerta("Senha alterada com sucesso!", true);
 
-        // Aguardar 2 segundos antes de redirecionar
-        await Future.delayed(const Duration(seconds: 2));
+      // Aguardar 2 segundos antes de redirecionar
+      await Future.delayed(const Duration(seconds: 2));
 
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, "/login");
-        }
-      } else {
-        mostrarAlerta(response['mensagem'] ?? "Erro ao atualizar senha", false);
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, "/login");
       }
-    } catch (error) {
-      mostrarAlerta("Erro de conexão. Tente novamente.", false);
+    } on Exception catch (error) {
+      final mensagem = error.toString().replaceFirst('Exception: ', '');
+      mostrarAlerta(mensagem.isEmpty ? "Erro ao atualizar senha" : mensagem, false);
     } finally {
       if (mounted) {
         setState(() {
           _carregando = false;
         });
       }
-    }
-  }
-
-  // Função REAL para chamada API de atualização de senha
-  Future<Map<String, dynamic>> _chamarApiAtualizarSenha() async {
-    const String url =
-        'http://localhost:5000/api/recuperarSenha/atualizar-senha';
-
-    try {
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': widget.email,
-          'codigo': widget.codigo,
-          'novaSenha': novaSenhaController.text,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return {
-          'sucesso': true,
-          'mensagem': data['message'] ?? 'Senha atualizada com sucesso',
-        };
-      } else if (response.statusCode == 400 || response.statusCode == 404) {
-        final data = json.decode(response.body);
-        return {
-          'sucesso': false,
-          'mensagem': data['error'] ?? 'Erro ao atualizar senha',
-        };
-      } else {
-        return {
-          'sucesso': false,
-          'mensagem': 'Erro no servidor. Status: ${response.statusCode}',
-        };
-      }
-    } catch (error) {
-      return {'sucesso': false, 'mensagem': 'Erro de conexão: $error'};
     }
   }
 

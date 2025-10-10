@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:sistema_poliedro/src/services/auth_service.dart';
 import 'dart:convert';
 import 'package:sistema_poliedro/src/styles/cores.dart';
 import 'package:sistema_poliedro/src/styles/fontes.dart';
@@ -42,71 +42,32 @@ class _CodigoVerificacaoState extends State<CodigoVerificacao> {
         _carregando = true;
       });
 
-      final response = await _chamarApiValidacao(codigo);
+      await AuthService.verifyCode(widget.email, codigo);
 
-      if (response['sucesso'] == true) {
-        // Mostra alerta de sucesso
-        mostrarAlerta("Código validado com sucesso!", true);
+      // Mostra alerta de sucesso
+      mostrarAlerta("Código validado com sucesso!", true);
 
-        // Aguarda 2 segundos e redireciona para NovaSenha
-        await Future.delayed(const Duration(seconds: 2));
+      // Aguarda 2 segundos e redireciona para NovaSenha
+      await Future.delayed(const Duration(seconds: 2));
 
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  NovaSenha(email: widget.email, codigo: codigo),
-            ),
-          );
-        }
-      } else {
-        // Código inválido
-        mostrarAlerta(response['mensagem'] ?? "Código inválido!", false);
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                NovaSenha(email: widget.email, codigo: codigo),
+          ),
+        );
       }
-    } catch (error) {
-      // Erro de conexão ou servidor
-      mostrarAlerta("Erro ao validar código. Tente novamente.", false);
+    } on Exception catch (error) {
+      final mensagem = error.toString().replaceFirst('Exception: ', '');
+      mostrarAlerta(mensagem.isEmpty ? "Código inválido!" : mensagem, false);
     } finally {
       if (mounted) {
         setState(() {
           _carregando = false;
         });
       }
-    }
-  }
-
-  // Função REAL para chamada API
-  Future<Map<String, dynamic>> _chamarApiValidacao(String codigo) async {
-    const String url = 'http://localhost:5000/api/enviarEmail/verificar-codigo';
-
-    try {
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'email': widget.email, 'codigo': codigo}),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return {
-          'sucesso': true,
-          'mensagem': data['message'] ?? 'Código verificado com sucesso',
-        };
-      } else if (response.statusCode == 400) {
-        final data = json.decode(response.body);
-        return {
-          'sucesso': false,
-          'mensagem': data['error'] ?? 'Código inválido',
-        };
-      } else {
-        return {
-          'sucesso': false,
-          'mensagem': 'Erro no servidor. Tente novamente.',
-        };
-      }
-    } catch (error) {
-      throw Exception('Erro de conexão: $error');
     }
   }
 

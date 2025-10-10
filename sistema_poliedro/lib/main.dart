@@ -4,8 +4,10 @@ import 'src/pages/login/login_page.dart';
 import './src/pages/aluno/main_aluno_page.dart';
 import 'src/components/auth_guard.dart';
 import 'src/pages/login/recuperar_senha.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+void main() { 
+
   runApp(const MyApp());
 }
 

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:sistema_poliedro/src/pages/login/Recuperar_Senha.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sistema_poliedro/src/services/auth_service.dart';
 import '../../models/usuario.dart';
 import 'package:sistema_poliedro/src/styles/cores.dart';
 import 'package:sistema_poliedro/src/styles/fontes.dart';
 import 'package:sistema_poliedro/src/components/alerta.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -40,41 +39,31 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> login() async {
     final emailOuRA = emailController.text.trim();
     final senha = senhaController.text.trim();
-    final rota = paginaAtual == "professor" ? "professores" : "alunos";
-    final url = Uri.parse("http://localhost:5000/api/$rota/login");
-    final body = paginaAtual == "professor"
-        ? {"email": emailOuRA, "senha": senha}
-        : {"ra": emailOuRA, "senha": senha};
+
+    if (emailOuRA.isEmpty || senha.isEmpty) {
+      mostrarAlerta("Por favor, preencha todos os campos.", false);
+      return;
+    }
 
     try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(body),
-      );
+      await AuthService.login(emailOuRA, senha, paginaAtual);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final token = data['token'];
-        final prefs = await SharedPreferences.getInstance();
-
-        await prefs.setString('token', token);
-        await prefs.setString('tipoUsuario', paginaAtual);
-
-        if (paginaAtual == "professor") {
-          Navigator.pushReplacementNamed(context, '/professor_protected');
-        } else {
-          Navigator.pushReplacementNamed(
-            context,
-            '/aluno_protected',
-            arguments: {'initialRoute': '/disciplinas'},
-          );
-        }
+      if (paginaAtual == "professor") {
+        Navigator.pushReplacementNamed(context, '/professor_protected');
       } else {
-        mostrarAlerta("Erro no login. Verifique suas credenciais.", false);
+        Navigator.pushReplacementNamed(
+          context,
+          '/aluno_protected',
+          arguments: {'initialRoute': '/disciplinas'},
+        );
       }
-    } catch (e) {
-      mostrarAlerta("Erro na requisição. Tente novamente mais tarde.", false);
+    } on Exception catch (e) {
+      final mensagem = e.toString().replaceFirst('Exception: ', '');
+      if (mensagem.contains('login')) {
+        mostrarAlerta("Erro no login. Verifique suas credenciais.", false);
+      } else {
+        mostrarAlerta("Erro na requisição. Tente novamente mais tarde.", false);
+      }
     }
   }
 

@@ -5,7 +5,7 @@ import 'package:sistema_poliedro/src/styles/cores.dart';
 import 'package:sistema_poliedro/src/styles/fontes.dart';
 import 'package:sistema_poliedro/src/components/alerta.dart';
 import './codigo_verificacao.dart';
-import 'package:http/http.dart' as http;
+import 'package:sistema_poliedro/src/services/auth_service.dart';
 
 class Recuperar_Senha extends StatefulWidget {
   const Recuperar_Senha({super.key});
@@ -47,30 +47,17 @@ class _Recuperar_SenhaState extends State<Recuperar_Senha> {
         _carregando = true;
       });
 
-      final url = Uri.parse(
-        'http://localhost:5000/api/enviarEmail/enviar-codigo',
-      );
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"email": email}),
-      );
+      await AuthService.sendVerificationCode(email);
 
-      final data = jsonDecode(response.body);
+      mostrarAlerta("Código enviado para $email", true);
 
-      if (response.statusCode == 200) {
-        mostrarAlerta("Código enviado para $email", true);
-
-        // Redireciona após o alerta fechar
-        Future.delayed(const Duration(seconds: 3), () {
-          redirecionaParaInserirCodigo(email);
-        });
-      } else {
-        // Algum erro aconteceu (ex: email não encontrado)
-        mostrarAlerta(data['error'] ?? "Erro ao enviar código", false);
-      }
-    } catch (e) {
-      mostrarAlerta("Erro de conexão: $e", false);
+      // Redireciona após o alerta fechar
+      Future.delayed(const Duration(seconds: 3), () {
+        redirecionaParaInserirCodigo(email);
+      });
+    } on Exception catch (e) {
+      final mensagem = e.toString().replaceFirst('Exception: ', '');
+      mostrarAlerta(mensagem.isEmpty ? "Erro ao enviar código" : mensagem, false);
     } finally {
       if (mounted) {
         setState(() {
