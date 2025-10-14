@@ -74,8 +74,33 @@ class _NotasPageState extends State<NotasPage> {
                   SizedBox(height: isMobile ? 12 : 20),
 
                   /// BARRA DE PESQUISA RESPONSIVA
-                  _buildSearchBar(isMobile),
-                  SizedBox(height: isMobile ? 12 : 20),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 600, // largura máxima da barra (ajuste se quiser)
+                      minWidth: 300, // largura mínima para telas pequenas
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) {
+                        setState(() => searchText = value.toLowerCase());
+                      },
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.search),
+                        hintText: "Pesquisar disciplina...",
+                        filled: true,
+                        fillColor: Colors.grey[200],
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
 
                   /// LEGENDA RESPONSIVA
                   _buildLegend(isMobile),
