@@ -118,6 +118,27 @@ class AuthService {
     return prefs.getString("token");
   }
 
+  // ADICIONE ESTE MÉTODO - getUserType
+  static Future<String?> getUserType() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString("tipoUsuario");
+  }
+
+  // ADICIONE ESTE MÉTODO - isProfessor
+  static Future<bool> isProfessor() async {
+    final tipo = await getUserType();
+    return tipo == "professor";
+  }
+
+  // ADICIONE ESTE MÉTODO - getAuthHeaders
+  static Future<Map<String, String>> getAuthHeaders() async {
+    final token = await getToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   static Future<bool> isLoggedIn() async {
     final token = await getToken();
     return token != null && token.isNotEmpty;
@@ -128,3 +149,4 @@ class AuthService {
     await prefs.clear();
   }
 }
+

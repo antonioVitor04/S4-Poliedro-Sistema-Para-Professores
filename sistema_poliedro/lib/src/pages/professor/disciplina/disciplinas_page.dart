@@ -1,4 +1,3 @@
-// disciplinas_aluno_page.dart
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:sistema_poliedro/src/styles/cores.dart';
@@ -10,18 +9,15 @@ import '../../../dialogs/adicionar_card_dialog.dart';
 import '../../../dialogs/editar_card_dialog.dart';
 
 class DisciplinasPageProfessor extends StatefulWidget {
-  final Function(String, String) onNavigateToDetail; // 🔥 Novo parâmetro
+  final Function(String, String) onNavigateToDetail;
 
-  const DisciplinasPageProfessor({
-    super.key,
-    required this.onNavigateToDetail, // 🔥 Recebe a função
-  });
+  const DisciplinasPageProfessor({super.key, required this.onNavigateToDetail});
 
   @override
-  State<DisciplinasPageProfessor> createState() => _DisciplinasPageState();
+  State<DisciplinasPageProfessor> createState() => _DisciplinasPageProfessorState();
 }
 
-class _DisciplinasPageState extends State<DisciplinasPageProfessor> {
+class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
   late Future<List<CardDisciplina>> _futureCards;
   bool _isLoading = true;
   String _errorMessage = '';
@@ -36,7 +32,6 @@ class _DisciplinasPageState extends State<DisciplinasPageProfessor> {
     try {
       final cards = await CardDisciplinaService.getAllCards();
       if (mounted) {
-        // Verifica se o widget ainda está montado
         setState(() {
           _isLoading = false;
         });
@@ -129,6 +124,7 @@ class _DisciplinasPageState extends State<DisciplinasPageProfessor> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppColors.branco,
         title: const Text('Confirmar Exclusão'),
         content: Text(
           'Tem certeza que deseja excluir a disciplina "${card.titulo}"? Esta ação não pode ser desfeita.',
@@ -143,7 +139,7 @@ class _DisciplinasPageState extends State<DisciplinasPageProfessor> {
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
-              foregroundColor: Colors.black,
+              foregroundColor: Colors.white,
             ),
             child: const Text('Excluir'),
           ),
@@ -177,24 +173,26 @@ class _DisciplinasPageState extends State<DisciplinasPageProfessor> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
 
-    // Se ainda carregando globalmente, mostra loader simples
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppColors.azulClaro),
+        ),
+      );
     }
 
-    // Se erro global, mostra erro simples
     if (_errorMessage.isNotEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
+            const Text(
               'Erro ao carregar disciplinas',
               style: TextStyle(fontSize: 16, color: Colors.red),
             ),
             Text(
               _errorMessage,
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -208,16 +206,23 @@ class _DisciplinasPageState extends State<DisciplinasPageProfessor> {
     }
 
     return Scaffold(
+      backgroundColor: Colors.white, //
       body: RefreshIndicator(
         onRefresh: () async {
           _refreshCards();
-          await _futureCards; // Espera o futuro completar
+          await _futureCards;
         },
         child: FutureBuilder<List<CardDisciplina>>(
           future: _futureCards,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppColors.azulClaro,
+                  ),
+                ),
+              );
             }
 
             if (snapshot.hasError) {
@@ -280,103 +285,97 @@ class _DisciplinasPageState extends State<DisciplinasPageProfessor> {
 
             final cards = snapshot.data!;
 
-            return CustomScrollView(
-              slivers: [
-                // Título como SliverToBoxAdapter (rola junto com o conteúdo)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      30,
-                      20,
-                      20,
-                      10,
-                    ), // Padding similar ao original
-                    child: Text(
-                      "Disciplinas",
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: isMobile ? 22 : 25,
-                        fontWeight: FontWeight.bold,
+            return Container(
+              color: Colors
+                  .white, // ✅ Fundo branco, garantindo que o Scaffold não herde lilás
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(30, 20, 20, 10),
+                      child: Text(
+                        "Disciplinas",
+                        style: AppTextStyles.fonteUbuntu.copyWith(
+                          fontSize: isMobile ? 22 : 25,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                // Grid como SliverGrid (scroll fluido)
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  sliver: SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: _getCrossAxisCount(screenWidth),
-                      crossAxisSpacing:
-                          20, // Reduzido de 30 para 20 (espaçamento menor entre cards)
-                      mainAxisSpacing:
-                          12, // Reduzido de 16 para 12 (espaçamento vertical menor)
-                      childAspectRatio: _getAspectRatio(
-                        screenWidth,
-                      ), // Ajustado para cards menores
-                    ),
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final card = cards[index];
-                      return Stack(
-                        children: [
-                          DisciplinaCard(
-                            disciplina: card.titulo,
-                            imageUrl: card.imagem,
-                            iconUrl: card.icone,
-                            isMobile: isMobile,
-                            onTap: () => widget.onNavigateToDetail(
-                              card.slug,
-                              card.titulo,
-                            ),
-                          ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: PopupMenuButton<String>(
-                              icon: const Icon(
-                                Icons.more_vert,
-                                color: Colors.white,
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: _getCrossAxisCount(screenWidth),
+                        crossAxisSpacing: 20,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: _getAspectRatio(screenWidth),
+                      ),
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final card = cards[index];
+                        return Stack(
+                          children: [
+                            DisciplinaCard(
+                              disciplina: card.titulo,
+                              imageUrl: card.imagem,
+                              iconUrl: card.icone,
+                              isMobile: isMobile,
+                              onTap: () => widget.onNavigateToDetail(
+                                card.slug,
+                                card.titulo,
                               ),
-                              onSelected: (value) {
-                                if (value == 'edit') {
-                                  _editarCard(card);
-                                } else if (value == 'delete') {
-                                  _deletarCard(card);
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit, size: 20),
-                                      SizedBox(width: 8),
-                                      Text('Editar'),
-                                    ],
-                                  ),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.delete,
-                                        size: 20,
-                                        color: Colors.red,
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text('Excluir'),
-                                    ],
-                                  ),
-                                ),
-                              ],
                             ),
-                          ),
-                        ],
-                      );
-                    }, childCount: cards.length),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: PopupMenuButton<String>(
+                                color: AppColors.branco,
+                                icon: const Icon(
+                                  Icons.more_vert,
+                                  color: Colors.white,
+                                ),
+                                onSelected: (value) {
+                                  if (value == 'edit') {
+                                    _editarCard(card);
+                                  } else if (value == 'delete') {
+                                    _deletarCard(card);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'edit',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.edit, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('Editar'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.delete,
+                                          size: 20,
+                                          color: Colors.red,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text('Excluir'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }, childCount: cards.length),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             );
           },
         ),
@@ -390,22 +389,14 @@ class _DisciplinasPageState extends State<DisciplinasPageProfessor> {
   }
 
   int _getCrossAxisCount(double width) {
-    if (width > 1000) {
-      return 3;
-    } else if (width > 600) {
-      return 2;
-    } else {
-      return 1;
-    }
+    if (width > 1000) return 3;
+    if (width > 600) return 2;
+    return 1;
   }
 
   double _getAspectRatio(double width) {
-    if (width > 1000) {
-      return 1.5; // Aumentado de 1.3 para 1.5 (cards mais "achatados" = menores em altura)
-    } else if (width > 600) {
-      return 1.2; // Aumentado de 1.0 para 1.2
-    } else {
-      return 1.5; // Aumentado de 1.2 para 1.5 (menor altura no mobile)
-    }
+    if (width > 1000) return 1.5;
+    if (width > 600) return 1.2;
+    return 1.5;
   }
 }

@@ -1,4 +1,3 @@
-// pages/disciplina/disciplina_detail_page.dart
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../services/card_disciplina_service.dart';
@@ -9,6 +8,7 @@ import '../../../styles/cores.dart';
 import '../../../styles/fontes.dart';
 import '../../../dialogs/adicionar_topico_dialog.dart';
 import '../../../dialogs/adicionar_material_dialog.dart';
+import 'tasks_page.dart';
 import 'visualizacao_material_professor.dart';
 
 class DisciplinaDetailPageProfessor extends StatefulWidget {
@@ -22,11 +22,10 @@ class DisciplinaDetailPageProfessor extends StatefulWidget {
   });
 
   @override
-  State<DisciplinaDetailPageProfessor> createState() =>
-      _DisciplinaDetailPageState();
+  State<DisciplinaDetailPageProfessor> createState() => _DisciplinaDetailPageProfessorState();
 }
 
-class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
+class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProfessor> {
   late Future<CardDisciplina> _futureCard;
   final List<int> _expandedTopicos = [];
   bool _isLoading = false;
@@ -37,10 +36,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
   @override
   void initState() {
     super.initState();
-    print('🔍 Iniciando disciplina: ${widget.slug}');
+    print('🔍 Iniciando discipline: ${widget.slug}');
     _carregarDisciplina();
 
-    // Adicione o listener para o scroll
     _scrollController.addListener(_onScroll);
   }
 
@@ -52,17 +50,14 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
   }
 
   void _onScroll() {
-    // Otimização: throttle para evitar updates muito frequentes
     final now = DateTime.now();
     if (now.difference(_lastScrollUpdate).inMilliseconds < 16) {
-      return; // Limita a ~60fps
+      return;
     }
 
-    // Define um threshold (pode ajustar conforme necessário)
     const threshold = 100.0;
     final newIsScrolled = _scrollController.offset > threshold;
 
-    // Só atualiza se o valor mudou
     if (newIsScrolled != _isScrolled) {
       _lastScrollUpdate = now;
       setState(() {
@@ -103,17 +98,14 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
     setState(() => _isLoading = true);
 
     try {
-      print('➕ Criando tópico: $titulo');
       await TopicoService.criarTopico(
         widget.slug,
         titulo,
         descricao: descricao,
       );
 
-      // Forçar um pequeno delay antes de recarregar
       await Future.delayed(const Duration(milliseconds: 500));
 
-      print('🔄 Recarregando dados após criar tópico...');
       _carregarDisciplina();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -463,6 +455,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppColors.branco,
         title: const Text('Confirmar Exclusão'),
         content: Text(
           'Tem certeza que deseja excluir o tópico "${topico.titulo}"? Esta ação não pode ser desfeita.',
@@ -519,6 +512,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppColors.branco,
         title: const Text('Confirmar Exclusão'),
         content: Text(
           'Tem certeza que deseja excluir o material "${material.titulo}"?',
@@ -670,8 +664,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
               }
 
               final card = snapshot.data!;
-              print('✅ Dados carregados: ${card.titulo}');
-              print('📂 Tópicos encontrados: ${card.topicos.length}');
 
               for (var topico in card.topicos) {
                 print(
@@ -682,7 +674,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
               if (isMobile) {
                 return CustomScrollView(
                   controller: _scrollController,
-                  physics: const ClampingScrollPhysics(), // Física mais suave
+                  physics: const ClampingScrollPhysics(),
                   slivers: [
                     SliverAppBar(
                       expandedHeight: 200.0,
@@ -690,17 +682,18 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                       pinned: true,
                       automaticallyImplyLeading: false,
                       backgroundColor: _isScrolled
-                          ? Colors.white
-                          : Colors.transparent,
+                          ? AppColors.branco
+                          : AppColors.preto,
                       foregroundColor: _isScrolled
-                          ? Colors.black
-                          : Colors.white,
+                          ? AppColors.preto
+                          : AppColors.branco,
                       elevation: _isScrolled ? 4 : 0,
                       actions: [
                         PopupMenuButton<String>(
+                          color: AppColors.branco,
                           icon: Icon(
                             Icons.assignment,
-                            color: _isScrolled ? Colors.black : Colors.white,
+                            color: _isScrolled ? AppColors.preto : AppColors.branco,
                           ),
                           onSelected: (value) {
                             if (value == 'tasks') {
@@ -716,7 +709,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                           itemBuilder: (context) => [
                             const PopupMenuItem(
                               value: 'tasks',
-                              child: Row(
+                              child: Row(                     
                                 children: [
                                   Icon(
                                     Icons.assignment,
@@ -776,24 +769,23 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                               fit: BoxFit.cover,
                               loadingBuilder:
                                   (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Container(
-                                      color: Colors.grey[200],
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          value:
-                                              loadingProgress
-                                                      .expectedTotalBytes !=
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      value:
+                                          loadingProgress.expectedTotalBytes !=
                                                   null
                                               ? loadingProgress
-                                                        .cumulativeBytesLoaded /
-                                                    loadingProgress
-                                                        .expectedTotalBytes!
+                                                      .cumulativeBytesLoaded /
+                                                  loadingProgress
+                                                      .expectedTotalBytes!
                                               : null,
-                                        ),
-                                      ),
-                                    );
-                                  },
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                             Container(
                               decoration: BoxDecoration(
@@ -838,13 +830,13 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                               vertical: 8,
                             ),
                             child: Card(
+                              color: AppColors.branco, // Explicitly set topic background to white
                               elevation: 2,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Column(
                                 children: [
-                                  // Header do tópico
                                   ListTile(
                                     leading: Container(
                                       padding: const EdgeInsets.all(8),
@@ -863,9 +855,9 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                                       topico.titulo,
                                       style: AppTextStyles.fonteUbuntuSans
                                           .copyWith(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                     subtitle: Text(
                                       '${topico.materiais.length} materiais',
@@ -876,6 +868,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         PopupMenuButton<String>(
+                                          color: AppColors.branco,
                                           icon: Icon(
                                             Icons.more_vert,
                                             color: Colors.grey[600],
@@ -930,8 +923,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                                     ),
                                     onTap: () => _toggleTopico(index),
                                   ),
-
-                                  // Conteúdo expandido
                                   if (isExpanded) ...[
                                     const Divider(height: 1),
                                     if (topico.materiais.isEmpty)
@@ -949,6 +940,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                                         materialIndex,
                                         topico.titulo,
                                         topicoIndex: index,
+                                        topicoId: topico.id,
                                       );
                                     }).toList(),
                                     Padding(
@@ -988,7 +980,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
     );
   }
 
-  // ... (os métodos restantes permanecem iguais)
   Widget _buildLayoutDesktop(CardDisciplina card) {
     return Column(
       children: [
@@ -1001,13 +992,16 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
             child: _buildBotaoAdicionarTopico(card.topicos.isEmpty),
           ),
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 3, child: _buildListaTopicos(card, false)),
-                const SizedBox(width: 16),
-                Expanded(flex: 1, child: _buildSidebarTarefas(card)),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: _buildListaTopicos(card, false)),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 1, child: _buildSidebarTarefas(card)),
+                ],
+              ),
             ),
           ),
         ],
@@ -1121,10 +1115,10 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
           delegate: SliverChildBuilderDelegate((context, index) {
             final topico = card.topicos[index];
             final isExpanded = _expandedTopicos.contains(index);
-
             return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8), // Adjusted horizontal margin to 0
               child: Card(
+                color: AppColors.branco, // Explicitly set topic background to white
                 elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -1160,6 +1154,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                             _buildBotaoAdicionarMaterial(topicoIndex: index),
                           const SizedBox(width: 8),
                           PopupMenuButton<String>(
+                            color: AppColors.branco,
                             icon: Icon(
                               Icons.more_vert,
                               color: Colors.grey[600],
@@ -1210,7 +1205,6 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                       ),
                       onTap: () => _toggleTopico(index),
                     ),
-
                     if (isExpanded) ...[
                       const Divider(height: 1),
                       if (topico.materiais.isEmpty)
@@ -1223,6 +1217,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                           materialIndex,
                           topico.titulo,
                           topicoIndex: index,
+                          topicoId: topico.id,
                         );
                       }).toList(),
                       if (isMobile && topico.materiais.isNotEmpty)
@@ -1246,6 +1241,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
   Widget _buildEmptyMaterialState(String topicoTitulo, int topicoIndex) {
     return Container(
       padding: const EdgeInsets.all(24),
+      color: AppColors.branco, // Set material container background to white
       child: Column(
         children: [
           Icon(Icons.insert_drive_file, size: 48, color: Colors.grey[400]),
@@ -1294,10 +1290,12 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
     int materialIndex,
     String topicoTitulo, {
     required int topicoIndex,
+    required String topicoId,
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Card(
+        color: AppColors.branco, // Set material item background to white
         elevation: 1,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -1331,6 +1329,7 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                 )
               : null,
           trailing: PopupMenuButton<String>(
+            color: AppColors.branco,
             icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
             onSelected: (value) {
               if (value == 'delete') {
@@ -1351,7 +1350,17 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
             ],
           ),
           onTap: () {
-            _abrirVisualizacaoMaterial(material, topicoTitulo);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VisualizacaoMaterialPage(
+                  material: material,
+                  topicoTitulo: topicoTitulo,
+                  topicoId: topicoId,
+                  slug: widget.slug,
+                ),
+              ),
+            );
           },
         ),
       ),
@@ -1389,25 +1398,32 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
   }
 
   Widget _buildSidebarTarefas(CardDisciplina card) {
-    final tarefas = <MaterialDisciplina>[];
+    final tarefas = <({MaterialDisciplina material, String topicoId})>[];
     for (final topico in card.topicos) {
       for (final material in topico.materiais) {
         if (material.prazo != null) {
-          tarefas.add(material);
+          tarefas.add((material: material, topicoId: topico.id));
         }
       }
     }
-    tarefas.sort((a, b) => a.prazo!.compareTo(b.prazo!));
+    tarefas.sort((a, b) => a.material.prazo!.compareTo(b.material.prazo!));
 
     final now = DateTime.now();
     final pendentes = tarefas
-        .where((t) => t.prazo!.isAfter(now.subtract(const Duration(days: 1))))
+        .where(
+          (t) =>
+              t.material.prazo!.isAfter(now) ||
+              t.material.prazo!.isAtSameMomentAs(now),
+        )
         .toList();
-    final passadas = tarefas.where((t) => t.prazo!.isBefore(now)).toList();
+    final passadas = tarefas
+        .where((t) => t.material.prazo!.isBefore(now))
+        .toList();
 
     return Container(
-      margin: const EdgeInsets.only(top: 16, right: 16, bottom: 16),
+      margin: const EdgeInsets.only(top: 8, right: 16, bottom: 16),
       child: Card(
+        color: AppColors.branco,
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(
@@ -1445,13 +1461,12 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                     ? _buildEmptyTarefasState()
                     : Column(
                         children: [
-                          // Seção Pendentes
                           if (pendentes.isNotEmpty) ...[
                             _buildSectionHeader('Pendentes'),
                             Padding(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: Text(
-                                'Tarefas com prazo futuro ou em até 1 dia',
+                                'Tarefas com prazo futuro ou atual',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[600],
@@ -1465,13 +1480,15 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                                 itemCount: pendentes.length,
                                 itemBuilder: (context, index) {
                                   final tarefa = pendentes[index];
-                                  return _buildTarefaItem(tarefa);
+                                  return _buildTarefaItem(
+                                    tarefa.material,
+                                    tarefa.topicoId,
+                                  );
                                 },
                               ),
                             ),
                             const SizedBox(height: 16),
                           ],
-                          // Seção Passadas
                           if (passadas.isNotEmpty) ...[
                             _buildSectionHeader('Passadas'),
                             Padding(
@@ -1490,7 +1507,10 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
                                 itemCount: passadas.length,
                                 itemBuilder: (context, index) {
                                   final tarefa = passadas[index];
-                                  return _buildTarefaItem(tarefa);
+                                  return _buildTarefaItem(
+                                    tarefa.material,
+                                    tarefa.topicoId,
+                                  );
                                 },
                               ),
                             ),
@@ -1505,6 +1525,12 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
         ),
       ),
     );
+  }
+
+  Color _getTarefaColor(DateTime prazo) {
+    final now = DateTime.now();
+    if (prazo.isBefore(now)) return Colors.red;
+    return AppColors.azulClaro;
   }
 
   Widget _buildSectionHeader(String title) {
@@ -1548,22 +1574,28 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
     );
   }
 
-  Widget _buildTarefaItem(MaterialDisciplina tarefa) {
+  Widget _buildTarefaItem(MaterialDisciplina tarefa, String topicoId) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: isMobile ? 6 : 8),
       child: Material(
         borderRadius: BorderRadius.circular(8),
         color: _getTarefaColor(tarefa.prazo!),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 8,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 10 : 12,
+            vertical: isMobile ? 8 : 10,
           ),
-          leading: Icon(Icons.assignment, color: Colors.white, size: 20),
+          leading: Icon(
+            Icons.assignment,
+            color: Colors.white,
+            size: isMobile ? 18 : 20,
+          ),
           title: Text(
             tarefa.titulo,
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: isMobile ? 13 : 14,
               color: Colors.white,
               fontWeight: FontWeight.bold,
             ),
@@ -1573,282 +1605,39 @@ class _DisciplinaDetailPageState extends State<DisciplinaDetailPageProfessor> {
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 4),
+              SizedBox(height: isMobile ? 2 : 4),
               Text(
                 '${tarefa.prazo!.day}/${tarefa.prazo!.month}/${tarefa.prazo!.year}',
-                style: const TextStyle(fontSize: 12, color: Colors.white70),
+                style: TextStyle(
+                  fontSize: isMobile ? 11 : 12,
+                  color: Colors.white70,
+                ),
               ),
               if (tarefa.peso > 0)
                 Text(
                   'Peso: ${tarefa.peso}%',
-                  style: const TextStyle(fontSize: 11, color: Colors.white60),
+                  style: TextStyle(
+                    fontSize: isMobile ? 10 : 11,
+                    color: Colors.white60,
+                  ),
                 ),
             ],
           ),
-          dense: true,
-          onTap: () {
-            _abrirVisualizacaoMaterial(tarefa, 'Tarefa');
-          },
-        ),
-      ),
-    );
-  }
-
-  Color _getTarefaColor(DateTime prazo) {
-    final now = DateTime.now();
-    final difference = prazo.difference(now);
-
-    if (difference.inDays < 0) return Colors.red;
-    if (difference.inDays <= 3) return Colors.orange;
-    return AppColors.azulClaro;
-  }
-
-  void _abrirVisualizacaoMaterial(
-    MaterialDisciplina material,
-    String topicoTitulo,
-  ) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => VisualizacaoMaterialPageProfessor(
-          material: material,
-          topicoTitulo: topicoTitulo,
-        ),
-      ),
-    );
-  }
-}
-
-// ... (TasksPage permanece igual)
-class TasksPage extends StatefulWidget {
-  final String slug;
-
-  const TasksPage({super.key, required this.slug});
-
-  @override
-  State<TasksPage> createState() => _TasksPageState();
-}
-
-class _TasksPageState extends State<TasksPage> {
-  late Future<CardDisciplina> _futureCard;
-
-  @override
-  void initState() {
-    super.initState();
-    _futureCard = CardDisciplinaService.getCardBySlug(widget.slug);
-  }
-
-  Color _getTarefaColor(DateTime prazo) {
-    final now = DateTime.now();
-    final difference = prazo.difference(now);
-
-    if (difference.inDays < 0) return Colors.red;
-    if (difference.inDays <= 3) return Colors.orange;
-    return AppColors.azulClaro;
-  }
-
-  Widget _buildTarefaItem(MaterialDisciplina tarefa) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        borderRadius: BorderRadius.circular(8),
-        color: _getTarefaColor(tarefa.prazo!),
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 8,
-          ),
-          leading: Icon(Icons.assignment, color: Colors.white, size: 20),
-          title: Text(
-            tarefa.titulo,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 4),
-              Text(
-                '${tarefa.prazo!.day}/${tarefa.prazo!.month}/${tarefa.prazo!.year}',
-                style: const TextStyle(fontSize: 12, color: Colors.white70),
-              ),
-              if (tarefa.peso > 0)
-                Text(
-                  'Peso: ${tarefa.peso}%',
-                  style: const TextStyle(fontSize: 11, color: Colors.white60),
-                ),
-            ],
-          ),
-          dense: true,
+          dense: isMobile,
           onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => VisualizacaoMaterialPageProfessor(
+                builder: (context) => VisualizacaoMaterialPage(
                   material: tarefa,
                   topicoTitulo: 'Tarefa',
+                  topicoId: topicoId,
+                  slug: widget.slug,
                 ),
               ),
             );
           },
         ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptySection(String title) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(Icons.assignment_turned_in, size: 48, color: Colors.grey[400]),
-            const SizedBox(height: 12),
-            Text(
-              'Nenhuma $title',
-              style: const TextStyle(color: Colors.grey, fontSize: 16),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Tarefas', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: FutureBuilder<CardDisciplina>(
-        future: _futureCard,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.azulClaro),
-              ),
-            );
-          }
-
-          if (snapshot.hasError || !snapshot.hasData) {
-            return const Center(
-              child: Text(
-                'Erro ao carregar tarefas',
-                style: TextStyle(color: Colors.black),
-              ),
-            );
-          }
-
-          final card = snapshot.data!;
-          final allTarefas = <MaterialDisciplina>[];
-          for (final topico in card.topicos) {
-            for (final material in topico.materiais) {
-              if (material.prazo != null) {
-                allTarefas.add(material);
-              }
-            }
-          }
-
-          final now = DateTime.now();
-          final pendentes = allTarefas
-              .where(
-                (t) => t.prazo!.isAfter(now.subtract(const Duration(days: 1))),
-              )
-              .toList();
-          final passadas = allTarefas
-              .where((t) => t.prazo!.isBefore(now))
-              .toList();
-
-          pendentes.sort((a, b) => a.prazo!.compareTo(b.prazo!));
-          passadas.sort((a, b) => b.prazo!.compareTo(a.prazo!));
-
-          return CustomScrollView(
-            physics: const ClampingScrollPhysics(),
-            slivers: [
-              const SliverToBoxAdapter(child: SizedBox(height: 20)),
-              SliverToBoxAdapter(
-                child: pendentes.isEmpty
-                    ? _buildEmptySection('tarefa pendente')
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionHeader('Tarefas Pendentes'),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                            child: Text(
-                              'Tarefas com prazo futuro ou em até 1 dia',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ),
-                          ...pendentes.map(
-                            (tarefa) => Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              child: _buildTarefaItem(tarefa),
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-              SliverToBoxAdapter(
-                child: passadas.isEmpty
-                    ? _buildEmptySection('tarefa passada')
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionHeader('Tarefas Passadas'),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                            child: Text(
-                              'Tarefas vencidas',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ),
-                          ...passadas.map(
-                            (tarefa) => Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              child: _buildTarefaItem(tarefa),
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            ],
-          );
-        },
       ),
     );
   }

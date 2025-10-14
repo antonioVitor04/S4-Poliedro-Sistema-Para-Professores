@@ -3,6 +3,7 @@ const express = require("express");
 const multer = require("multer");
 const routerMateriais = express.Router();
 const CardDisciplina = require("../../models/cardDisciplina.cjs");
+const auth = require("../../middleware/auth.cjs");
 
 // Configuração do Multer para arquivos
 const storage = multer.memoryStorage();
@@ -13,225 +14,311 @@ const upload = multer({
   },
 });
 
-// POST: Adicionar material a um tópico
-routerMateriais.post("/:slug/topicos/:topicoId/materiais", upload.single('arquivo'), async (req, res) => {
-  try {
-    const { slug, topicoId } = req.params;
-    const { tipo, titulo, descricao, url, peso, prazo } = req.body;
+// POST: Adicionar material a um tópico (APENAS PROFESSOR)
+routerMateriais.post(
+  "/:slug/topicos/:topicoId/materiais",
+  auth("professor"), // Apenas professor pode criar
+  upload.single("arquivo"),
+  async (req, res) => {
+    try {
+      const { slug, topicoId } = req.params;
+      const { tipo, titulo, descricao, url, peso, prazo } = req.body;
 
-    if (!tipo || !titulo || titulo.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: "Tipo e título são obrigatórios",
-      });
-    }
+      if (!tipo || !titulo || titulo.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Tipo e título são obrigatórios",
+        });
+      }
 
-    const card = await CardDisciplina.findOne({ slug });
+      const card = await CardDisciplina.findOne({ slug });
 
-    if (!card) {
-      return res.status(404).json({
-        success: false,
-        error: "Disciplina não encontrada",
-      });
-    }
+      if (!card) {
+        return res.status(404).json({
+          success: false,
+          error: "Disciplina não encontrada",
+        });
+      }
 
-    const topico = card.topicos.id(topicoId);
-    if (!topico) {
-      return res.status(404).json({
-        success: false,
-        error: "Tópico não encontrado",
-      });
-    }
+      const topico = card.topicos.id(topicoId);
+      if (!topico) {
+        return res.status(404).json({
+          success: false,
+          error: "Tópico não encontrado",
+        });
+      }
 
-    const novoMaterial = {
-      tipo,
-      titulo: titulo.trim(),
-      descricao: descricao ? descricao.trim() : "",
-      url: url || "",
-      peso: peso ? parseFloat(peso) : 0,
-      prazo: prazo ? new Date(prazo) : null,
-      ordem: topico.materiais.length
-    };
-
-    // Se há arquivo uploadado
-    if (req.file) {
-      novoMaterial.arquivo = {
-        data: req.file.buffer,
-        contentType: req.file.mimetype,
-        nomeOriginal: req.file.originalname
+      const novoMaterial = {
+        tipo,
+        titulo: titulo.trim(),
+        descricao: descricao ? descricao.trim() : "",
+        url: url || "",
+        peso: peso ? parseFloat(peso) : 0,
+        prazo: prazo ? new Date(prazo) : null,
+        ordem: topico.materiais.length,
       };
+
+      // Se há arquivo uploadado
+      if (req.file) {
+        novoMaterial.arquivo = {
+          data: req.file.buffer,
+          contentType: req.file.mimetype,
+          nomeOriginal: req.file.originalname,
+        };
+      }
+
+      topico.materiais.push(novoMaterial);
+      await card.save();
+
+      const materialSalvo = topico.materiais[topico.materiais.length - 1];
+
+      res.status(201).json({
+        success: true,
+        message: "Material criado com sucesso",
+        data: materialSalvo,
+      });
+    } catch (err) {
+      console.error("Erro ao criar material:", err);
+      res.status(500).json({
+        success: false,
+        error: "Erro interno do servidor ao criar material",
+      });
     }
-
-    topico.materiais.push(novoMaterial);
-    await card.save();
-
-    const materialSalvo = topico.materiais[topico.materiais.length - 1];
-
-    res.status(201).json({
-      success: true,
-      message: "Material criado com sucesso",
-      data: materialSalvo,
-    });
-  } catch (err) {
-    console.error("Erro ao criar material:", err);
-    res.status(500).json({
-      success: false,
-      error: "Erro interno do servidor ao criar material",
-    });
   }
-});
+);
 
-// PUT: Atualizar material
-routerMateriais.put("/:slug/topicos/:topicoId/materiais/:materialId", upload.single('arquivo'), async (req, res) => {
-  try {
-    const { slug, topicoId, materialId } = req.params;
-    const { tipo, titulo, descricao, url, peso, prazo } = req.body;
+// PUT: Atualizar material (APENAS PROFESSOR)
+routerMateriais.put(
+  "/:slug/topicos/:topicoId/materiais/:materialId",
+  auth("professor"), // Apenas professor pode atualizar
+  upload.single("arquivo"),
+  async (req, res) => {
+    try {
+      const { slug, topicoId, materialId } = req.params;
+      const { tipo, titulo, descricao, url, peso, prazo } = req.body;
 
-    const card = await CardDisciplina.findOne({ slug });
+      const card = await CardDisciplina.findOne({ slug });
 
-    if (!card) {
-      return res.status(404).json({
+      if (!card) {
+        return res.status(404).json({
+          success: false,
+          error: "Disciplina não encontrada",
+        });
+      }
+
+      const topico = card.topicos.id(topicoId);
+      if (!topico) {
+        return res.status(404).json({
+          success: false,
+          error: "Tópico não encontrado",
+        });
+      }
+
+      const material = topico.materiais.id(materialId);
+      if (!material) {
+        return res.status(404).json({
+          success: false,
+          error: "Material não encontrado",
+        });
+      }
+
+      if (tipo !== undefined) material.tipo = tipo;
+      if (titulo !== undefined) material.titulo = titulo.trim();
+      if (descricao !== undefined) material.descricao = descricao ? descricao.trim() : "";
+      if (url !== undefined) material.url = url;
+      if (peso !== undefined) material.peso = parseFloat(peso);
+      if (prazo !== undefined) material.prazo = prazo ? new Date(prazo) : null;
+
+      // Se há novo arquivo uploadado
+      if (req.file) {
+        material.arquivo = {
+          data: req.file.buffer,
+          contentType: req.file.mimetype,
+          nomeOriginal: req.file.originalname,
+        };
+      }
+
+      await card.save();
+
+      res.json({
+        success: true,
+        message: "Material atualizado com sucesso",
+        data: material,
+      });
+    } catch (err) {
+      console.error("Erro ao atualizar material:", err);
+      res.status(500).json({
         success: false,
-        error: "Disciplina não encontrada",
+        error: "Erro interno do servidor ao atualizar material",
       });
     }
+  }
+);
 
-    const topico = card.topicos.id(topicoId);
-    if (!topico) {
-      return res.status(404).json({
+// DELETE: Deletar material (APENAS PROFESSOR)
+routerMateriais.delete(
+  "/:slug/topicos/:topicoId/materiais/:materialId",
+  auth("professor"), // Apenas professor pode deletar
+  async (req, res) => {
+    try {
+      const { slug, topicoId, materialId } = req.params;
+
+      const card = await CardDisciplina.findOne({ slug });
+
+      if (!card) {
+        return res.status(404).json({
+          success: false,
+          error: "Disciplina não encontrada",
+        });
+      }
+
+      const topico = card.topicos.id(topicoId);
+      if (!topico) {
+        return res.status(404).json({
+          success: false,
+          error: "Tópico não encontrado",
+        });
+      }
+
+      const material = topico.materiais.id(materialId);
+      if (!material) {
+        return res.status(404).json({
+          success: false,
+          error: "Material não encontrado",
+        });
+      }
+
+      material.deleteOne();
+      await card.save();
+
+      res.json({
+        success: true,
+        message: "Material deletado com sucesso",
+        data: { _id: materialId },
+      });
+    } catch (err) {
+      console.error("Erro ao deletar material:", err);
+      res.status(500).json({
         success: false,
-        error: "Tópico não encontrado",
+        error: "Erro interno do servidor ao deletar material",
       });
     }
+  }
+);
 
-    const material = topico.materiais.id(materialId);
-    if (!material) {
-      return res.status(404).json({
+// GET: Download de arquivo (PÚBLICO - alunos e professores podem acessar)
+routerMateriais.get(
+  "/:slug/topicos/:topicoId/materiais/:materialId/download",
+  // REMOVI a autenticação aqui - acesso público para download
+  async (req, res) => {
+    try {
+      const { slug, topicoId, materialId } = req.params;
+
+      const card = await CardDisciplina.findOne({ slug });
+
+      if (!card) {
+        return res.status(404).json({
+          success: false,
+          error: "Disciplina não encontrada",
+        });
+      }
+
+      const topico = card.topicos.id(topicoId);
+      if (!topico) {
+        return res.status(404).json({
+          success: false,
+          error: "Tópico não encontrado",
+        });
+      }
+
+      const material = topico.materiais.id(materialId);
+      if (!material || !material.arquivo || !material.arquivo.data) {
+        return res.status(404).json({
+          success: false,
+          error: "Arquivo não encontrado",
+        });
+      }
+
+      res.setHeader("Content-Type", material.arquivo.contentType);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${material.arquivo.nomeOriginal || "download"}"`
+      );
+
+      res.send(material.arquivo.data);
+    } catch (err) {
+      console.error("Erro ao baixar arquivo:", err);
+      res.status(500).json({
         success: false,
-        error: "Material não encontrado",
+        error: "Erro interno do servidor ao baixar arquivo",
       });
     }
+  }
+);
 
-    if (tipo !== undefined) material.tipo = tipo;
-    if (titulo !== undefined) material.titulo = titulo.trim();
-    if (descricao !== undefined) material.descricao = descricao ? descricao.trim() : "";
-    if (url !== undefined) material.url = url;
-    if (peso !== undefined) material.peso = parseFloat(peso);
-    if (prazo !== undefined) material.prazo = prazo ? new Date(prazo) : null;
+// ADICIONE ESTA ROTA: Obter informações do material (PÚBLICO)
+routerMateriais.get(
+  "/:slug/topicos/:topicoId/materiais/:materialId",
+  // Acesso público para visualizar informações do material
+  async (req, res) => {
+    try {
+      const { slug, topicoId, materialId } = req.params;
 
-    // Se há novo arquivo uploadado
-    if (req.file) {
-      material.arquivo = {
-        data: req.file.buffer,
-        contentType: req.file.mimetype,
-        nomeOriginal: req.file.originalname
+      const card = await CardDisciplina.findOne({ slug });
+
+      if (!card) {
+        return res.status(404).json({
+          success: false,
+          error: "Disciplina não encontrada",
+        });
+      }
+
+      const topico = card.topicos.id(topicoId);
+      if (!topico) {
+        return res.status(404).json({
+          success: false,
+          error: "Tópico não encontrado",
+        });
+      }
+
+      const material = topico.materiais.id(materialId);
+      if (!material) {
+        return res.status(404).json({
+          success: false,
+          error: "Material não encontrado",
+        });
+      }
+
+      // Retorna o material sem os dados binários do arquivo (para economizar banda)
+      const materialResponse = {
+        _id: material._id,
+        tipo: material.tipo,
+        titulo: material.titulo,
+        descricao: material.descricao,
+        url: material.url,
+        peso: material.peso,
+        prazo: material.prazo,
+        ordem: material.ordem,
+        hasArquivo: !!(material.arquivo && material.arquivo.data),
+        arquivoInfo: material.arquivo ? {
+          contentType: material.arquivo.contentType,
+          nomeOriginal: material.arquivo.nomeOriginal,
+          size: material.arquivo.data ? material.arquivo.data.length : 0
+        } : null
       };
+
+      res.json({
+        success: true,
+        data: materialResponse,
+      });
+    } catch (err) {
+      console.error("Erro ao obter material:", err);
+      res.status(500).json({
+        success: false,
+        error: "Erro interno do servidor ao obter material",
+      });
     }
-
-    await card.save();
-
-    res.json({
-      success: true,
-      message: "Material atualizado com sucesso",
-      data: material,
-    });
-  } catch (err) {
-    console.error("Erro ao atualizar material:", err);
-    res.status(500).json({
-      success: false,
-      error: "Erro interno do servidor ao atualizar material",
-    });
   }
-});
-
-// DELETE: Deletar material
-routerMateriais.delete("/:slug/topicos/:topicoId/materiais/:materialId", async (req, res) => {
-  try {
-    const { slug, topicoId, materialId } = req.params;
-
-    const card = await CardDisciplina.findOne({ slug });
-
-    if (!card) {
-      return res.status(404).json({
-        success: false,
-        error: "Disciplina não encontrada",
-      });
-    }
-
-    const topico = card.topicos.id(topicoId);
-    if (!topico) {
-      return res.status(404).json({
-        success: false,
-        error: "Tópico não encontrado",
-      });
-    }
-
-    const material = topico.materiais.id(materialId);
-    if (!material) {
-      return res.status(404).json({
-        success: false,
-        error: "Material não encontrado",
-      });
-    }
-
-    material.deleteOne();
-    await card.save();
-
-    res.json({
-      success: true,
-      message: "Material deletado com sucesso",
-      data: { _id: materialId },
-    });
-  } catch (err) {
-    console.error("Erro ao deletar material:", err);
-    res.status(500).json({
-      success: false,
-      error: "Erro interno do servidor ao deletar material",
-    });
-  }
-});
-
-// GET: Download de arquivo
-routerMateriais.get("/:slug/topicos/:topicoId/materiais/:materialId/download", async (req, res) => {
-  try {
-    const { slug, topicoId, materialId } = req.params;
-
-    const card = await CardDisciplina.findOne({ slug });
-
-    if (!card) {
-      return res.status(404).json({
-        success: false,
-        error: "Disciplina não encontrada",
-      });
-    }
-
-    const topico = card.topicos.id(topicoId);
-    if (!topico) {
-      return res.status(404).json({
-        success: false,
-        error: "Tópico não encontrado",
-      });
-    }
-
-    const material = topico.materiais.id(materialId);
-    if (!material || !material.arquivo || !material.arquivo.data) {
-      return res.status(404).json({
-        success: false,
-        error: "Arquivo não encontrado",
-      });
-    }
-
-    res.setHeader('Content-Type', material.arquivo.contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${material.arquivo.nomeOriginal || 'download'}"`);
-    
-    res.send(material.arquivo.data);
-  } catch (err) {
-    console.error("Erro ao baixar arquivo:", err);
-    res.status(500).json({
-      success: false,
-      error: "Erro interno do servidor ao baixar arquivo",
-    });
-  }
-});
+);
 
 module.exports = routerMateriais;
