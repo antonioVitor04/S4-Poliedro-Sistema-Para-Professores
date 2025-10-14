@@ -1,3 +1,4 @@
+// services/material_service.dart
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
@@ -5,6 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http_parser/http_parser.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/modelo_card_disciplina.dart';
+import 'auth_service.dart';
 
 class MaterialService {
   static String get _baseUrl {
@@ -13,237 +15,6 @@ class MaterialService {
   }
 
   static const String _apiPrefix = '/api/cardsDisciplinas';
-
-  // POST: Adicionar material a um tópico
-  static Future<void> criarMaterial({
-    required String slug,
-    required String topicoId,
-    required String tipo,
-    required String titulo,
-    String? descricao,
-    String? url,
-    double peso = 0,
-    DateTime? prazo,
-    PlatformFile? arquivo,
-  }) async {
-    try {
-      print('=== DEBUG MaterialService: Iniciando criação de material ===');
-      print('=== DEBUG: Slug: $slug, TopicoId: $topicoId, Tipo: $tipo ===');
-      print('=== DEBUG: Arquivo: ${arquivo?.name}, Bytes: ${arquivo?.bytes?.length} ===');
-
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$_baseUrl$_apiPrefix/$slug/topicos/$topicoId/materiais'),
-      );
-
-      request.fields['tipo'] = tipo;
-      request.fields['titulo'] = titulo;
-      if (descricao != null) request.fields['descricao'] = descricao;
-      if (url != null) request.fields['url'] = url;
-      request.fields['peso'] = peso.toString();
-      if (prazo != null) request.fields['prazo'] = prazo.toIso8601String();
-
-      // CORREÇÃO CRÍTICA: Tratamento específico para Android
-      if (arquivo != null) {
-        if (arquivo.bytes != null && arquivo.bytes!.isNotEmpty) {
-          final file = http.MultipartFile.fromBytes(
-            'arquivo',
-            arquivo.bytes!,
-            filename: _sanitizeFileName(arquivo.name),
-            contentType: _getMediaType(arquivo.name),
-          );
-          request.files.add(file);
-          print('=== DEBUG: Arquivo adicionado - ${arquivo.name}, ${arquivo.bytes!.length} bytes ===');
-        } else {
-          print('=== DEBUG AVISO: Arquivo selecionado mas bytes estão vazios ou nulos ===');
-          print('=== DEBUG: PlatformFile details - name: ${arquivo.name}, size: ${arquivo.size}, path: ${arquivo.path} ===');
-          
-          // No Android, tentar usar o path se os bytes estiverem vazios
-          if (!kIsWeb && arquivo.path != null) {
-            try {
-              final file = await http.MultipartFile.fromPath(
-                'arquivo',
-                arquivo.path!,
-                filename: _sanitizeFileName(arquivo.name),
-                contentType: _getMediaType(arquivo.name),
-              );
-              request.files.add(file);
-              print('=== DEBUG: Arquivo adicionado via path - ${arquivo.path} ===');
-            } catch (e) {
-              print('=== DEBUG ERRO ao usar path: $e ===');
-              throw Exception('Arquivo corrompido ou inacessível: ${arquivo.name}');
-            }
-          } else {
-            throw Exception('Arquivo está vazio ou corrompido: ${arquivo.name}');
-          }
-        }
-      }
-
-      print('=== DEBUG: Enviando requisição... ===');
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      final responseBody = response.body;
-
-      print('=== DEBUG: Status Code: ${response.statusCode} ===');
-      print('=== DEBUG: Response Body: $responseBody ===');
-
-      if (response.statusCode == 201) {
-        final data = json.decode(responseBody);
-        if (data['success'] == true) {
-          print('=== DEBUG: Material criado com sucesso ===');
-        } else {
-          throw Exception(data['error'] ?? 'Erro desconhecido ao criar material');
-        }
-      } else {
-        throw Exception('Erro HTTP ${response.statusCode}: $responseBody');
-      }
-    } catch (e) {
-      print('=== DEBUG ERRO MaterialService.criarMaterial: $e ===');
-      throw Exception('Erro ao criar material: $e');
-    }
-  }
-
-  // PUT: Atualizar material
-  static Future<void> atualizarMaterial({
-    required String slug,
-    required String topicoId,
-    required String materialId,
-    String? tipo,
-    String? titulo,
-    String? descricao,
-    String? url,
-    double? peso,
-    DateTime? prazo,
-    PlatformFile? arquivo,
-  }) async {
-    try {
-      print('=== DEBUG MaterialService: Iniciando atualização de material ===');
-      
-      var request = http.MultipartRequest(
-        'PUT',
-        Uri.parse('$_baseUrl$_apiPrefix/$slug/topicos/$topicoId/materiais/$materialId'),
-      );
-
-      if (tipo != null) request.fields['tipo'] = tipo;
-      if (titulo != null) request.fields['titulo'] = titulo;
-      if (descricao != null) request.fields['descricao'] = descricao;
-      if (url != null) request.fields['url'] = url;
-      if (peso != null) request.fields['peso'] = peso.toString();
-      if (prazo != null) request.fields['prazo'] = prazo.toIso8601String();
-
-      // CORREÇÃO CRÍTICA: Mesmo tratamento para Android
-      if (arquivo != null) {
-        if (arquivo.bytes != null && arquivo.bytes!.isNotEmpty) {
-          final file = http.MultipartFile.fromBytes(
-            'arquivo',
-            arquivo.bytes!,
-            filename: _sanitizeFileName(arquivo.name),
-            contentType: _getMediaType(arquivo.name),
-          );
-          request.files.add(file);
-          print('=== DEBUG: Arquivo atualizado - ${arquivo.name}, ${arquivo.bytes!.length} bytes ===');
-        } else {
-          print('=== DEBUG AVISO: Arquivo selecionado mas bytes estão vazios ===');
-          
-          if (!kIsWeb && arquivo.path != null) {
-            try {
-              final file = await http.MultipartFile.fromPath(
-                'arquivo',
-                arquivo.path!,
-                filename: _sanitizeFileName(arquivo.name),
-                contentType: _getMediaType(arquivo.name),
-              );
-              request.files.add(file);
-              print('=== DEBUG: Arquivo atualizado via path - ${arquivo.path} ===');
-            } catch (e) {
-              print('=== DEBUG ERRO ao usar path: $e ===');
-              throw Exception('Arquivo corrompido ou inacessível: ${arquivo.name}');
-            }
-          } else {
-            throw Exception('Arquivo está vazio ou corrompido: ${arquivo.name}');
-          }
-        }
-      }
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      final responseBody = response.body;
-
-      print('=== DEBUG: Status Code: ${response.statusCode} ===');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(responseBody);
-        if (data['success'] != true) {
-          throw Exception(data['error'] ?? 'Erro ao atualizar material');
-        }
-        print('=== DEBUG: Material atualizado com sucesso ===');
-      } else {
-        throw Exception('Erro HTTP ${response.statusCode}: $responseBody');
-      }
-    } catch (e) {
-      print('=== DEBUG ERRO MaterialService.atualizarMaterial: $e ===');
-      throw Exception('Erro ao atualizar material: $e');
-    }
-  }
-
-  // DELETE: Deletar material
-  static Future<void> deletarMaterial({
-    required String slug,
-    required String topicoId,
-    required String materialId,
-  }) async {
-    try {
-      print('=== DEBUG MaterialService: Deletando material $materialId ===');
-      
-      final response = await http.delete(
-        Uri.parse('$_baseUrl$_apiPrefix/$slug/topicos/$topicoId/materiais/$materialId'),
-      );
-
-      print('=== DEBUG: Status Code: ${response.statusCode} ===');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] != true) {
-          throw Exception(data['error'] ?? 'Erro ao deletar material');
-        }
-        print('=== DEBUG: Material deletado com sucesso ===');
-      } else {
-        throw Exception('Erro HTTP ${response.statusCode}: ${response.body}');
-      }
-    } catch (e) {
-      print('=== DEBUG ERRO MaterialService.deletarMaterial: $e ===');
-      throw Exception('Erro ao deletar material: $e');
-    }
-  }
-
-  // GET: Baixar bytes do arquivo
-  static Future<Uint8List> getFileBytes({
-    required String slug,
-    required String topicoId,
-    required String materialId,
-  }) async {
-    try {
-      print('=== DEBUG MaterialService: Baixando arquivo do material $materialId ===');
-      
-      final response = await http.get(
-        Uri.parse('$_baseUrl$_apiPrefix/$slug/topicos/$topicoId/materiais/$materialId/download'),
-      );
-
-      print('=== DEBUG: Status Code: ${response.statusCode} ===');
-      print('=== DEBUG: Tamanho do arquivo: ${response.bodyBytes.length} bytes ===');
-
-      if (response.statusCode == 200) {
-        return response.bodyBytes;
-      } else {
-        throw Exception(
-          'Erro ao baixar arquivo: ${response.statusCode} - ${response.body}',
-        );
-      }
-    } catch (e) {
-      print('=== DEBUG ERRO MaterialService.getFileBytes: $e ===');
-      throw Exception('Erro ao conectar com o servidor: $e');
-    }
-  }
 
   // Helper: Obter MediaType
   static MediaType _getMediaType(String fileName) {
@@ -278,7 +49,314 @@ class MaterialService {
 
   // Helper: Sanitizar nome do arquivo
   static String _sanitizeFileName(String name) {
-    // Remove caracteres inválidos para nomes de arquivo
     return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+  }
+
+  // POST: Adicionar material a um tópico (APENAS PROFESSOR)
+  static Future<void> criarMaterial({
+    required String slug,
+    required String topicoId,
+    required String tipo,
+    required String titulo,
+    String? descricao,
+    String? url,
+    double peso = 0,
+    DateTime? prazo,
+    PlatformFile? arquivo,
+  }) async {
+    try {
+      print('=== DEBUG MaterialService: Iniciando criação de material ===');
+      print('=== DEBUG: Slug: $slug, TopicoId: $topicoId, Tipo: $tipo ===');
+
+      // Verificar autenticação e permissões
+      if (!await AuthService.isProfessor()) {
+        throw Exception('Apenas professores podem adicionar materiais');
+      }
+
+      final token = await AuthService.getToken();
+      if (token == null) {
+        throw Exception('Usuário não autenticado');
+      }
+
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$_baseUrl$_apiPrefix/$slug/topicos/$topicoId/materiais'),
+      );
+
+      // Adicionar headers de autenticação
+      request.headers['Authorization'] = 'Bearer $token';
+
+      request.fields['tipo'] = tipo;
+      request.fields['titulo'] = titulo;
+      if (descricao != null) request.fields['descricao'] = descricao;
+      if (url != null) request.fields['url'] = url;
+      request.fields['peso'] = peso.toString();
+      if (prazo != null) request.fields['prazo'] = prazo.toIso8601String();
+
+      // Processar arquivo
+      if (arquivo != null) {
+        print('=== DEBUG: Processando arquivo: ${arquivo.name} ===');
+        if (arquivo.bytes != null && arquivo.bytes!.isNotEmpty) {
+          final file = http.MultipartFile.fromBytes(
+            'arquivo',
+            arquivo.bytes!,
+            filename: _sanitizeFileName(arquivo.name),
+            contentType: _getMediaType(arquivo.name),
+          );
+          request.files.add(file);
+          print(
+            '=== DEBUG: Arquivo adicionado - ${arquivo.name}, ${arquivo.bytes!.length} bytes ===',
+          );
+        } else {
+          print(
+            '=== DEBUG AVISO: Arquivo selecionado mas bytes estão vazios ou nulos ===',
+          );
+
+          // No Android, tentar usar o path se os bytes estiverem vazios
+          if (!kIsWeb && arquivo.path != null) {
+            try {
+              final file = await http.MultipartFile.fromPath(
+                'arquivo',
+                arquivo.path!,
+                filename: _sanitizeFileName(arquivo.name),
+                contentType: _getMediaType(arquivo.name),
+              );
+              request.files.add(file);
+              print(
+                '=== DEBUG: Arquivo adicionado via path - ${arquivo.path} ===',
+              );
+            } catch (e) {
+              print('=== DEBUG ERRO ao usar path: $e ===');
+              throw Exception(
+                'Arquivo corrompido ou inacessível: ${arquivo.name}',
+              );
+            }
+          } else {
+            throw Exception(
+              'Arquivo está vazio ou corrompido: ${arquivo.name}',
+            );
+          }
+        }
+      }
+
+      print('=== DEBUG: Enviando requisição... ===');
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final responseBody = response.body;
+
+      print('=== DEBUG: Status Code: ${response.statusCode} ===');
+      print('=== DEBUG: Response Body: $responseBody ===');
+
+      if (response.statusCode == 201) {
+        final data = json.decode(responseBody);
+        if (data['success'] == true) {
+          print('=== DEBUG: Material criado com sucesso ===');
+        } else {
+          throw Exception(
+            data['error'] ?? 'Erro desconhecido ao criar material',
+          );
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception('Acesso não autorizado. Faça login novamente.');
+      } else if (response.statusCode == 403) {
+        throw Exception('Apenas professores podem adicionar materiais');
+      } else {
+        throw Exception('Erro HTTP ${response.statusCode}: $responseBody');
+      }
+    } catch (e) {
+      print('=== DEBUG ERRO MaterialService.criarMaterial: $e ===');
+      throw Exception('Erro ao criar material: $e');
+    }
+  }
+
+  // PUT: Atualizar material (APENAS PROFESSOR)
+  static Future<void> atualizarMaterial({
+    required String slug,
+    required String topicoId,
+    required String materialId,
+    String? tipo,
+    String? titulo,
+    String? descricao,
+    String? url,
+    double? peso,
+    DateTime? prazo,
+    PlatformFile? arquivo,
+  }) async {
+    try {
+      print('=== DEBUG MaterialService: Iniciando atualização de material ===');
+
+      // Verificar autenticação e permissões
+      if (!await AuthService.isProfessor()) {
+        throw Exception('Apenas professores podem editar materiais');
+      }
+
+      final token = await AuthService.getToken();
+      if (token == null) {
+        throw Exception('Usuário não autenticado');
+      }
+
+      var request = http.MultipartRequest(
+        'PUT',
+        Uri.parse(
+          '$_baseUrl$_apiPrefix/$slug/topicos/$topicoId/materiais/$materialId',
+        ),
+      );
+
+      // Adicionar headers de autenticação
+      request.headers['Authorization'] = 'Bearer $token';
+
+      if (tipo != null) request.fields['tipo'] = tipo;
+      if (titulo != null) request.fields['titulo'] = titulo;
+      if (descricao != null) request.fields['descricao'] = descricao;
+      if (url != null) request.fields['url'] = url;
+      if (peso != null) request.fields['peso'] = peso.toString();
+      if (prazo != null) request.fields['prazo'] = prazo.toIso8601String();
+
+      // Processar arquivo
+      if (arquivo != null) {
+        if (arquivo.bytes != null && arquivo.bytes!.isNotEmpty) {
+          final file = http.MultipartFile.fromBytes(
+            'arquivo',
+            arquivo.bytes!,
+            filename: _sanitizeFileName(arquivo.name),
+            contentType: _getMediaType(arquivo.name),
+          );
+          request.files.add(file);
+          print(
+            '=== DEBUG: Arquivo atualizado - ${arquivo.name}, ${arquivo.bytes!.length} bytes ===',
+          );
+        } else {
+          print(
+            '=== DEBUG AVISO: Arquivo selecionado mas bytes estão vazios ===',
+          );
+
+          if (!kIsWeb && arquivo.path != null) {
+            try {
+              final file = await http.MultipartFile.fromPath(
+                'arquivo',
+                arquivo.path!,
+                filename: _sanitizeFileName(arquivo.name),
+                contentType: _getMediaType(arquivo.name),
+              );
+              request.files.add(file);
+              print(
+                '=== DEBUG: Arquivo atualizado via path - ${arquivo.path} ===',
+              );
+            } catch (e) {
+              print('=== DEBUG ERRO ao usar path: $e ===');
+              throw Exception(
+                'Arquivo corrompido ou inacessível: ${arquivo.name}',
+              );
+            }
+          } else {
+            throw Exception(
+              'Arquivo está vazio ou corrompido: ${arquivo.name}',
+            );
+          }
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final responseBody = response.body;
+
+      print('=== DEBUG: Status Code: ${response.statusCode} ===');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(responseBody);
+        if (data['success'] != true) {
+          throw Exception(data['error'] ?? 'Erro ao atualizar material');
+        }
+        print('=== DEBUG: Material atualizado com sucesso ===');
+      } else if (response.statusCode == 401) {
+        throw Exception('Acesso não autorizado. Faça login novamente.');
+      } else if (response.statusCode == 403) {
+        throw Exception('Apenas professores podem editar materiais');
+      } else {
+        throw Exception('Erro HTTP ${response.statusCode}: $responseBody');
+      }
+    } catch (e) {
+      print('=== DEBUG ERRO MaterialService.atualizarMaterial: $e ===');
+      throw Exception('Erro ao atualizar material: $e');
+    }
+  }
+
+  // DELETE: Deletar material (APENAS PROFESSOR)
+  static Future<void> deletarMaterial({
+    required String slug,
+    required String topicoId,
+    required String materialId,
+  }) async {
+    try {
+      print('=== DEBUG MaterialService: Deletando material $materialId ===');
+
+      // Verificar autenticação e permissões
+      if (!await AuthService.isProfessor()) {
+        throw Exception('Apenas professores podem deletar materiais');
+      }
+
+      final token = await AuthService.getToken();
+      if (token == null) {
+        throw Exception('Usuário não autenticado');
+      }
+
+      final response = await http.delete(
+        Uri.parse(
+          '$_baseUrl$_apiPrefix/$slug/topicos/$topicoId/materiais/$materialId',
+        ),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      print('=== DEBUG: Status Code: ${response.statusCode} ===');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] != true) {
+          throw Exception(data['error'] ?? 'Erro ao deletar material');
+        }
+        print('=== DEBUG: Material deletado com sucesso ===');
+      } else if (response.statusCode == 401) {
+        throw Exception('Acesso não autorizado. Faça login novamente.');
+      } else if (response.statusCode == 403) {
+        throw Exception('Apenas professores podem deletar materiais');
+      } else {
+        throw Exception('Erro HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('=== DEBUG ERRO MaterialService.deletarMaterial: $e ===');
+      throw Exception('Erro ao deletar material: $e');
+    }
+  }
+
+  // GET: Baixar bytes do arquivo (PÚBLICO - não precisa de autenticação)
+  static Future<Uint8List> getFileBytes({
+    required String slug,
+    required String topicoId,
+    required String materialId,
+  }) async {
+    try {
+      print(
+        '=== DEBUG MaterialService: Baixando arquivo do material $materialId ===',
+      );
+
+      final response = await http.get(
+        Uri.parse(
+          '$_baseUrl$_apiPrefix/$slug/topicos/$topicoId/materiais/$materialId/download',
+        ),
+      );
+
+      print('=== DEBUG: Status Code: ${response.statusCode} ===');
+
+      if (response.statusCode == 200) {
+        return response.bodyBytes;
+      } else {
+        throw Exception(
+          'Erro ao baixar arquivo: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      print('=== DEBUG ERRO MaterialService.getFileBytes: $e ===');
+      throw Exception('Erro ao conectar com o servidor: $e');
+    }
   }
 }
