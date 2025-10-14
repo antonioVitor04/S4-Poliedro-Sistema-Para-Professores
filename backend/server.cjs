@@ -7,9 +7,10 @@ const path = require("path");
 const fs = require("fs");
 const app = express();
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(cors());
 
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 const Professor = require("./models/professor.cjs");
 
 // Função de conexão (segue o padrão que você pediu)
@@ -19,10 +20,11 @@ async function conectarAoMongoDB() {
       ? "mongodb://localhost:27017/testdb"
       : process.env.MONGO_URL;
 
-  await mongoose.connect(url, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  await mongoose
+    .connect(url, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    })
     .then(() => console.log(`✅ MongoDB conectado em ${url}`))
     .catch((err) => console.error("❌ Erro no MongoDB:", err));
 }
@@ -37,8 +39,14 @@ if (process.env.NODE_ENV !== "test") {
 // Rotas existentes (mantidas)
 app.use("/api/alunos", require("./routes/rotaAluno.cjs"));
 app.use("/api/professores", require("./routes/rotaProfessor.cjs"));
-app.use("/api/enviarEmail", require("./routes/recuperacao_senha/enviarEmail.cjs"));
-app.use("/api/recuperarSenha", require("./routes/recuperacao_senha/recuperarSenha.cjs"));
+app.use(
+  "/api/enviarEmail",
+  require("./routes/recuperacao_senha/enviarEmail.cjs")
+);
+app.use(
+  "/api/recuperarSenha",
+  require("./routes/recuperacao_senha/recuperarSenha.cjs")
+);
 
 // Rotas das disciplinas
 app.use("/api/cardsDisciplinas", require("./routes/cards/disciplinas.cjs"));
@@ -46,11 +54,11 @@ app.use("/api/cardsDisciplinas", require("./routes/disciplina/topicos.cjs"));
 app.use("/api/cardsDisciplinas", require("./routes/disciplina/materiais.cjs"));
 
 // Rota de saúde
-app.get('/api/health', (req, res) => {
+app.get("/api/health", (req, res) => {
   res.json({
     success: true,
-    message: 'Servidor funcionando',
-    environment: process.env.NODE_ENV || 'development'
+    message: "Servidor funcionando",
+    environment: process.env.NODE_ENV || "development",
   });
 });
 
