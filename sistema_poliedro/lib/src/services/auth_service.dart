@@ -5,7 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthService {
-  static String get _baseUrl {
+  static String get baseUrl {
+    // MUDANÇA: Tornar público para uso externo
     if (kIsWeb) return 'http://localhost:5000';
     return 'http://192.168.15.123:5000'; // Direto, sem dotenv
   }
@@ -16,7 +17,7 @@ class AuthService {
     String tipo,
   ) async {
     final rota = tipo == "professor" ? "professores" : "alunos";
-    final url = Uri.parse("$_baseUrl/api/$rota/login");
+    final url = Uri.parse("${baseUrl}/api/$rota/login");
     final body = tipo == "professor"
         ? {"email": identifier, "senha": senha}
         : {"ra": identifier, "senha": senha};
@@ -46,7 +47,7 @@ class AuthService {
   }
 
   static Future<bool> sendVerificationCode(String email) async {
-    final url = Uri.parse("$_baseUrl/api/enviarEmail/enviar-codigo");
+    final url = Uri.parse("${baseUrl}/api/enviarEmail/enviar-codigo");
     try {
       final response = await http.post(
         url,
@@ -66,7 +67,7 @@ class AuthService {
   }
 
   static Future<bool> verifyCode(String email, String codigo) async {
-    final url = Uri.parse("$_baseUrl/api/enviarEmail/verificar-codigo");
+    final url = Uri.parse("${baseUrl}/api/enviarEmail/verificar-codigo");
     try {
       final response = await http.post(
         url,
@@ -90,7 +91,7 @@ class AuthService {
     String codigo,
     String novaSenha,
   ) async {
-    final url = Uri.parse("$_baseUrl/api/recuperarSenha/atualizar-senha");
+    final url = Uri.parse("${baseUrl}/api/recuperarSenha/atualizar-senha");
     try {
       final response = await http.post(
         url,
@@ -149,4 +150,3 @@ class AuthService {
     await prefs.clear();
   }
 }
-

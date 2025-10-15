@@ -9,4 +9,5 @@ class AppColors {
   static const vermelhoErro = Color(0xFFFE6658);
   static const branco = Color(0xFFFFFFFF);
   static const preto = Color(0xFF000000);
+  static const cinzaClaro = Color(0xFFF5F5F5);
 }

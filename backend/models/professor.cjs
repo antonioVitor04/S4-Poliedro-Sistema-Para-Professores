@@ -18,6 +18,7 @@ const professorSchema = new mongoose.Schema(
       },
     },
     senha: { type: String, required: true },
+    tipo: { type: String, enum: ["admin", "professor"], default: "professor" },
     imagem: {
       data: String, // Base64 string
       contentType: String, // image/jpeg, image/png, etc.
