@@ -1,4 +1,4 @@
-// routes/cards/disciplinas.cjs
+// routes/cards/disciplinas.cjs (updated)
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
@@ -227,7 +227,7 @@ routerCards.get("/disciplina/:slug", async (req, res) => {
   }
 });
 
-// GET: Buscar todos os cards
+// GET: Buscar todos os cards (updated to include topicos like in single card fetch)
 routerCards.get("/", async (req, res) => {
   try {
     const cards = await CardDisciplina.find().sort({ createdAt: -1 });
@@ -236,6 +236,7 @@ routerCards.get("/", async (req, res) => {
       _id: card._id,
       titulo: card.titulo,
       slug: card.slug,
+      topicos: card.topicos || [], // Include topicos here to match single card structure
       createdAt: card.createdAt,
       updatedAt: card.updatedAt,
       imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${
