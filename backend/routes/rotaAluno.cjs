@@ -40,10 +40,17 @@ const handleMulterError = (err, req, res, next) => {
   next();
 };
 
-// Registro Aluno pelo professor
+// Função auxiliar para host correto (para dev com IP)
+const getHost = (req) => {
+  return process.env.NODE_ENV === "development"
+    ? "192.168.15.123:5000"
+    : req.get("host");
+};
+
+// Registro Aluno pelo professor ou admin
 router.post(
   "/register",
-  auth("professor"),
+  auth(["professor", "admin"]),
   (req, res, next) => {
     console.log("=== INICIANDO UPLOAD ===");
     console.log("Headers:", req.headers);
@@ -128,6 +135,7 @@ router.post(
           nome: aluno.nome,
           ra: aluno.ra,
           email: aluno.email,
+          tipo: "aluno", // MUDANÇA: Incluir tipo
           imagem: aluno.imagem
             ? {
                 contentType: aluno.imagem.contentType,
@@ -178,7 +186,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Update Aluno
+// Update Aluno (self-update)
 router.put(
   "/update",
   auth("aluno"),
@@ -233,6 +241,7 @@ router.put(
         nome: aluno.nome,
         ra: aluno.ra,
         email: aluno.email,
+        tipo: "aluno", // MUDANÇA: Incluir tipo
         hasImage: !!aluno.imagem,
       };
 
@@ -288,7 +297,6 @@ router.get("/image/:id", async (req, res) => {
   }
 });
 
-// Rota específica para atualizar apenas a imagem
 // Rota para upload de imagem via base64
 router.put("/update-image-base64", auth("aluno"), async (req, res) => {
   try {
@@ -358,16 +366,6 @@ router.delete("/remove-image", auth("aluno"), async (req, res) => {
   }
 });
 
-// Delete Aluno
-router.delete("/delete", auth("aluno"), async (req, res) => {
-  try {
-    await Aluno.findByIdAndDelete(req.user.id);
-    res.json({ msg: "Aluno deletado com sucesso" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ADICIONE ESTA ROTA - Perfil do aluno (GET /)
 router.get("/", auth("aluno"), async (req, res) => {
   try {
@@ -388,11 +386,89 @@ router.get("/", auth("aluno"), async (req, res) => {
         nome: aluno.nome,
         ra: aluno.ra,
         email: aluno.email,
+        tipo: "aluno", // MUDANÇA: Incluir tipo
         hasImage: !!aluno.imagem,
       },
     });
   } catch (err) {
     console.log("Erro na rota GET /:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Listar todos os alunos (GET /list) - Permite admin e professor
+router.get("/list", auth(["admin", "professor"]), async (req, res) => {
+  try {
+    console.log("=== ROTA LIST ALUNOS CHAMADA ==="); // Log para debug
+    console.log("User role:", req.user.role);
+    console.log("User ID:", req.user.id);
+
+    const alunos = await Aluno.find({}, { senha: 0, imagem: { data: 0 } });
+    const host = getHost(req); // MUDANÇA: Usar host correto
+    const formattedAlunos = alunos.map((aluno) => ({
+      id: aluno._id.toString(),
+      nome: aluno.nome,
+      email: aluno.email,
+      ra: aluno.ra,
+      tipo: "aluno", // MUDANÇA: Incluir tipo
+      fotoUrl: aluno.imagem
+        ? `${req.protocol}://${host}/api/alunos/image/${aluno._id}`
+        : null,
+    }));
+    console.log(`Encontrados ${formattedAlunos.length} alunos`); // Log para debug
+    res.json(formattedAlunos);
+  } catch (err) {
+    console.error("Erro ao listar alunos:", err); // Log para debug
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Atualizar aluno por ID (PUT /:id) - Permite admin e professor
+router.put("/:id", auth(["admin", "professor"]), async (req, res) => {
+  try {
+    console.log("=== ROTA UPDATE ALUNO POR ID CHAMADA ==="); // Log para debug
+    console.log("User role:", req.user.role);
+    const { id } = req.params;
+    const { nome, email, ra } = req.body;
+    const aluno = await Aluno.findById(id);
+    if (!aluno) {
+      return res.status(404).json({ msg: "Aluno não encontrado" });
+    }
+    if (nome) aluno.nome = nome.trim();
+    if (email) aluno.email = email.trim();
+    if (ra) aluno.ra = ra.trim();
+    await aluno.save();
+    const host = getHost(req); // MUDANÇA: Usar host correto
+    const formatted = {
+      id: aluno._id.toString(),
+      nome: aluno.nome,
+      email: aluno.email,
+      ra: aluno.ra,
+      tipo: "aluno", // MUDANÇA: Incluir tipo
+      fotoUrl: aluno.imagem
+        ? `${req.protocol}://${host}/api/alunos/image/${aluno._id}`
+        : null,
+    };
+    res.json({ msg: "Aluno atualizado com sucesso", aluno: formatted });
+  } catch (err) {
+    console.error("Erro ao atualizar aluno:", err); // Log para debug
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Deletar aluno por ID (DELETE /:id) - Permite admin e professor
+router.delete("/:id", auth(["admin", "professor"]), async (req, res) => {
+  try {
+    console.log("=== ROTA DELETE ALUNO POR ID CHAMADA ==="); // Log para debug
+    console.log("User role:", req.user.role);
+    const { id } = req.params;
+    const aluno = await Aluno.findByIdAndDelete(id);
+    if (!aluno) {
+      return res.status(404).json({ msg: "Aluno não encontrado" });
+    }
+    res.json({ msg: "Aluno deletado com sucesso" });
+  } catch (err) {
+    console.error("Erro ao deletar aluno:", err); // Log para debug
     res.status(500).json({ error: err.message });
   }
 });

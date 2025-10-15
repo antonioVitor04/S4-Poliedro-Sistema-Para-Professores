@@ -75,7 +75,7 @@ class _HomeProfessorState extends State<HomeProfessor>
       '/notas': const NotasPageProfessor(),
       '/calendario': const CalendarioPageProfessor(),
       '/notificacoes': const NotificacoesPageProfessor(),
-      '/administracao': AdministracaoPage(),
+      '/administracao': AdministracaoPage(isAdmin: true),
     };
   }
 

@@ -40,10 +40,17 @@ const handleMulterError = (err, req, res, next) => {
   next();
 };
 
-// Registrar professor (SOMENTE professor pode registrar outro professor)
+// Função auxiliar para host correto (para dev com IP)
+const getHost = (req) => {
+  return process.env.NODE_ENV === "development"
+    ? "192.168.15.123:5000"
+    : req.get("host");
+};
+
+// Registrar professor (SOMENTE professor ou admin pode registrar outro professor)
 router.post(
   "/register",
-  auth("professor"),
+  auth(["professor", "admin"]),
   (req, res, next) => {
     console.log("=== INICIANDO UPLOAD ===");
     console.log("Headers:", req.headers);
@@ -68,13 +75,13 @@ router.post(
   async (req, res) => {
     try {
       console.log("=== PROCESSANDO REGISTRO ===");
-      const { nome, email } = req.body;
+      const { nome, email, tipo = "professor" } = req.body; // MUDANÇA: Aceitar 'tipo' com default "professor"
 
       // Validações
       if (!email) {
         return res.status(400).json({
           msg: "Email é obrigatório",
-          received: { nome, email },
+          received: { nome, email, tipo },
         });
       }
 
@@ -82,6 +89,20 @@ router.post(
       const existing = await Professor.findOne({ email });
       if (existing) {
         return res.status(400).json({ msg: "Esse email já está em uso" });
+      }
+
+      // Validar tipo (enum)
+      if (!["admin", "professor"].includes(tipo)) {
+        return res
+          .status(400)
+          .json({ msg: "Tipo inválido. Deve ser 'admin' ou 'professor'." });
+      }
+
+      // Opcional: Só permitir criar admin se o usuário atual for admin
+      if (tipo === "admin" && req.user.role !== "admin") {
+        return res.status(403).json({
+          msg: "Apenas administradores podem criar outros administradores.",
+        });
       }
 
       // Gerar senha automática
@@ -94,6 +115,7 @@ router.post(
       const professorData = {
         nome: nome.trim(),
         email: email.trim(),
+        tipo: tipo, // MUDANÇA: Usar o tipo do body
         senha: hashedPassword,
       };
 
@@ -127,6 +149,7 @@ router.post(
         id: novoProfessor._id,
         nome: novoProfessor.nome,
         email: novoProfessor.email,
+        tipo: novoProfessor.tipo, // MUDANÇA: Incluir tipo na resposta
         hasImage: !!novoProfessor.imagem,
       };
 
@@ -158,7 +181,7 @@ router.post("/login", async (req, res) => {
     if (!isMatch) return res.status(400).json({ msg: "Senha incorreta" });
 
     const token = jwt.sign(
-      { id: prof._id, role: "professor" },
+      { id: prof._id, role: prof.tipo }, // MUDANÇA: Use prof.tipo em vez de hardcoded "professor"
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -177,10 +200,10 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Update Professor
+// Update Professor (self-update)
 router.put(
   "/update",
-  auth("professor"),
+  auth(["professor", "admin"]), // MUDANÇA: Permite admin também
   (req, res, next) => {
     console.log("=== INICIANDO UPDATE COM IMAGEM ===");
 
@@ -230,6 +253,7 @@ router.put(
         id: prof._id,
         nome: prof.nome,
         email: prof.email,
+        tipo: prof.tipo, // MUDANÇA: Incluir tipo
         hasImage: !!prof.imagem,
       };
 
@@ -245,7 +269,8 @@ router.put(
 );
 
 // Rota específica para obter imagem do professor
-router.get("/image", auth("professor"), async (req, res) => {
+router.get("/image", auth(["professor", "admin"]), async (req, res) => {
+  // MUDANÇA: Permite admin
   try {
     const prof = await Professor.findById(req.user.id).select("imagem");
     if (!prof || !prof.imagem || !prof.imagem.data) {
@@ -286,86 +311,89 @@ router.get("/image/:id", async (req, res) => {
 });
 
 // Rota para upload de imagem via base64
-router.put("/update-image-base64", auth("professor"), async (req, res) => {
-  try {
-    console.log("=== UPLOAD VIA BASE64 ===");
-    const { imagem, filename, contentType } = req.body;
+router.put(
+  "/update-image-base64",
+  auth(["professor", "admin"]),
+  async (req, res) => {
+    // MUDANÇA: Permite admin
+    try {
+      console.log("=== UPLOAD VIA BASE64 ===");
+      const { imagem, filename, contentType } = req.body;
 
-    if (!imagem) {
-      return res.status(400).json({ msg: "Nenhuma imagem enviada" });
+      if (!imagem) {
+        return res.status(400).json({ msg: "Nenhuma imagem enviada" });
+      }
+
+      // Validar se é base64 válido
+      if (!imagem.startsWith("data:image/")) {
+        return res.status(400).json({ msg: "Formato de imagem inválido" });
+      }
+
+      const prof = await Professor.findById(req.user.id);
+      if (!prof)
+        return res.status(404).json({ msg: "Professor não encontrado" });
+
+      // Extrair dados da string base64
+      const matches = imagem.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) {
+        return res.status(400).json({ msg: "String base64 inválida" });
+      }
+
+      const imageBuffer = Buffer.from(matches[2], "base64");
+
+      prof.imagem = {
+        data: matches[2], // Apenas a parte base64 sem o prefixo
+        contentType: matches[1] || contentType || "image/jpeg",
+        filename: filename || "imagem.jpg",
+        size: imageBuffer.length,
+      };
+
+      await prof.save();
+
+      console.log("Imagem atualizada via base64 com sucesso");
+
+      res.json({
+        msg: "Imagem atualizada com sucesso",
+        imagem: {
+          contentType: prof.imagem.contentType,
+          filename: prof.imagem.filename,
+          size: prof.imagem.size,
+        },
+      });
+    } catch (err) {
+      console.error("Erro no upload base64:", err);
+      res.status(500).json({ error: err.message });
     }
-
-    // Validar se é base64 válido
-    if (!imagem.startsWith("data:image/")) {
-      return res.status(400).json({ msg: "Formato de imagem inválido" });
-    }
-
-    const prof = await Professor.findById(req.user.id);
-    if (!prof) return res.status(404).json({ msg: "Professor não encontrado" });
-
-    // Extrair dados da string base64
-    const matches = imagem.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-      return res.status(400).json({ msg: "String base64 inválida" });
-    }
-
-    const imageBuffer = Buffer.from(matches[2], "base64");
-
-    prof.imagem = {
-      data: matches[2], // Apenas a parte base64 sem o prefixo
-      contentType: matches[1] || contentType || "image/jpeg",
-      filename: filename || "imagem.jpg",
-      size: imageBuffer.length,
-    };
-
-    await prof.save();
-
-    console.log("Imagem atualizada via base64 com sucesso");
-
-    res.json({
-      msg: "Imagem atualizada com sucesso",
-      imagem: {
-        contentType: prof.imagem.contentType,
-        filename: prof.imagem.filename,
-        size: prof.imagem.size,
-      },
-    });
-  } catch (err) {
-    console.error("Erro no upload base64:", err);
-    res.status(500).json({ error: err.message });
   }
-});
+);
 
 // Remover imagem do perfil
-router.delete("/remove-image", auth("professor"), async (req, res) => {
-  try {
-    const prof = await Professor.findById(req.user.id);
-    if (!prof) return res.status(404).json({ msg: "Professor não encontrado" });
+router.delete(
+  "/remove-image",
+  auth(["professor", "admin"]),
+  async (req, res) => {
+    // MUDANÇA: Permite admin
+    try {
+      const prof = await Professor.findById(req.user.id);
+      if (!prof)
+        return res.status(404).json({ msg: "Professor não encontrado" });
 
-    if (prof.imagem) {
-      prof.imagem = undefined;
-      await prof.save();
-      res.json({ msg: "Imagem removida com sucesso" });
-    } else {
-      res.status(400).json({ msg: "Nenhuma imagem para remover" });
+      if (prof.imagem) {
+        prof.imagem = undefined;
+        await prof.save();
+        res.json({ msg: "Imagem removida com sucesso" });
+      } else {
+        res.status(400).json({ msg: "Nenhuma imagem para remover" });
+      }
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
-});
-
-// Delete Professor
-router.delete("/delete", auth("professor"), async (req, res) => {
-  try {
-    await Professor.findByIdAndDelete(req.user.id);
-    res.json({ msg: "Professor deletado com sucesso" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+);
 
 // ADICIONE ESTA ROTA - Perfil do professor (GET /)
-router.get("/", auth("professor"), async (req, res) => {
+router.get("/", auth(["professor", "admin"]), async (req, res) => {
+  // MUDANÇA: Permite admin
   try {
     console.log("=== ROTA PROFESSOR GET / CHAMADA ===");
     console.log("User ID:", req.user.id);
@@ -383,11 +411,107 @@ router.get("/", auth("professor"), async (req, res) => {
         id: professor._id,
         nome: professor.nome,
         email: professor.email,
+        tipo: professor.tipo, // MUDANÇA: Incluir tipo
         hasImage: !!professor.imagem,
       },
     });
   } catch (err) {
     console.log("Erro na rota GET / professor:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Listar todos os professores (GET /list)
+router.get("/list", auth(["professor", "admin"]), async (req, res) => {
+  // MUDANÇA: Permite admin e adiciona log
+  try {
+    console.log("=== ROTA LIST PROFESSORES CHAMADA ==="); // Log para debug
+    console.log("User role:", req.user.role); // Log do role do usuário logado
+    console.log("User ID:", req.user.id);
+
+    const professores = await Professor.find(
+      {},
+      { senha: 0, imagem: { data: 0 } }
+    );
+    const host = getHost(req); // MUDANÇA: Usar host correto
+    const formattedProfessores = professores.map((prof) => ({
+      id: prof._id.toString(),
+      nome: prof.nome,
+      email: prof.email,
+      ra: null,
+      tipo: prof.tipo, // MUDANÇA: Usar o tipo real do banco (admin ou professor)
+      fotoUrl: prof.imagem
+        ? `${req.protocol}://${host}/api/professores/image/${prof._id}`
+        : null,
+    }));
+    console.log(`Encontrados ${formattedProfessores.length} professores`); // Log para debug
+    res.json(formattedProfessores);
+  } catch (err) {
+    console.error("Erro ao listar professores:", err); // Log para debug
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Atualizar professor por ID (PUT /:id)
+router.put("/:id", auth(["professor", "admin"]), async (req, res) => {
+  // MUDANÇA: Permite admin
+  try {
+    console.log("=== ROTA UPDATE PROFESSOR POR ID CHAMADA ==="); // Log para debug
+    console.log("User role:", req.user.role);
+    const { id } = req.params;
+    const { nome, email, tipo } = req.body; // MUDANÇA: Aceitar 'tipo'
+    const prof = await Professor.findById(id);
+    if (!prof) {
+      return res.status(404).json({ msg: "Professor não encontrado" });
+    }
+
+    // Validar tipo se fornecido
+    if (tipo && !["admin", "professor"].includes(tipo)) {
+      return res.status(400).json({ msg: "Tipo inválido." });
+    }
+    // Opcional: Só permitir mudar para admin se atual for admin
+    if (tipo === "admin" && req.user.role !== "admin") {
+      return res
+        .status(403)
+        .json({ msg: "Apenas administradores podem ser promovidos." });
+    }
+
+    if (nome) prof.nome = nome.trim();
+    if (email) prof.email = email.trim();
+    if (tipo) prof.tipo = tipo; // MUDANÇA: Atualizar tipo
+    await prof.save();
+    const host = getHost(req); // MUDANÇA: Usar host correto
+    const formatted = {
+      id: prof._id.toString(),
+      nome: prof.nome,
+      email: prof.email,
+      ra: null,
+      tipo: prof.tipo, // MUDANÇA: Usar tipo real
+      fotoUrl: prof.imagem
+        ? `${req.protocol}://${host}/api/professores/image/${prof._id}`
+        : null,
+    };
+    res.json({ msg: "Professor atualizado com sucesso", professor: formatted });
+  } catch (err) {
+    console.error("Erro ao atualizar professor:", err); // Log para debug
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Deletar professor por ID (DELETE /:id)
+router.delete("/:id", auth(["professor", "admin"]), async (req, res) => {
+  // MUDANÇA: Permite admin
+  try {
+    console.log("=== ROTA DELETE PROFESSOR POR ID CHAMADA ==="); // Log para debug
+    console.log("User role:", req.user.role);
+    const { id } = req.params;
+    const prof = await Professor.findByIdAndDelete(id);
+    if (!prof) {
+      return res.status(404).json({ msg: "Professor não encontrado" });
+    }
+    res.json({ msg: "Professor deletado com sucesso" });
+  } catch (err) {
+    console.error("Erro ao deletar professor:", err); // Log para debug
     res.status(500).json({ error: err.message });
   }
 });
