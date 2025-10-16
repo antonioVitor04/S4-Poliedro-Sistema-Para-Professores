@@ -71,6 +71,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/.env
 
   fonts:
     - family: Ubuntu

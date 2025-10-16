@@ -6,9 +6,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthService {
   static String get baseUrl {
-    // MUDANÇA: Tornar público para uso externo
-    if (kIsWeb) return 'http://localhost:5000';
-    return 'http://192.168.15.123:5000'; // Direto, sem dotenv
+    if (kIsWeb) {
+      return dotenv.env['BASE_URL_WEB']!;
+    }
+    return dotenv.env['BASE_URL_MOBILE']!;
   }
 
   static Future<String?> login(

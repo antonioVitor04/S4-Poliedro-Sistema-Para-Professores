@@ -6,8 +6,9 @@ import 'src/components/auth_guard.dart';
 import 'src/pages/login/recuperar_senha.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() { 
-
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); 
+  await dotenv.load(fileName: "assets/.env");
   runApp(const MyApp());
 }
 
