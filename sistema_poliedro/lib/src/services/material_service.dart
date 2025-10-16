@@ -7,11 +7,13 @@ import 'package:http_parser/http_parser.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/modelo_card_disciplina.dart';
 import 'auth_service.dart';
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 class MaterialService {
   static String get _baseUrl {
-    if (kIsWeb) return 'http://localhost:5000';
-    return 'http://192.168.15.123:5000';
+    if (kIsWeb) {
+      return dotenv.env['BASE_URL_WEB']!;
+    }
+    return dotenv.env['BASE_URL_MOBILE']!;
   }
 
   static const String _apiPrefix = '/api/cardsDisciplinas';

@@ -7,8 +7,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class UserService {
   static String get _baseUrl {
-    if (kIsWeb) return 'http://localhost:5000';
-    return 'http://192.168.15.123:5000'; // Direto, sem dotenv
+    if (kIsWeb) {
+      return dotenv.env['BASE_URL_WEB']!;
+    }
+    return dotenv.env['BASE_URL_MOBILE']!;
   }
 
   static const String _apiPrefix = '/api';  

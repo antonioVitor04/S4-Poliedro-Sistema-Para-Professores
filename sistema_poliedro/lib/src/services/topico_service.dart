@@ -7,8 +7,10 @@ import 'auth_service.dart';
 
 class TopicoService {
   static String get _baseUrl {
-    if (kIsWeb) return 'http://localhost:5000';
-    return 'http://192.168.15.123:5000'; // Direto, sem dotenv
+    if (kIsWeb) {
+      return dotenv.env['BASE_URL_WEB']!;
+    }
+    return dotenv.env['BASE_URL_MOBILE']!;
   }
 
   static const String _apiPrefix = '/api/cardsDisciplinas';  // Prefixo correto para o backend
