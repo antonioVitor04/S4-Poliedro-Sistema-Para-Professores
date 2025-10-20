@@ -217,7 +217,7 @@ describe("Professor Routes", () => {
     describe("DELETE /api/professores/delete", () => {
         test("should delete professor", async () => {
             const response = await request(app)
-                .delete("/api/professores/delete")
+                .delete(`/api/professores/${professor._id}`)
                 .set("Authorization", `Bearer ${professorToken}`);
 
             console.log("Delete response:", JSON.stringify(response.body, null, 2));
