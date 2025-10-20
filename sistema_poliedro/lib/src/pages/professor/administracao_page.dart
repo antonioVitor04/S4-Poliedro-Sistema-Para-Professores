@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+
 import 'dart:convert';
+
 import 'package:sistema_poliedro/src/services/auth_service.dart'; // MUDANÇA: Importar AuthService
 import '../../styles/cores.dart';
 import '../../styles/fontes.dart';
@@ -46,11 +47,11 @@ class Usuario {
 
   factory Usuario.fromJson(Map<String, dynamic> json) {
     return Usuario(
-      id: json['id'],
-      nome: json['nome'],
-      email: json['email'],
+      id: json['id']!,
+      nome: json['nome']!,
+      email: json['email']!,
       ra: json['ra'],
-      tipo: json['tipo'],
+      tipo: json['tipo']!,
       fotoUrl: json['fotoUrl'],
     );
   }
@@ -187,6 +188,39 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     }
   }
 
+  // NOVA FUNÇÃO: Enviar senha inicial via API
+  Future<void> _sendInitialPassword(String email, String tipo) async {
+    if (token == null) {
+      _showError('Token não encontrado. Faça login novamente.');
+      return;
+    }
+
+    try {
+      final headers = await AuthService.getAuthHeaders();
+      final response = await http.post(
+        Uri.parse(
+          AuthService.baseUrl +
+              apiBaseUrl +
+              '/enviarEmail/enviar-senha-inicial',
+        ),
+        headers: headers,
+        body: json.encode({'email': email, 'tipo': tipo}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Falha ao enviar senha inicial: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      // Não falha o processo de criação, apenas loga erro
+      _showError(
+        'Usuário criado, mas falha ao enviar senha: $e. Tente reenviar manualmente.',
+      );
+      rethrow; // Opcional: para capturar no caller se necessário
+    }
+  }
+
   void _showError(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -271,13 +305,13 @@ class _AdministracaoPageState extends State<AdministracaoPage>
               ? '/alunos'
               : '/professores';
           final body = <String, dynamic>{
-            'nome': result['nome'],
-            'email': result['email'],
-            if (isAluno) 'ra': result['ra'],
+            'nome': result['nome']!,
+            'email': result['email']!,
+            if (isAluno) 'ra': result['ra']!,
           };
           if (!isAluno && result.containsKey('tipo')) {
             // MUDANÇA: Adicionar tipo para update de professor
-            body['tipo'] = result['tipo'];
+            body['tipo'] = result['tipo']!;
           }
           final response = await http.put(
             Uri.parse(
@@ -288,10 +322,10 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           );
 
           if (response.statusCode == 200) {
+            final decodedBody = json.decode(response.body);
             final updatedData =
-                json.decode(response.body)['aluno'] ??
-                json.decode(response.body)['professor'];
-            var updatedUser = Usuario.fromJson(updatedData);
+                decodedBody['aluno'] ?? decodedBody['professor'];
+            var updatedUser = Usuario.fromJson(updatedData!);
             updatedUser = _corrigirFotoUrl(updatedUser);
             final index = usuarios.indexWhere((u) => u.id == usuario.id);
             if (index != -1) {
@@ -311,13 +345,13 @@ class _AdministracaoPageState extends State<AdministracaoPage>
               ? '/alunos/register'
               : '/professores/register';
           final body = <String, dynamic>{
-            'nome': result['nome'],
-            'email': result['email'],
-            if (isAluno) 'ra': result['ra'],
+            'nome': result['nome']!,
+            'email': result['email']!,
+            if (isAluno) 'ra': result['ra']!,
           };
           if (!isAluno && result.containsKey('tipo')) {
             // MUDANÇA: Adicionar tipo para create de professor
-            body['tipo'] = result['tipo'];
+            body['tipo'] = result['tipo']!;
           }
           final response = await http.post(
             Uri.parse(
@@ -328,15 +362,23 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           );
 
           if (response.statusCode == 201) {
-            final newData =
-                json.decode(response.body)['aluno'] ??
-                json.decode(response.body)['professor'];
-            var newUser = Usuario.fromJson(newData);
+            final decodedBody = json.decode(response.body);
+            final newData = decodedBody['aluno'] ?? decodedBody['professor'];
+            var newUser = Usuario.fromJson(newData!);
             newUser = _corrigirFotoUrl(newUser);
             setState(() {
               usuarios.add(newUser);
             });
-            _showSuccess('Adicionado com sucesso!');
+
+            // NOVA IMPLEMENTAÇÃO: Enviar senha inicial após criação
+            await _sendInitialPassword(
+              result['email']!, // CORREÇÃO: Usar ! para non-null assertion após validação
+              isAluno ? 'aluno' : 'professor',
+            );
+
+            _showSuccess(
+              'Adicionado com sucesso! Senha inicial enviada por e-mail.',
+            );
           } else {
             throw Exception(
               'Falha ao adicionar: ${response.statusCode} - ${response.body}',

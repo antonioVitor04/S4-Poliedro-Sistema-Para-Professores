@@ -29,7 +29,7 @@ class _PerfilPageState extends State<PerfilPage> {
   @override
   void initState() {
     super.initState();
-    print('🚀 [INIT] PerfilPage iniciando...');
+
     _carregarTokenEConfigurar();
   }
 
@@ -87,18 +87,13 @@ class _PerfilPageState extends State<PerfilPage> {
   // MÉTODO DEFINITIVO - ÚNICA VERSÃO QUE VOCÊ PRECISA
   Future<void> _carregarImagem() async {
     try {
-      print('🔄 [CARREGAR IMAGEM] Verificando se usuário tem imagem...');
-
       // Primeiro verifica se o usuário tem imagem
       if (_usuario != null && _usuario!.hasImage) {
-        print('📸 Usuário tem imagem, fazendo download...');
-
         final bytes = await _userService.getImagemUsuarioBytes(
           timestamp: DateTime.now().millisecondsSinceEpoch,
         );
 
         if (bytes.isNotEmpty) {
-          print('✅ Imagem carregada com sucesso: ${bytes.length} bytes');
           setState(() {
             _imagemBytes = bytes;
             _imageVersion++;
@@ -108,13 +103,12 @@ class _PerfilPageState extends State<PerfilPage> {
       }
 
       // Se não tem imagem ou falhou o download
-      print('ℹ️ Usuário não tem imagem ou falha no download');
+
       setState(() {
         _imagemBytes = null;
         _imageVersion++;
       });
     } catch (e) {
-      print('❌ Erro ao carregar imagem: $e');
       // Em caso de erro, assume que não tem imagem
       setState(() {
         _imagemBytes = null;
@@ -157,8 +151,6 @@ class _PerfilPageState extends State<PerfilPage> {
   // MÉTODO DEFINITIVO PARA UPLOAD DE IMAGEM
   Future<void> _selecionarImagem() async {
     try {
-      print('📸 Iniciando seleção de imagem...');
-
       final imageFile = await ImageUtils.selecionarImagem();
       if (imageFile != null) {
         _mostrarAlerta('Enviando imagem...', true);
@@ -176,8 +168,6 @@ class _PerfilPageState extends State<PerfilPage> {
         // Converte para base64
         final base64Image = base64Encode(bytes);
 
-        print('📤 Fazendo upload de ${bytes.length} bytes...');
-
         // Faz upload
         await _userService.uploadImagemBase64(
           base64Image,
@@ -194,11 +184,9 @@ class _PerfilPageState extends State<PerfilPage> {
           }
         });
 
-        print('✅ Upload concluído com sucesso!');
         _mostrarAlerta('Imagem atualizada com sucesso!', true);
       }
     } catch (e) {
-      print('❌ Erro no upload: $e');
       _mostrarAlerta('Erro ao atualizar imagem: $e', false);
     }
   }
@@ -206,8 +194,6 @@ class _PerfilPageState extends State<PerfilPage> {
   // MÉTODO DEFINITIVO PARA REMOVER IMAGEM
   Future<void> _removerImagem() async {
     try {
-      print('🗑️ [REMOVE] Iniciando remoção de imagem...');
-
       await _userService.removerImagemUsuario();
 
       // ATUALIZAÇÃO IMEDIATA E DEFINITIVA
@@ -219,10 +205,8 @@ class _PerfilPageState extends State<PerfilPage> {
         }
       });
 
-      print('✅ [REMOVE] Imagem removida localmente');
       _mostrarAlerta('Imagem removida com sucesso!', true);
     } catch (e) {
-      print('❌ [REMOVE] Erro: $e');
       _mostrarAlerta('Erro ao remover imagem: $e', false);
     }
   }
@@ -630,7 +614,6 @@ class _PerfilPageState extends State<PerfilPage> {
                                   fit: BoxFit.cover,
                                   key: ValueKey('profile_image_$_imageVersion'),
                                   errorBuilder: (context, error, stackTrace) {
-                                    print('❌ Erro ao exibir imagem: $error');
                                     return _buildIconePadrao();
                                   },
                                 )

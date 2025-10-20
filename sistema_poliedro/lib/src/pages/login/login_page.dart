@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:sistema_poliedro/src/pages/login/Recuperar_Senha.dart';
 import 'package:sistema_poliedro/src/services/auth_service.dart';
@@ -21,14 +23,19 @@ class _LoginPageState extends State<LoginPage> {
   bool _senhaVisivel = false;
 
   void mostrarAlerta(String mensagem, bool sucesso) {
+    // Check if the widget is still mounted before showing dialog
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierColor: Colors.transparent,
       barrierDismissible: true,
       builder: (context) {
-        // Fecha apenas este diálogo após 2 segundos
-        Future.delayed(const Duration(seconds: 2), () {
-          Navigator.of(context, rootNavigator: true).pop();
+        // Use a timer instead of Future.delayed to avoid context issues
+        Timer(const Duration(seconds: 2), () {
+          if (Navigator.of(context, rootNavigator: true).canPop()) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
         });
 
         return AlertaWidget(mensagem: mensagem, sucesso: sucesso);
@@ -48,6 +55,9 @@ class _LoginPageState extends State<LoginPage> {
     try {
       await AuthService.login(emailOuRA, senha, paginaAtual);
 
+      // Check if widget is still mounted before navigation
+      if (!mounted) return;
+
       if (paginaAtual == "professor") {
         Navigator.pushReplacementNamed(context, '/professor_protected');
       } else {
@@ -58,6 +68,9 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
     } on Exception catch (e) {
+      // Check if widget is still mounted before showing alert
+      if (!mounted) return;
+
       final mensagem = e.toString().replaceFirst('Exception: ', '');
       if (mensagem.contains('login')) {
         mostrarAlerta("Erro no login. Verifique suas credenciais.", false);
@@ -250,7 +263,8 @@ class _LoginPageState extends State<LoginPage> {
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: () {
-                Navigator.pushReplacement(
+                // Use push instead of pushReplacement to avoid disposing the current view immediately
+                Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => Recuperar_Senha()),
                 );
