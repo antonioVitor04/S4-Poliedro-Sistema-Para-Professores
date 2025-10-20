@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+
 import 'dart:convert';
+
 import 'package:sistema_poliedro/src/services/auth_service.dart'; // MUDANÇA: Importar AuthService
 import '../../styles/cores.dart';
 import '../../styles/fontes.dart';
@@ -46,11 +47,11 @@ class Usuario {
 
   factory Usuario.fromJson(Map<String, dynamic> json) {
     return Usuario(
-      id: json['id'],
-      nome: json['nome'],
-      email: json['email'],
+      id: json['id']!,
+      nome: json['nome']!,
+      email: json['email']!,
       ra: json['ra'],
-      tipo: json['tipo'],
+      tipo: json['tipo']!,
       fotoUrl: json['fotoUrl'],
     );
   }
@@ -121,8 +122,27 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       }
       return;
     }
-    print('Token carregado: ${token!.substring(0, 20)}...'); // Debug
+
     if (mounted) setState(() {});
+  }
+
+  Map<String, String> _getImageHeaders() {
+    if (token == null) return {};
+    return {'Authorization': 'Bearer $token'};
+  }
+
+  Usuario _corrigirFotoUrl(Usuario user) {
+    if (user.fotoUrl != null && user.fotoUrl!.contains('localhost')) {
+      final String tipoEndpoint = user.tipo == 'aluno'
+          ? 'alunos'
+          : 'professores';
+      final String imageEndpoint = '/$tipoEndpoint/image/${user.id}';
+      final String correctedUrl =
+          AuthService.baseUrl + apiBaseUrl + imageEndpoint;
+
+      return user.copyWith(fotoUrl: correctedUrl);
+    }
+    return user;
   }
 
   Future<void> _carregarUsuarios() async {
@@ -146,17 +166,13 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         headers: headers,
       );
 
-      print('Status: ${response.statusCode}'); // MUDANÇA: Debug
-      print(
-        'Body: ${response.body}',
-      ); // MUDANÇA: Debug - veja a msg de erro aqui
-
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         setState(() {
-          usuarios = data
-              .map<Usuario>((json) => Usuario.fromJson(json))
-              .toList();
+          usuarios = data.map<Usuario>((json) {
+            final user = Usuario.fromJson(json);
+            return _corrigirFotoUrl(user);
+          }).toList();
           carregando = false;
         });
       } else {
@@ -169,6 +185,39 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         carregando = false;
       });
       _showError('Erro ao carregar usuários: $e');
+    }
+  }
+
+  // NOVA FUNÇÃO: Enviar senha inicial via API
+  Future<void> _sendInitialPassword(String email, String tipo) async {
+    if (token == null) {
+      _showError('Token não encontrado. Faça login novamente.');
+      return;
+    }
+
+    try {
+      final headers = await AuthService.getAuthHeaders();
+      final response = await http.post(
+        Uri.parse(
+          AuthService.baseUrl +
+              apiBaseUrl +
+              '/enviarEmail/enviar-senha-inicial',
+        ),
+        headers: headers,
+        body: json.encode({'email': email, 'tipo': tipo}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Falha ao enviar senha inicial: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      // Não falha o processo de criação, apenas loga erro
+      _showError(
+        'Usuário criado, mas falha ao enviar senha: $e. Tente reenviar manualmente.',
+      );
+      rethrow; // Opcional: para capturar no caller se necessário
     }
   }
 
@@ -211,7 +260,9 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       if (widget.isAdmin) {
         return mostrarAlunos
             ? usuario.tipo == 'aluno'
-            : usuario.tipo == 'professor';
+            : (usuario.tipo == 'professor' ||
+                  usuario.tipo ==
+                      'admin'); // CORREÇÃO: Incluir admins na lista de professores
       } else {
         return usuario.tipo == 'aluno';
       }
@@ -235,8 +286,12 @@ class _AdministracaoPageState extends State<AdministracaoPage>
 
     final result = await showDialog<Map<String, String>>(
       context: context,
-      builder: (BuildContext dialogContext) =>
-          UserDialog(usuario: usuario, isEdit: isEdit, isAluno: isAluno),
+      builder: (BuildContext dialogContext) => UserDialog(
+        usuario: usuario,
+        isEdit: isEdit,
+        isAluno: isAluno,
+        token: token,
+      ),
     );
 
     if (result != null) {
@@ -250,13 +305,13 @@ class _AdministracaoPageState extends State<AdministracaoPage>
               ? '/alunos'
               : '/professores';
           final body = <String, dynamic>{
-            'nome': result['nome'],
-            'email': result['email'],
-            if (isAluno) 'ra': result['ra'],
+            'nome': result['nome']!,
+            'email': result['email']!,
+            if (isAluno) 'ra': result['ra']!,
           };
           if (!isAluno && result.containsKey('tipo')) {
             // MUDANÇA: Adicionar tipo para update de professor
-            body['tipo'] = result['tipo'];
+            body['tipo'] = result['tipo']!;
           }
           final response = await http.put(
             Uri.parse(
@@ -266,17 +321,16 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             body: json.encode(body),
           );
 
-          print('Update Status: ${response.statusCode}'); // MUDANÇA: Debug
-          print('Update Body: ${response.body}'); // MUDANÇA: Debug
-
           if (response.statusCode == 200) {
+            final decodedBody = json.decode(response.body);
             final updatedData =
-                json.decode(response.body)['aluno'] ??
-                json.decode(response.body)['professor'];
+                decodedBody['aluno'] ?? decodedBody['professor'];
+            var updatedUser = Usuario.fromJson(updatedData!);
+            updatedUser = _corrigirFotoUrl(updatedUser);
             final index = usuarios.indexWhere((u) => u.id == usuario.id);
             if (index != -1) {
               setState(() {
-                usuarios[index] = Usuario.fromJson(updatedData);
+                usuarios[index] = updatedUser;
               });
             }
             _showSuccess('${isEdit ? 'Editado' : 'Adicionado'} com sucesso!');
@@ -291,13 +345,13 @@ class _AdministracaoPageState extends State<AdministracaoPage>
               ? '/alunos/register'
               : '/professores/register';
           final body = <String, dynamic>{
-            'nome': result['nome'],
-            'email': result['email'],
-            if (isAluno) 'ra': result['ra'],
+            'nome': result['nome']!,
+            'email': result['email']!,
+            if (isAluno) 'ra': result['ra']!,
           };
           if (!isAluno && result.containsKey('tipo')) {
             // MUDANÇA: Adicionar tipo para create de professor
-            body['tipo'] = result['tipo'];
+            body['tipo'] = result['tipo']!;
           }
           final response = await http.post(
             Uri.parse(
@@ -307,17 +361,24 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             body: json.encode(body),
           );
 
-          print('Create Status: ${response.statusCode}'); // MUDANÇA: Debug
-          print('Create Body: ${response.body}'); // MUDANÇA: Debug
-
           if (response.statusCode == 201) {
-            final newData =
-                json.decode(response.body)['aluno'] ??
-                json.decode(response.body)['professor'];
+            final decodedBody = json.decode(response.body);
+            final newData = decodedBody['aluno'] ?? decodedBody['professor'];
+            var newUser = Usuario.fromJson(newData!);
+            newUser = _corrigirFotoUrl(newUser);
             setState(() {
-              usuarios.add(Usuario.fromJson(newData));
+              usuarios.add(newUser);
             });
-            _showSuccess('Adicionado com sucesso!');
+
+            // NOVA IMPLEMENTAÇÃO: Enviar senha inicial após criação
+            await _sendInitialPassword(
+              result['email']!, // CORREÇÃO: Usar ! para non-null assertion após validação
+              isAluno ? 'aluno' : 'professor',
+            );
+
+            _showSuccess(
+              'Adicionado com sucesso! Senha inicial enviada por e-mail.',
+            );
           } else {
             throw Exception(
               'Falha ao adicionar: ${response.statusCode} - ${response.body}',
@@ -348,9 +409,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           ), // MUDANÇA: Usar baseUrl
           headers: headers,
         );
-
-        print('Delete Status: ${response.statusCode}'); // MUDANÇA: Debug
-        print('Delete Body: ${response.body}'); // MUDANÇA: Debug
 
         if (response.statusCode == 200) {
           setState(() {
@@ -773,6 +831,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
 
   Widget _buildDataTable(List<Usuario> usuarios, Color primaryColor) {
     final bool showRaColumn = mostrarAlunos || !widget.isAdmin;
+    final Map<String, String> imageHeaders = _getImageHeaders();
 
     return Card(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -823,18 +882,21 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                         ClipOval(
                           child: CachedNetworkImage(
                             imageUrl: usuario.fotoUrl ?? '',
+                            httpHeaders: imageHeaders,
                             width: 50,
                             height: 50,
                             fit: BoxFit.cover,
                             placeholder: (context, url) =>
                                 CircularProgressIndicator(),
-                            errorWidget: (context, url, error) => CircleAvatar(
-                              backgroundColor: Colors.grey[200],
-                              child: Icon(
-                                Icons.person,
-                                color: Colors.grey[400],
-                              ),
-                            ),
+                            errorWidget: (context, url, error) {
+                              return CircleAvatar(
+                                backgroundColor: Colors.grey[200],
+                                child: Icon(
+                                  Icons.person,
+                                  color: Colors.grey[400],
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -896,23 +958,33 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                         ),
                       ),
                       DataCell(
-                        Row(
-                          children: [
-                            _buildActionButton(
-                              icon: Icons.edit,
-                              color: AppColors.azulClaro,
-                              tooltip: 'Editar',
-                              onTap: () => _showUserDialog(usuario: usuario),
-                            ),
-                            const SizedBox(width: 8),
-                            _buildActionButton(
-                              icon: Icons.delete,
-                              color: AppColors.vermelho,
-                              tooltip: 'Excluir',
-                              onTap: () => _showDeleteDialog(usuario),
-                            ),
-                          ],
-                        ),
+                        usuario.tipo == 'admin'
+                            ? Text(
+                                'Protegido',
+                                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ) // CORREÇÃO: Não mostrar ações para admins
+                            : Row(
+                                children: [
+                                  _buildActionButton(
+                                    icon: Icons.edit,
+                                    color: AppColors.azulClaro,
+                                    tooltip: 'Editar',
+                                    onTap: () =>
+                                        _showUserDialog(usuario: usuario),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildActionButton(
+                                    icon: Icons.delete,
+                                    color: AppColors.vermelho,
+                                    tooltip: 'Excluir',
+                                    onTap: () => _showDeleteDialog(usuario),
+                                  ),
+                                ],
+                              ),
                       ),
                     ],
                   );
@@ -952,12 +1024,14 @@ class UserDialog extends StatefulWidget {
   final Usuario? usuario;
   final bool isEdit;
   final bool isAluno;
+  final String? token;
 
   const UserDialog({
     super.key,
     this.usuario,
     required this.isEdit,
     required this.isAluno,
+    this.token,
   });
 
   @override
@@ -993,6 +1067,11 @@ class _UserDialogState extends State<UserDialog> {
     super.dispose();
   }
 
+  Map<String, String> _getImageHeaders() {
+    if (widget.token == null) return {};
+    return {'Authorization': 'Bearer ${widget.token}'};
+  }
+
   void _save() {
     if (_formKey.currentState!.validate()) {
       final userData = <String, String>{
@@ -1013,6 +1092,7 @@ class _UserDialogState extends State<UserDialog> {
     final screenWidth = MediaQuery.of(context).size.width;
     final dialogWidth = screenWidth > 600 ? 550.0 : screenWidth * 0.9;
     final primaryColor = AppColors.azulClaro;
+    final Map<String, String> imageHeaders = _getImageHeaders();
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -1100,29 +1180,29 @@ class _UserDialogState extends State<UserDialog> {
                       children: [
                         if (widget.isEdit &&
                             widget.usuario!.fotoUrl != null) ...[
-                          Builder(
-                            builder: (context) {
-                              // DEBUG: Log da URL antes de tentar carregar no dialog
-                              print(
-                                'DEBUG - Tentando carregar imagem no dialog para usuário ${widget.usuario!.nome} (ID: ${widget.usuario!.id}): ${widget.usuario!.fotoUrl}',
-                              );
-                              return Center(
-                                child: CircleAvatar(
-                                  radius: 40,
-                                  backgroundImage: NetworkImage(
-                                    widget.usuario!.fotoUrl!,
-                                  ),
-                                  onBackgroundImageError: (exception, stackTrace) {
-                                    // DEBUG: Log detalhado do erro de carregamento no dialog
-                                    print(
-                                      'DEBUG - Erro ao carregar imagem no dialog para ${widget.usuario!.nome} (ID: ${widget.usuario!.id}) - URL: ${widget.usuario!.fotoUrl}',
-                                    );
-                                    print('DEBUG - Exceção: $exception');
-                                    print('DEBUG - StackTrace: $stackTrace');
-                                  },
-                                ),
-                              );
-                            },
+                          // CORREÇÃO: Usar CachedNetworkImage para melhor handling de erros e cache
+                          Center(
+                            child: ClipOval(
+                              child: CachedNetworkImage(
+                                imageUrl: widget.usuario!.fotoUrl!,
+                                httpHeaders: imageHeaders,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) =>
+                                    CircularProgressIndicator(),
+                                errorWidget: (context, url, error) {
+                                  return CircleAvatar(
+                                    backgroundColor: Colors.grey[200],
+                                    radius: 40,
+                                    child: Icon(
+                                      Icons.person,
+                                      color: Colors.grey[400],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -1253,7 +1333,7 @@ class _UserDialogState extends State<UserDialog> {
                               ),
                             ),
                             subtitle: Text(
-                              'Administradores podem criar outros professores. (Administradores não podem editar uns aos outros, portanto você não irá vê-los na lista!)',
+                              'Administradores podem criar outros professores. (Administradores não podem ser editados ou excluídos.)',
                               style: AppTextStyles.fonteUbuntuSans.copyWith(
                                 fontSize: 14,
                                 color: Colors.grey[600],

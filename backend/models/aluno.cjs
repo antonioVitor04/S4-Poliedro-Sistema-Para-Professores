@@ -9,15 +9,6 @@ const alunoSchema = new mongoose.Schema(
       type: String,
       unique: true,
       sparse: true,
-      validate: {
-        validator: function (v) {
-          if (!v) return true; // email opcional
-          const emailRegex = /^[\w.-]+@alunosistemapoliedro\.br$/;
-          return emailRegex.test(v);
-        },
-        message: (props) =>
-          `${props.value} não é um email válido! O formato deve conter @alunosistemapoliedro.br`,
-      },
     },
     senha: { type: String, required: true },
     imagem: {
