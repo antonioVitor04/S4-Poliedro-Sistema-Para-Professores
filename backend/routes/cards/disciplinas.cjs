@@ -54,9 +54,11 @@ const fileFilter = (req, file, cb) => {
   const mimetype = allowedMimeTypes.test(file.mimetype);
 
   console.log(
-    `File: ${file.originalname}, Extension: ${path.extname(
-      file.originalname
-    ).toLowerCase()}, Matches: ${extname}, Mimetype: ${file.mimetype}, Matches: ${mimetype}`
+    `File: ${file.originalname}, Extension: ${path
+      .extname(file.originalname)
+      .toLowerCase()}, Matches: ${extname}, Mimetype: ${
+      file.mimetype
+    }, Matches: ${mimetype}`
   );
 
   if (extname) {
@@ -91,7 +93,9 @@ const processUploadedFiles = (req, res, next) => {
     if (req.files.imagem) {
       let contentType = req.files.imagem[0].mimetype;
       if (contentType === "application/octet-stream") {
-        contentType = getMimeTypeFromExtension(req.files.imagem[0].originalname);
+        contentType = getMimeTypeFromExtension(
+          req.files.imagem[0].originalname
+        );
         console.log(`Overriding mimetype for imagem: ${contentType}`);
       }
       req.body.imagem = {
@@ -185,11 +189,6 @@ routerCards.get("/disciplina/:slug", async (req, res) => {
       });
     }
 
-    console.log("📦 Disciplina encontrada:", card.titulo);
-    console.log("📂 Tópicos no MongoDB:", card.topicos);
-    console.log("📊 Tipo de topicos:", typeof card.topicos);
-    console.log("🔍 Estrutura completa:", JSON.stringify(card, null, 2));
-
     const cardResponse = {
       _id: card._id,
       titulo: card.titulo,
@@ -197,22 +196,16 @@ routerCards.get("/disciplina/:slug", async (req, res) => {
       topicos: card.topicos || [],
       createdAt: card.createdAt,
       updatedAt: card.updatedAt,
-      imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${
-        card._id
-      }/imagem`,
-      icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${
-        card._id
-      }/icone`,
+      imagem: `${req.protocol}://${req.get(
+        "host"
+      )}/api/cardsDisciplinas/imagem/${card._id}/imagem`,
+      icone: `${req.protocol}://${req.get(
+        "host"
+      )}/api/cardsDisciplinas/imagem/${card._id}/icone`,
       url: `${req.protocol}://${req.get(
         "host"
       )}/api/cardsDisciplinas/disciplina/${card.slug}`,
     };
-
-    console.log("🎯 Resposta enviada:", {
-      titulo: cardResponse.titulo,
-      quantidadeTopicos: cardResponse.topicos.length,
-      topicos: cardResponse.topicos,
-    });
 
     res.json({
       success: true,
@@ -238,12 +231,12 @@ routerCards.get("/", async (req, res) => {
       slug: card.slug,
       createdAt: card.createdAt,
       updatedAt: card.updatedAt,
-      imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${
-        card._id
-      }/imagem`,
-      icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${
-        card._id
-      }/icone`,
+      imagem: `${req.protocol}://${req.get(
+        "host"
+      )}/api/cardsDisciplinas/imagem/${card._id}/imagem`,
+      icone: `${req.protocol}://${req.get(
+        "host"
+      )}/api/cardsDisciplinas/imagem/${card._id}/icone`,
       url: `${req.protocol}://${req.get(
         "host"
       )}/api/cardsDisciplinas/disciplina/${card.slug}`,
