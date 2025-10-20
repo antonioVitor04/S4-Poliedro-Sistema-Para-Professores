@@ -48,11 +48,19 @@ app.use(
   require("./routes/recuperacao_senha/recuperarSenha.cjs")
 );
 
-// Rotas das disciplinas
+// Rotas das disciplinas (CORREÇÃO: Montar sub-rotas corretamente para evitar override)
 app.use("/api/cardsDisciplinas", require("./routes/cards/disciplinas.cjs"));
-app.use("/api/cardsDisciplinas", require("./routes/disciplina/topicos.cjs"));
-app.use("/api/cardsDisciplinas", require("./routes/disciplina/materiais.cjs"));
+app.use(
+  "/api/cardsDisciplinas/topicos",
+  require("./routes/disciplina/topicos.cjs")
+);
+app.use(
+  "/api/cardsDisciplinas/materiais",
+  require("./routes/disciplina/materiais.cjs")
+);
 
+//Rotas de notas
+app.use("/api/notas", require("./routes/notas/rotas_notas.cjs"));
 // Rota de saúde
 app.get("/api/health", (req, res) => {
   res.json({

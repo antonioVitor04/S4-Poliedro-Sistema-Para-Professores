@@ -51,8 +51,72 @@ class Usuario {
       nome: json['nome']!,
       email: json['email']!,
       ra: json['ra'],
-      tipo: json['tipo']!,
+      tipo: json['tipo'] ?? 'unknown', // CORREÇÃO: Default para evitar null
       fotoUrl: json['fotoUrl'],
+    );
+  }
+}
+
+// NOVOS MODELOS para Notas
+class Detalhe {
+  final String? id;
+  final String tipo;
+  final String descricao;
+  final double? nota;
+  final double peso;
+
+  Detalhe({
+    this.id,
+    required this.tipo,
+    required this.descricao,
+    this.nota,
+    required this.peso,
+  });
+
+  factory Detalhe.fromJson(Map<String, dynamic> json) {
+    return Detalhe(
+      id: json['_id'],
+      tipo: json['tipo'] ?? '',
+      descricao: json['descricao'] ?? '',
+      nota: json['nota']?.toDouble(),
+      peso: (json['peso'] ?? 1.0).toDouble(),
+    );
+  }
+}
+
+class Disciplina {
+  final String id;
+  final String nome;
+  final List<Detalhe> detalhes;
+  final String alunoId;
+  final String alunoNome;
+  final double? mediaProvas;
+  final double? mediaAtividades;
+  final double? mediaFinal;
+
+  Disciplina({
+    required this.id,
+    required this.nome,
+    required this.detalhes,
+    required this.alunoId,
+    required this.alunoNome,
+    this.mediaProvas,
+    this.mediaAtividades,
+    this.mediaFinal,
+  });
+
+  factory Disciplina.fromJson(Map<String, dynamic> json) {
+    return Disciplina(
+      id: json['_id'] ?? '',
+      nome: json['nome'] ?? '',
+      detalhes: (json['detalhes'] as List<dynamic>? ?? [])
+          .map((d) => Detalhe.fromJson(d))
+          .toList(),
+      alunoId: json['alunoId']?['_id'] ?? json['alunoId'] ?? '',
+      alunoNome: json['alunoId']?['nome'] ?? '',
+      mediaProvas: json['mediaProvas']?.toDouble(),
+      mediaAtividades: json['mediaAtividades']?.toDouble(),
+      mediaFinal: json['mediaFinal']?.toDouble(),
     );
   }
 }
@@ -69,6 +133,9 @@ class AdministracaoPage extends StatefulWidget {
 class _AdministracaoPageState extends State<AdministracaoPage>
     with TickerProviderStateMixin {
   List<Usuario> usuarios = [];
+  List<Disciplina> disciplinas = [];
+  Set<String>? uniqueNomes; // CORREÇÃO: Nullable para hot reload
+  bool gerenciarUsuarios = true; // NOVO: Toggle principal Usuários vs Notas
   bool mostrarAlunos = true;
   bool carregando = false;
   late TextEditingController _searchController;
@@ -91,6 +158,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       CurvedAnimation(parent: _fabAnimationController, curve: Curves.easeInOut),
     );
     _fabAnimationController.forward();
+    uniqueNomes = <String>{}; // CORREÇÃO: Inicializar aqui para hot reload
     _initializeData(); // MUDANÇA: Chamar método unificado
   }
 
@@ -98,7 +166,11 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     // NOVO: Método para inicializar tudo
     await _loadToken();
     if (token != null && mounted) {
-      _carregarUsuarios();
+      if (gerenciarUsuarios) {
+        _carregarUsuarios();
+      } else {
+        _carregarDisciplinas();
+      }
     }
   }
 
@@ -188,6 +260,46 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     }
   }
 
+  // NOVO: Carregar disciplinas/notas
+  Future<void> _carregarDisciplinas() async {
+    if (token == null) {
+      _showError('Token não encontrado. Faça login novamente.');
+      return;
+    }
+
+    setState(() {
+      carregando = true;
+    });
+
+    try {
+      final headers = await AuthService.getAuthHeaders();
+      final response = await http.get(
+        Uri.parse(AuthService.baseUrl + apiBaseUrl + '/notas/disciplinas'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          disciplinas = data
+              .map<Disciplina>((json) => Disciplina.fromJson(json))
+              .toList();
+          uniqueNomes = disciplinas.map((d) => d.nome).toSet();
+          carregando = false;
+        });
+      } else {
+        throw Exception(
+          'Falha ao carregar: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      setState(() {
+        carregando = false;
+      });
+      _showError('Erro ao carregar notas: $e');
+    }
+  }
+
   // NOVA FUNÇÃO: Enviar senha inicial via API
   Future<void> _sendInitialPassword(String email, String tipo) async {
     if (token == null) {
@@ -236,6 +348,27 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     }
   }
 
+  void _showSuccess(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+            style: AppTextStyles.fonteUbuntu.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          backgroundColor: AppColors.verdeConfirmacao,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
+  }
+
   void _onSearchChanged(String query) {
     setState(() {
       _searchQuery = query;
@@ -257,14 +390,15 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     }
 
     var filtrados = listaSegura.where((usuario) {
+      final tipo = usuario.tipo ?? 'unknown'; // CORREÇÃO: Safe access
       if (widget.isAdmin) {
         return mostrarAlunos
-            ? usuario.tipo == 'aluno'
-            : (usuario.tipo == 'professor' ||
-                  usuario.tipo ==
+            ? tipo == 'aluno'
+            : (tipo == 'professor' ||
+                  tipo ==
                       'admin'); // CORREÇÃO: Incluir admins na lista de professores
       } else {
-        return usuario.tipo == 'aluno';
+        return tipo == 'aluno';
       }
     }).toList();
 
@@ -278,6 +412,30 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     }
 
     return filtrados;
+  }
+
+  int get _count {
+    if (gerenciarUsuarios) {
+      return _getUsuariosFiltrados().length;
+    } else {
+      return (uniqueNomes ?? <String>{}).length; // CORREÇÃO: Null-safe
+    }
+  }
+
+  String get _title {
+    if (gerenciarUsuarios) {
+      return mostrarAlunos ? 'Gerenciar Alunos' : 'Gerenciar Professores';
+    } else {
+      return 'Gerenciar Notas';
+    }
+  }
+
+  IconData get _icon {
+    if (gerenciarUsuarios) {
+      return mostrarAlunos ? Icons.school : Icons.school_outlined;
+    } else {
+      return Icons.grade;
+    }
   }
 
   Future<void> _showUserDialog({Usuario? usuario}) async {
@@ -426,25 +584,111 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     }
   }
 
-  void _showSuccess(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            message,
-            style: AppTextStyles.fonteUbuntu.copyWith(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+  // NOVO: Adicionar atividade para disciplina
+  Future<void> _addActivity(
+    String disciplinaNome,
+    List<Disciplina> group,
+  ) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (BuildContext dialogContext) => ActivityDialog(),
+    );
+
+    if (result != null && mounted) {
+      try {
+        final headers = await AuthService.getAuthHeaders();
+        for (var dis in group) {
+          final body = {
+            'tipo': result['tipo'],
+            'descricao': result['descricao'],
+            'nota': 0.0,
+            'peso': result['peso'],
+          };
+          await http.put(
+            Uri.parse(
+              AuthService.baseUrl +
+                  apiBaseUrl +
+                  '/notas/disciplinas/${dis.id}/adicionar-nota',
             ),
-          ),
-          backgroundColor: AppColors.verdeConfirmacao,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+            headers: headers,
+            body: json.encode(body),
+          );
+        }
+        await _carregarDisciplinas();
+        _showSuccess(
+          'Atividade "${result['descricao']}" adicionada para todos os alunos.',
+        );
+      } catch (e) {
+        _showError('Erro ao adicionar atividade: $e');
+      }
     }
+  }
+
+  // NOVO: Editar nota
+  Future<void> _editNota(
+    String disciplinaId,
+    String descricao,
+    String? notaId,
+    double currentNota,
+    double peso,
+    String tipo,
+  ) async {
+    final result = await showDialog<double?>(
+      context: context,
+      builder: (BuildContext dialogContext) =>
+          NotaDialog(current: currentNota, descricao: descricao),
+    );
+
+    if (result != null && mounted) {
+      try {
+        final headers = await AuthService.getAuthHeaders();
+        if (notaId != null) {
+          // Deletar antiga
+          await http.delete(
+            Uri.parse(
+              AuthService.baseUrl +
+                  apiBaseUrl +
+                  '/notas/disciplinas/$disciplinaId/remover-nota/$notaId',
+            ),
+            headers: headers,
+          );
+        }
+        // Adicionar/atualizar
+        final body = {
+          'tipo': tipo,
+          'descricao': descricao,
+          'nota': result,
+          'peso': peso,
+        };
+        await http.put(
+          Uri.parse(
+            AuthService.baseUrl +
+                apiBaseUrl +
+                '/notas/disciplinas/$disciplinaId/adicionar-nota',
+          ),
+          headers: headers,
+          body: json.encode(body),
+        );
+        await _carregarDisciplinas();
+        _showSuccess('Nota atualizada para $result.');
+      } catch (e) {
+        _showError('Erro ao atualizar nota: $e');
+      }
+    }
+  }
+
+  Color _getMediaColor(double? media) {
+    if (media == null) return Colors.grey;
+    if (media >= 8.0) return Colors.green;
+    if (media >= 6.0) return Colors.orange;
+    return Colors.red;
+  }
+
+  Color? _getNotaColor(double? nota) {
+    if (nota == null) return null;
+    if (nota >= 8.0) return Colors.green;
+    if (nota >= 6.0) return Colors.orange;
+    return Colors.red;
   }
 
   @override
@@ -509,28 +753,35 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           actions: [
             IconButton(
               icon: Icon(Icons.refresh, color: Colors.grey),
-              onPressed: _carregarUsuarios,
+              onPressed: gerenciarUsuarios
+                  ? _carregarUsuarios
+                  : _carregarDisciplinas,
             ),
           ],
         ),
-        floatingActionButton: (widget.isAdmin || mostrarAlunos)
+        floatingActionButton:
+            gerenciarUsuarios && (widget.isAdmin || mostrarAlunos)
             ? positionedFab
             : null,
         body: Column(
           children: [
             // Header com estatísticas e filtros
-            _buildHeader(primaryColor, usuariosFiltrados.length),
+            _buildHeader(primaryColor),
 
-            // Barra de busca
-            _buildSearchBar(),
+            // Barra de busca (apenas para usuários)
+            if (gerenciarUsuarios) _buildSearchBar(),
 
-            // Tabela
+            // Conteúdo
             Expanded(
               child: carregando
                   ? _buildLoadingState()
-                  : usuariosFiltrados.isEmpty
-                  ? _buildEmptyState()
-                  : _buildDataTable(usuariosFiltrados, primaryColor),
+                  : gerenciarUsuarios
+                  ? (usuariosFiltrados.isEmpty
+                        ? _buildEmptyState()
+                        : _buildDataTable(usuariosFiltrados, primaryColor))
+                  : ((uniqueNomes ?? <String>{}).isEmpty && disciplinas.isEmpty
+                        ? _buildEmptyNotas()
+                        : _buildGradesContent(primaryColor)),
             ),
           ],
         ),
@@ -538,7 +789,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
   }
 
-  Widget _buildHeader(Color primaryColor, int count) {
+  Widget _buildHeader(Color primaryColor) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -571,11 +822,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                   color: primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  mostrarAlunos ? Icons.school : Icons.school_outlined,
-                  color: primaryColor,
-                  size: 28,
-                ),
+                child: Icon(_icon, color: primaryColor, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -583,11 +830,13 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.isAdmin
-                          ? (mostrarAlunos
-                                ? 'Gerenciar Alunos'
-                                : 'Gerenciar Professores')
-                          : 'Gerenciar Alunos',
+                      widget.isAdmin && !gerenciarUsuarios
+                          ? _title
+                          : (gerenciarUsuarios
+                                ? (widget.isAdmin
+                                      ? 'Gerenciar Usuários'
+                                      : 'Gerenciar Alunos')
+                                : _title),
                       style: AppTextStyles.fonteUbuntu.copyWith(
                         fontSize: 28,
                         fontWeight: FontWeight.w800,
@@ -597,7 +846,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Total: $count ${mostrarAlunos ? 'alunos' : 'professores'}',
+                      'Total: $_count ${gerenciarUsuarios ? (mostrarAlunos ? 'alunos' : 'professores') : 'disciplinas'}',
                       style: AppTextStyles.fonteUbuntuSans.copyWith(
                         fontSize: 16,
                         color: Colors.grey[600],
@@ -610,12 +859,18 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             ],
           ),
           const SizedBox(height: 24),
-          if (widget.isAdmin) _buildToggleButtons(primaryColor),
+          if (gerenciarUsuarios && widget.isAdmin)
+            _buildToggleButtons(primaryColor),
+          if (widget.isAdmin) ...[
+            const SizedBox(height: 16),
+            _buildMainToggle(primaryColor),
+          ],
         ],
       ),
     );
   }
 
+  // Toggle sub para Alunos/Professores (mantido)
   Widget _buildToggleButtons(Color primaryColor) {
     return Container(
       padding: const EdgeInsets.all(4),
@@ -638,7 +893,10 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             isActive: mostrarAlunos,
             primaryColor: primaryColor,
             onTap: () {
-              setState(() => mostrarAlunos = true);
+              setState(() {
+                mostrarAlunos = true;
+                carregando = true;
+              });
               _carregarUsuarios();
             },
           ),
@@ -648,8 +906,60 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             isActive: !mostrarAlunos,
             primaryColor: primaryColor,
             onTap: () {
-              setState(() => mostrarAlunos = false);
+              setState(() {
+                mostrarAlunos = false;
+                carregando = true;
+              });
               _carregarUsuarios();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NOVO: Toggle principal para Usuários/Notas
+  Widget _buildMainToggle(Color primaryColor) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.preto.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildToggleButton(
+            text: 'Usuários',
+            isActive: gerenciarUsuarios,
+            primaryColor: primaryColor,
+            onTap: () {
+              setState(() {
+                gerenciarUsuarios = true;
+                mostrarAlunos = true;
+                carregando = true;
+              });
+              _carregarUsuarios();
+            },
+          ),
+          const SizedBox(width: 4),
+          _buildToggleButton(
+            text: 'Notas',
+            isActive: !gerenciarUsuarios,
+            primaryColor: primaryColor,
+            onTap: () {
+              setState(() {
+                gerenciarUsuarios = false;
+                carregando = true;
+              });
+              _carregarDisciplinas();
             },
           ),
         ],
@@ -754,7 +1064,9 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           ),
           const SizedBox(height: 16),
           Text(
-            'Carregando dados...',
+            gerenciarUsuarios
+                ? 'Carregando usuários...'
+                : 'Carregando notas...',
             style: AppTextStyles.fonteUbuntu.copyWith(
               fontSize: 16,
               color: Colors.grey[600],
@@ -829,6 +1141,213 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
   }
 
+  // NOVO: Empty state para notas
+  Widget _buildEmptyNotas() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.grade_outlined,
+              size: 80,
+              color: Colors.grey[400],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Nenhuma nota cadastrada',
+            style: AppTextStyles.fonteUbuntu.copyWith(
+              fontSize: 20,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Adicione disciplinas e notas para os alunos',
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              fontSize: 14,
+              color: Colors.grey[500],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NOVO: Conteúdo para notas
+  Widget _buildGradesContent(Color primaryColor) {
+    final currentUniqueNomes = uniqueNomes ?? <String>{}; // CORREÇÃO: Null-safe
+    final Map<String, List<Disciplina>> groups = {};
+    for (var d in disciplinas) {
+      groups.putIfAbsent(d.nome, () => []).add(d);
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: groups.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 24),
+      itemBuilder: (context, index) {
+        final entry = groups.entries.elementAt(index);
+        final nome = entry.key;
+        final group = entry.value;
+
+        // Unique descrições
+        final Set<String> uniqueDescs = <String>{};
+        for (var dis in group) {
+          for (var det in dis.detalhes) {
+            uniqueDescs.add(det.descricao);
+          }
+        }
+        final List<String> columns = uniqueDescs.toList()..sort();
+
+        return _buildDisciplineCard(nome, group, columns, primaryColor);
+      },
+    );
+  }
+
+  Widget _buildDisciplineCard(
+    String nome,
+    List<Disciplina> group,
+    List<String> columns,
+    Color primaryColor,
+  ) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        children: [
+          // Header da disciplina
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  nome,
+                  style: AppTextStyles.fonteUbuntu.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: primaryColor,
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _addActivity(nome, group),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: Text(
+                    'Atividade / Prova',
+                    style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 12),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: AppColors.branco,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Tabela
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: MaterialStateProperty.all(Colors.grey[50]),
+              dataRowHeight: 60,
+              headingTextStyle: AppTextStyles.fonteUbuntu.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF424242),
+                fontSize: 14,
+              ),
+              dataTextStyle: AppTextStyles.fonteUbuntuSans.copyWith(
+                color: const Color(0xFF424242),
+                fontSize: 14,
+              ),
+              columns: [
+                const DataColumn(label: Text('Aluno')),
+                ...columns.map(
+                  (c) =>
+                      DataColumn(label: Text(c, textAlign: TextAlign.center)),
+                ),
+                const DataColumn(label: Text('Média')),
+              ],
+              rows: group.map((dis) {
+                return DataRow(
+                  cells: [
+                    DataCell(Text(dis.alunoNome)),
+                    ...columns.map((col) {
+                      Detalhe? det;
+                      try {
+                        det = dis.detalhes.firstWhere(
+                          (d) => d.descricao == col,
+                        );
+                      } catch (_) {
+                        det = null;
+                      }
+                      final String value = det?.nota != null
+                          ? det!.nota!.toStringAsFixed(1)
+                          : '–';
+                      final Color? textColor = _getNotaColor(det?.nota);
+                      return DataCell(
+                        GestureDetector(
+                          onTap: () => _editNota(
+                            dis.id,
+                            col,
+                            det?.id,
+                            det?.nota ?? 0.0,
+                            det?.peso ?? 1.0,
+                            det?.tipo ??
+                                (col.toLowerCase().contains('prova')
+                                    ? 'prova'
+                                    : 'atividade'),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            child: Text(
+                              value,
+                              style: TextStyle(color: textColor),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    DataCell(
+                      Text(
+                        dis.mediaFinal?.toStringAsFixed(1) ?? '–',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: _getMediaColor(dis.mediaFinal),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tabela de usuários (mantida)
   Widget _buildDataTable(List<Usuario> usuarios, Color primaryColor) {
     final bool showRaColumn = mostrarAlunos || !widget.isAdmin;
     final Map<String, String> imageHeaders = _getImageHeaders();
@@ -1545,6 +2064,229 @@ class DeleteDialog extends StatelessWidget {
                       ),
                     ),
                   ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// NOVO: Diálogo para adicionar atividade
+class ActivityDialog extends StatefulWidget {
+  const ActivityDialog({super.key});
+
+  @override
+  State<ActivityDialog> createState() => _ActivityDialogState();
+}
+
+class _ActivityDialogState extends State<ActivityDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _descricaoController = TextEditingController();
+  final _pesoController = TextEditingController(text: '1.0');
+  bool _isProva = true;
+
+  @override
+  void dispose() {
+    _descricaoController.dispose();
+    _pesoController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (_formKey.currentState!.validate()) {
+      final peso = double.tryParse(_pesoController.text) ?? 1.0;
+      Navigator.of(context).pop({
+        'tipo': _isProva ? 'prova' : 'atividade',
+        'descricao': _descricaoController.text,
+        'peso': peso,
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = AppColors.azulClaro;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 400),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Adicionar Atividade / Prova',
+              style: AppTextStyles.fonteUbuntu.copyWith(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('Tipo: Prova'),
+                    value: _isProva,
+                    onChanged: (value) => setState(() => _isProva = value),
+                    activeColor: primaryColor,
+                  ),
+                  TextFormField(
+                    controller: _descricaoController,
+                    decoration: InputDecoration(
+                      labelText: 'Descrição (ex: Prova 1)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.description),
+                    ),
+                    validator: (value) =>
+                        value?.isEmpty ?? true ? 'Descrição obrigatória' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _pesoController,
+                    decoration: InputDecoration(
+                      labelText: 'Peso (padrão 1.0)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.balance),
+                    ),
+                    keyboardType: TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) {
+                      final peso = double.tryParse(value ?? '');
+                      if (peso == null || peso <= 0)
+                        return 'Peso válido obrigatório';
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancelar'),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                  ),
+                  child: const Text('Adicionar'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// NOVO: Diálogo para editar nota
+class NotaDialog extends StatefulWidget {
+  final double current;
+  final String descricao;
+
+  const NotaDialog({super.key, required this.current, required this.descricao});
+
+  @override
+  State<NotaDialog> createState() => _NotaDialogState();
+}
+
+class _NotaDialogState extends State<NotaDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _notaController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _notaController.text = widget.current.toStringAsFixed(1);
+  }
+
+  @override
+  void dispose() {
+    _notaController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (_formKey.currentState!.validate()) {
+      final nota = double.tryParse(_notaController.text) ?? 0.0;
+      Navigator.of(context).pop(nota);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = AppColors.azulClaro;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 300),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Nota para ${widget.descricao}',
+              style: AppTextStyles.fonteUbuntu.copyWith(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Form(
+              key: _formKey,
+              child: TextFormField(
+                controller: _notaController,
+                decoration: InputDecoration(
+                  labelText: 'Nota (0-10)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: Icon(Icons.star),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) {
+                  final nota = double.tryParse(value ?? '');
+                  if (nota == null || nota < 0 || nota > 10)
+                    return 'Nota entre 0 e 10';
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancelar'),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                  ),
+                  child: const Text('Salvar'),
                 ),
               ],
             ),
