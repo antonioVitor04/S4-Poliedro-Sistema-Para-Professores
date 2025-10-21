@@ -8,6 +8,7 @@ class DisciplinaCard extends StatelessWidget {
   final String iconUrl;
   final bool isMobile;
   final VoidCallback onTap;
+  final String? badge;
 
   const DisciplinaCard({
     super.key,
@@ -16,6 +17,7 @@ class DisciplinaCard extends StatelessWidget {
     required this.iconUrl,
     required this.isMobile,
     required this.onTap,
+    this.badge,
   });
 
   @override
@@ -28,85 +30,110 @@ class DisciplinaCard extends StatelessWidget {
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeInOut,
           child: Card(
-            color: Colors.white, //
+            color: Colors.white,
             elevation: hovering ? 10 : 4,
             shadowColor: Colors.grey.shade300,
             surfaceTintColor: Colors.transparent, 
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                // Imagem superior
-                Expanded(
-                  flex: 6,
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                      image: DecorationImage(
-                        image: NetworkImage(imageUrl),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    child: Align(
-                      alignment: Alignment.topLeft,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Imagem superior
+                    Expanded(
+                      flex: 6,
                       child: Container(
-                        margin: const EdgeInsets.only(top: 12, left: 12),
-                        padding: const EdgeInsets.all(8),
+                        width: double.infinity,
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(12),
+                            topRight: Radius.circular(12),
+                          ),
+                          image: DecorationImage(
+                            image: NetworkImage(imageUrl),
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                        child: Image.network(
-                          iconUrl,
-                          width: isMobile ? 24 : 26,
-                          height: isMobile ? 24 : 26,
-                          color: Colors.white,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              _getIconForDisciplina(disciplina),
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 12, left: 12),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Image.network(
+                              iconUrl,
+                              width: isMobile ? 24 : 26,
+                              height: isMobile ? 24 : 26,
                               color: Colors.white,
-                              size: isMobile ? 24 : 26,
-                            );
-                          },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Icon(
+                                  _getIconForDisciplina(disciplina),
+                                  color: Colors.white,
+                                  size: isMobile ? 24 : 26,
+                                );
+                              },
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-                // Título inferior
-                Expanded(
-                  flex: 4,
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white, // ✅ Fundo branco da parte inferior
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(12),
-                        bottomRight: Radius.circular(12),
+                    // Título inferior
+                    Expanded(
+                      flex: 4,
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: const BorderRadius.only(
+                            bottomLeft: Radius.circular(12),
+                            bottomRight: Radius.circular(12),
+                          ),
+                        ),
+                        padding: const EdgeInsets.only(left: 12, top: 8, bottom: 6),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            disciplina,
+                            style: TextStyle(
+                              fontSize: isMobile ? 20 : 21,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
                     ),
-                    padding: const EdgeInsets.only(left: 12, top: 8, bottom: 6),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
+                  ],
+                ),
+                // Badge no canto superior esquerdo
+                if (badge != null)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       child: Text(
-                        disciplina,
-                        style: TextStyle(
-                          fontSize: isMobile ? 20 : 21,
+                        badge!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

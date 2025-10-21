@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import '../models/modelo_card_disciplina.dart';
 import 'auth_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class MaterialService {
   static String get _baseUrl {
     if (kIsWeb) {
@@ -54,7 +55,7 @@ class MaterialService {
     return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
   }
 
-  // POST: Adicionar material a um tópico (APENAS PROFESSOR)
+  // POST: Adicionar material a um tópico (APENAS PROFESSOR DA DISCIPLINA OU ADMIN)
   static Future<void> criarMaterial({
     required String slug,
     required String topicoId,
@@ -70,9 +71,11 @@ class MaterialService {
       print('=== DEBUG MaterialService: Iniciando criação de material ===');
       print('=== DEBUG: Slug: $slug, TopicoId: $topicoId, Tipo: $tipo ===');
 
-      // Verificar autenticação e permissões
-      if (!await AuthService.isProfessor()) {
-        throw Exception('Apenas professores podem adicionar materiais');
+      // CORREÇÃO: Permitir admin também
+      if (!await AuthService.isProfessor() && !await AuthService.isAdmin()) {
+        throw Exception(
+          'Apenas professores ou administradores podem adicionar materiais',
+        );
       }
 
       final token = await AuthService.getToken();
@@ -161,7 +164,9 @@ class MaterialService {
       } else if (response.statusCode == 401) {
         throw Exception('Acesso não autorizado. Faça login novamente.');
       } else if (response.statusCode == 403) {
-        throw Exception('Apenas professores podem adicionar materiais');
+        throw Exception(
+          'Apenas professores desta disciplina podem adicionar materiais',
+        );
       } else {
         throw Exception('Erro HTTP ${response.statusCode}: $responseBody');
       }
@@ -171,7 +176,7 @@ class MaterialService {
     }
   }
 
-  // PUT: Atualizar material (APENAS PROFESSOR)
+  // PUT: Atualizar material (APENAS PROFESSOR DA DISCIPLINA OU ADMIN)
   static Future<void> atualizarMaterial({
     required String slug,
     required String topicoId,
@@ -187,9 +192,11 @@ class MaterialService {
     try {
       print('=== DEBUG MaterialService: Iniciando atualização de material ===');
 
-      // Verificar autenticação e permissões
-      if (!await AuthService.isProfessor()) {
-        throw Exception('Apenas professores podem editar materiais');
+      // CORREÇÃO: Permitir admin também
+      if (!await AuthService.isProfessor() && !await AuthService.isAdmin()) {
+        throw Exception(
+          'Apenas professores ou administradores podem editar materiais',
+        );
       }
 
       final token = await AuthService.getToken();
@@ -273,7 +280,9 @@ class MaterialService {
       } else if (response.statusCode == 401) {
         throw Exception('Acesso não autorizado. Faça login novamente.');
       } else if (response.statusCode == 403) {
-        throw Exception('Apenas professores podem editar materiais');
+        throw Exception(
+          'Apenas professores desta disciplina podem editar materiais',
+        );
       } else {
         throw Exception('Erro HTTP ${response.statusCode}: $responseBody');
       }
@@ -283,7 +292,7 @@ class MaterialService {
     }
   }
 
-  // DELETE: Deletar material (APENAS PROFESSOR)
+  // DELETE: Deletar material (APENAS PROFESSOR DA DISCIPLINA OU ADMIN)
   static Future<void> deletarMaterial({
     required String slug,
     required String topicoId,
@@ -292,9 +301,11 @@ class MaterialService {
     try {
       print('=== DEBUG MaterialService: Deletando material $materialId ===');
 
-      // Verificar autenticação e permissões
-      if (!await AuthService.isProfessor()) {
-        throw Exception('Apenas professores podem deletar materiais');
+      // CORREÇÃO: Permitir admin também
+      if (!await AuthService.isProfessor() && !await AuthService.isAdmin()) {
+        throw Exception(
+          'Apenas professores ou administradores podem deletar materiais',
+        );
       }
 
       final token = await AuthService.getToken();
@@ -320,7 +331,9 @@ class MaterialService {
       } else if (response.statusCode == 401) {
         throw Exception('Acesso não autorizado. Faça login novamente.');
       } else if (response.statusCode == 403) {
-        throw Exception('Apenas professores podem deletar materiais');
+        throw Exception(
+          'Apenas professores desta disciplina podem deletar materiais',
+        );
       } else {
         throw Exception('Erro HTTP ${response.statusCode}: ${response.body}');
       }
@@ -330,7 +343,6 @@ class MaterialService {
     }
   }
 
-  // GET: Baixar bytes do arquivo (PÚBLICO - não precisa de autenticação)
   static Future<Uint8List> getFileBytes({
     required String slug,
     required String topicoId,
@@ -341,16 +353,35 @@ class MaterialService {
         '=== DEBUG MaterialService: Baixando arquivo do material $materialId ===',
       );
 
+      final token = await AuthService.getToken();
+      final headers = <String, String>{};
+
+      // ✅ ADICIONAR TOKEN DE AUTENTICAÇÃO
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
       final response = await http.get(
         Uri.parse(
           '$_baseUrl$_apiPrefix/$slug/topicos/$topicoId/materiais/$materialId/download',
         ),
+        headers: headers, // ✅ ENVIAR HEADER DE AUTORIZAÇÃO
       );
 
       print('=== DEBUG: Status Code: ${response.statusCode} ===');
+      print('=== DEBUG: Response Headers: ${response.headers} ===');
 
       if (response.statusCode == 200) {
+        print(
+          '=== DEBUG: Arquivo baixado com sucesso - ${response.bodyBytes.length} bytes ===',
+        );
         return response.bodyBytes;
+      } else if (response.statusCode == 403) {
+        throw Exception(
+          'Acesso negado. Verifique se você está matriculado nesta disciplina.',
+        );
+      } else if (response.statusCode == 401) {
+        throw Exception('Acesso não autorizado. Faça login novamente.');
       } else {
         throw Exception(
           'Erro ao baixar arquivo: ${response.statusCode} - ${response.body}',

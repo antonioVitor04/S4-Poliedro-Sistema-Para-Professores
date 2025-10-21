@@ -150,4 +150,107 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
   }
+
+  // Adicione estes métodos à classe AuthService existente
+
+  // Verificar se é admin
+  static Future<bool> isAdmin() async {
+    final tipo = await getUserType();
+    return tipo == "admin";
+  }
+
+  // Verificar se é aluno
+  static Future<bool> isAluno() async {
+    final tipo = await getUserType();
+    return tipo == "aluno";
+  }
+
+  // CORREÇÃO: Método getUserId
+  static Future<String?> getUserId() async {
+    final token = await getToken();
+    if (token != null) {
+      try {
+        print('=== DEBUG getUserId ===');
+        print('Token completo: $token');
+        
+        final parts = token.split('.');
+        if (parts.length != 3) {
+          print('Token não tem 3 partes');
+          return null;
+        }
+
+        final payload = parts[1];
+        // Adicionar padding se necessário
+        String normalized = payload;
+        while (normalized.length % 4 != 0) {
+          normalized += '=';
+        }
+        
+        final decoded = utf8.decode(base64.decode(normalized));
+        final payloadMap = json.decode(decoded);
+        
+        print('Payload decodificado: $payloadMap');
+        
+        // Tentar diferentes campos possíveis
+        final userId = payloadMap['id'] ?? payloadMap['userId'] ?? payloadMap['sub'];
+        print('User ID encontrado: $userId');
+        
+        return userId?.toString();
+      } catch (e) {
+        print('Erro ao decodificar token: $e');
+        return null;
+      }
+    }
+    return null;
+  }
+
+  // NOVO MÉTODO: Debug do token
+  static Future<void> debugToken() async {
+    final token = await getToken();
+    if (token != null) {
+      print('=== DEBUG TOKEN ===');
+      print('Token: $token');
+      
+      try {
+        final parts = token.split('.');
+        if (parts.length == 3) {
+          String payload = parts[1];
+          while (payload.length % 4 != 0) {
+            payload += '=';
+          }
+          final decoded = utf8.decode(base64.decode(payload));
+          print('Payload: $decoded');
+        }
+      } catch (e) {
+        print('Erro no debug: $e');
+      }
+    } else {
+      print('Token não encontrado');
+    }
+  }
+
+  // NOVO MÉTODO: Obter role do token
+  static Future<String?> getUserRole() async {
+    final token = await getToken();
+    if (token != null) {
+      try {
+        final parts = token.split('.');
+        if (parts.length != 3) return null;
+
+        String payload = parts[1];
+        while (payload.length % 4 != 0) {
+          payload += '=';
+        }
+        
+        final decoded = utf8.decode(base64.decode(payload));
+        final payloadMap = json.decode(decoded);
+        
+        return payloadMap['role']?.toString();
+      } catch (e) {
+        print('Erro ao obter role: $e');
+        return null;
+      }
+    }
+    return null;
+  }
 }

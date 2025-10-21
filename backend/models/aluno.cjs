@@ -1,4 +1,3 @@
-// models/aluno.cjs
 const mongoose = require("mongoose");
 
 const alunoSchema = new mongoose.Schema(
@@ -12,11 +11,15 @@ const alunoSchema = new mongoose.Schema(
     },
     senha: { type: String, required: true },
     imagem: {
-      data: String, // Base64 string
-      contentType: String, // image/jpeg, image/png, etc.
+      data: String,
+      contentType: String,
       filename: String,
       size: Number,
     },
+    disciplinas: [{ 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "CardDisciplina" 
+    }],
   },
   { timestamps: true }
 );

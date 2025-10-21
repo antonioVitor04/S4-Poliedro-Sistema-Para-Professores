@@ -1,4 +1,3 @@
-// models/professor.cjs
 const mongoose = require("mongoose");
 
 const professorSchema = new mongoose.Schema(
@@ -20,11 +19,15 @@ const professorSchema = new mongoose.Schema(
     senha: { type: String, required: true },
     tipo: { type: String, enum: ["admin", "professor"], default: "professor" },
     imagem: {
-      data: String, // Base64 string
-      contentType: String, // image/jpeg, image/png, etc.
+      data: String,
+      contentType: String,
       filename: String,
       size: Number,
     },
+    disciplinas: [{ 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "CardDisciplina" 
+    }],
   },
   { timestamps: true }
 );

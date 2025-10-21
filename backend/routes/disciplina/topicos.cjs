@@ -1,22 +1,15 @@
-// routes/cards/topicos.cjs
+// routes/topicos.cjs - CORREÇÃO
+
 const express = require("express");
 const routerTopicos = express.Router();
 const CardDisciplina = require("../../models/cardDisciplina.cjs");
-const auth = require("../../middleware/auth.cjs"); // Import auth middleware
+const auth = require("../../middleware/auth.cjs");
+const { verificarProfessorDisciplina, verificarAcessoDisciplina } = require("../../middleware/disciplinaAuth.cjs");
 
-// GET: Buscar todos os tópicos de uma disciplina
-routerTopicos.get("/:slug/topicos", auth("professor"), async (req, res) => {
+// ✅ CORREÇÃO: GET - Buscar todos os tópicos (ACESSO PARA TODOS OS USUÁRIOS DA DISCIPLINA)
+routerTopicos.get("/:slug/topicos", auth(), verificarAcessoDisciplina, async (req, res) => {
   try {
-    const { slug } = req.params;
-
-    const card = await CardDisciplina.findOne({ slug });
-
-    if (!card) {
-      return res.status(404).json({
-        success: false,
-        error: "Disciplina não encontrada",
-      });
-    }
+    const card = req.disciplina;
 
     res.json({
       success: true,
@@ -31,63 +24,68 @@ routerTopicos.get("/:slug/topicos", auth("professor"), async (req, res) => {
   }
 });
 
-// POST: Adicionar novo tópico
-routerTopicos.post("/:slug/topicos", auth("professor"), async (req, res) => {
-  try {
-    const { slug } = req.params;
-    const { titulo, descricao } = req.body;
+// ✅ POST: Adicionar novo tópico (APENAS PROFESSORES da disciplina)
+routerTopicos.post("/:slug/topicos", 
+  auth(["professor", "admin"]), 
+  verificarProfessorDisciplina, 
+  async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const { titulo, descricao } = req.body;
 
-    if (!titulo || titulo.trim().length === 0) {
-      return res.status(400).json({
+      if (!titulo || titulo.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Título do tópico é obrigatório",
+        });
+      }
+
+      const card = await CardDisciplina.findOne({ slug });
+
+      if (!card) {
+        return res.status(404).json({
+          success: false,
+          error: "Disciplina não encontrada",
+        });
+      }
+
+      const proximaOrdem =
+        card.topicos.length > 0
+          ? Math.max(...card.topicos.map((t) => t.ordem)) + 1
+          : 0;
+
+      const novoTopico = {
+        titulo: titulo.trim(),
+        descricao: descricao ? descricao.trim() : "",
+        ordem: proximaOrdem,
+        materiais: [],
+      };
+
+      card.topicos.push(novoTopico);
+      await card.save();
+
+      const topicoSalvo = card.topicos[card.topicos.length - 1];
+
+      res.status(201).json({
+        success: true,
+        message: "Tópico criado com sucesso",
+        data: topicoSalvo,
+      });
+    } catch (err) {
+      console.error("Erro ao criar tópico:", err);
+      res.status(500).json({
         success: false,
-        error: "Título do tópico é obrigatório",
+        error: "Erro interno do servidor ao criar tópico",
       });
     }
-
-    const card = await CardDisciplina.findOne({ slug });
-
-    if (!card) {
-      return res.status(404).json({
-        success: false,
-        error: "Disciplina não encontrada",
-      });
-    }
-
-    const proximaOrdem =
-      card.topicos.length > 0
-        ? Math.max(...card.topicos.map((t) => t.ordem)) + 1
-        : 0;
-
-    const novoTopico = {
-      titulo: titulo.trim(),
-      descricao: descricao ? descricao.trim() : "",
-      ordem: proximaOrdem,
-      materiais: [],
-    };
-
-    card.topicos.push(novoTopico);
-    await card.save();
-
-    const topicoSalvo = card.topicos[card.topicos.length - 1];
-
-    res.status(201).json({
-      success: true,
-      message: "Tópico criado com sucesso",
-      data: topicoSalvo,
-    });
-  } catch (err) {
-    console.error("Erro ao criar tópico:", err);
-    res.status(500).json({
-      success: false,
-      error: "Erro interno do servidor ao criar tópico",
-    });
   }
-});
+);
 
-// PUT: Atualizar tópico
+// ✅ PUT: Atualizar tópico (APENAS PROFESSORES da disciplina)
 routerTopicos.put(
   "/:slug/topicos/:topicoId",
-  auth("professor"),
+  auth(["professor", "admin"]),
+  verificarProfessorDisciplina,
   async (req, res) => {
     try {
       const { slug, topicoId } = req.params;
@@ -145,10 +143,11 @@ routerTopicos.put(
   }
 );
 
-// DELETE: Deletar tópico
+// ✅ DELETE: Deletar tópico (APENAS PROFESSORES da disciplina)
 routerTopicos.delete(
   "/:slug/topicos/:topicoId",
-  auth("professor"),
+  auth(["professor", "admin"]),
+  verificarProfessorDisciplina,
   async (req, res) => {
     try {
       const { slug, topicoId } = req.params;
@@ -188,10 +187,11 @@ routerTopicos.delete(
   }
 );
 
-// PUT: Reordenar tópicos
+// ✅ PUT: Reordenar tópicos (APENAS PROFESSORES da disciplina)
 routerTopicos.put(
   "/:slug/topicos/:topicoId/reordenar",
-  auth("professor"),
+  auth(["professor", "admin"]),
+  verificarProfessorDisciplina,
   async (req, res) => {
     try {
       const { slug, topicoId } = req.params;

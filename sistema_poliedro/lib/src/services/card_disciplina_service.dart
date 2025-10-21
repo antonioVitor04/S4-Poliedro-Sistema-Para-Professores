@@ -18,8 +18,8 @@ class CardDisciplinaService {
 
   // CORREÇÃO CRÍTICA: Método auxiliar para lidar com arquivos no Android
   static Future<http.MultipartFile> _createMultipartFile(
-    PlatformFile platformFile, 
-    String fieldName
+    PlatformFile platformFile,
+    String fieldName,
   ) async {
     print('=== DEBUG: Criando MultipartFile para $fieldName ===');
     print('=== DEBUG: Nome: ${platformFile.name} ===');
@@ -37,10 +37,12 @@ class CardDisciplinaService {
         filename: platformFile.name,
       );
     }
-    
+
     // CORREÇÃO PARA ANDROID: Se bytes estão nulos mas temos um path
     if (!kIsWeb && platformFile.path != null) {
-      print('=== DEBUG: Tentando usar path no Android: ${platformFile.path} ===');
+      print(
+        '=== DEBUG: Tentando usar path no Android: ${platformFile.path} ===',
+      );
       try {
         // No Android, usar fromPath que lê o arquivo do sistema de arquivos
         return await http.MultipartFile.fromPath(
@@ -50,24 +52,31 @@ class CardDisciplinaService {
         );
       } catch (e) {
         print('=== DEBUG ERRO ao usar fromPath: $e ===');
-        throw Exception('Não foi possível acessar o arquivo ${platformFile.name} no dispositivo');
+        throw Exception(
+          'Não foi possível acessar o arquivo ${platformFile.name} no dispositivo',
+        );
       }
     }
-    
+
     // Se chegou aqui, não conseguimos acessar o arquivo
-    print('=== DEBUG ERRO: Arquivo inacessível - Bytes: ${platformFile.bytes?.length}, Path: ${platformFile.path} ===');
-    throw Exception('Arquivo ${platformFile.name} está corrompido ou inacessível');
+    print(
+      '=== DEBUG ERRO: Arquivo inacessível - Bytes: ${platformFile.bytes?.length}, Path: ${platformFile.path} ===',
+    );
+    throw Exception(
+      'Arquivo ${platformFile.name} está corrompido ou inacessível',
+    );
   }
 
-  // Criar card (APENAS PROFESSOR)
   static Future<void> criarCard(
     String titulo,
     PlatformFile imagemFile,
-    PlatformFile iconeFile,
-  ) async {
+    PlatformFile iconeFile, {
+    List<String>? professores,
+    List<String>? alunos,
+  }) async {
     try {
       print('=== DEBUG: Verificando autenticação para criar card ===');
-      
+
       // Verificar se é professor
       if (!await AuthService.isProfessor()) {
         throw Exception('Apenas professores podem criar disciplinas');
@@ -86,6 +95,14 @@ class CardDisciplinaService {
       // ADICIONAR HEADER DE AUTORIZAÇÃO
       request.headers['Authorization'] = 'Bearer $token';
       request.fields['titulo'] = titulo;
+
+      // Adicionar professores e alunos se fornecidos
+      if (professores != null && professores.isNotEmpty) {
+        request.fields['professores'] = json.encode(professores);
+      }
+      if (alunos != null && alunos.isNotEmpty) {
+        request.fields['alunos'] = json.encode(alunos);
+      }
 
       // Processar arquivos
       final imagemMultipart = await _createMultipartFile(imagemFile, 'imagem');
@@ -118,18 +135,15 @@ class CardDisciplinaService {
     }
   }
 
-  // Atualizar card (APENAS PROFESSOR)
   static Future<void> atualizarCard(
     String id,
     String titulo,
     PlatformFile? imagemFile,
-    PlatformFile? iconeFile,
-  ) async {
+    PlatformFile? iconeFile, {
+    List<String>? professores,
+    List<String>? alunos,
+  }) async {
     try {
-      if (!await AuthService.isProfessor()) {
-        throw Exception('Apenas professores podem editar disciplinas');
-      }
-
       final token = await AuthService.getToken();
       if (token == null) {
         throw Exception('Usuário não autenticado');
@@ -140,15 +154,38 @@ class CardDisciplinaService {
         Uri.parse('$_baseUrl$_apiPrefix/$id'),
       );
 
-      // ADICIONAR HEADER DE AUTORIZAÇÃO
       request.headers['Authorization'] = 'Bearer $token';
-      
+
       if (titulo.isNotEmpty) {
         request.fields['titulo'] = titulo;
       }
 
+      // CORREÇÃO: Enviar arrays como campos múltiplos
+      if (professores != null) {
+        // Enviar cada professor como campo separado
+        for (int i = 0; i < professores.length; i++) {
+          request.fields['professores[$i]'] = professores[i];
+        }
+        print('=== DEBUG: Enviando ${professores.length} professores ===');
+      }
+
+      if (alunos != null) {
+        // Enviar cada aluno como campo separado
+        for (int i = 0; i < alunos.length; i++) {
+          request.fields['alunos[$i]'] = alunos[i];
+        }
+        print('=== DEBUG: Enviando ${alunos.length} alunos ===');
+      }
+
+      // DEBUG: Verificar campos
+      print('=== DEBUG: Campos finais: ${request.fields} ===');
+
+      // Processar arquivos...
       if (imagemFile != null) {
-        final imagemMultipart = await _createMultipartFile(imagemFile, 'imagem');
+        final imagemMultipart = await _createMultipartFile(
+          imagemFile,
+          'imagem',
+        );
         request.files.add(imagemMultipart);
       }
 
@@ -161,17 +198,13 @@ class CardDisciplinaService {
       final response = await http.Response.fromStream(streamedResponse);
 
       print('=== DEBUG: Status Code: ${response.statusCode} ===');
+      print('=== DEBUG: Response Body: ${response.body} ===');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] != true) {
           throw Exception(data['error'] ?? 'Erro ao atualizar disciplina');
         }
-        print('=== DEBUG: Card atualizado com sucesso ===');
-      } else if (response.statusCode == 401) {
-        throw Exception('Acesso não autorizado. Faça login novamente.');
-      } else if (response.statusCode == 403) {
-        throw Exception('Apenas professores podem editar disciplinas');
       } else {
         throw Exception('Erro HTTP ${response.statusCode}: ${response.body}');
       }
@@ -181,13 +214,9 @@ class CardDisciplinaService {
     }
   }
 
-  // Deletar card (APENAS PROFESSOR)
+  // Deletar card (APENAS PROFESSOR da disciplina ou ADMIN)
   static Future<void> deletarCard(String id) async {
     try {
-      if (!await AuthService.isProfessor()) {
-        throw Exception('Apenas professores podem deletar disciplinas');
-      }
-
       final token = await AuthService.getToken();
       if (token == null) {
         throw Exception('Usuário não autenticado');
@@ -195,7 +224,7 @@ class CardDisciplinaService {
 
       final response = await http.delete(
         Uri.parse('$_baseUrl$_apiPrefix/$id'),
-        headers: {'Authorization': 'Bearer $token'}, // ADICIONAR HEADER
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       print('=== DEBUG: Status Code: ${response.statusCode} ===');
@@ -208,7 +237,7 @@ class CardDisciplinaService {
       } else if (response.statusCode == 401) {
         throw Exception('Acesso não autorizado. Faça login novamente.');
       } else if (response.statusCode == 403) {
-        throw Exception('Apenas professores podem deletar disciplinas');
+        throw Exception('Você não tem permissão para deletar esta disciplina');
       } else {
         throw Exception('Erro HTTP ${response.statusCode}: ${response.body}');
       }
@@ -218,10 +247,20 @@ class CardDisciplinaService {
     }
   }
 
-  // Os métodos de leitura (getAllCards, getCardBySlug) podem permanecer públicos
+  // GET: Buscar todas as disciplinas (com filtro por usuário)
   static Future<List<CardDisciplina>> getAllCards() async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl$_apiPrefix'));
+      final token = await AuthService.getToken();
+      final headers = <String, String>{};
+
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await http.get(
+        Uri.parse('$_baseUrl$_apiPrefix'),
+        headers: headers,
+      );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -231,6 +270,10 @@ class CardDisciplinaService {
               .map((json) => CardDisciplina.fromJson(json))
               .toList();
         }
+      } else if (response.statusCode == 401) {
+        throw Exception('Acesso não autorizado. Faça login novamente.');
+      } else if (response.statusCode == 403) {
+        throw Exception('Acesso negado a esta disciplina');
       }
       throw Exception('Erro ao carregar cards: ${response.statusCode}');
     } catch (e) {
@@ -238,12 +281,51 @@ class CardDisciplinaService {
     }
   }
 
+  // GET: Buscar disciplinas do usuário logado
+  static Future<List<CardDisciplina>> getMinhasDisciplinas() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) {
+        throw Exception('Usuário não autenticado');
+      }
+
+      final response = await http.get(
+        Uri.parse('$_baseUrl$_apiPrefix/minhas-disciplinas'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          final cardsJson = data['data'] as List;
+          return cardsJson
+              .map((json) => CardDisciplina.fromJson(json))
+              .toList();
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception('Acesso não autorizado. Faça login novamente.');
+      }
+      throw Exception('Erro ao carregar disciplinas: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Erro ao conectar com o servidor: $e');
+    }
+  }
+
+  // GET: Buscar card por slug (com controle de acesso)
   static Future<CardDisciplina> getCardBySlug(String slug) async {
     try {
+      final token = await AuthService.getToken();
+      final headers = <String, String>{};
+
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
       final response = await http.get(
         Uri.parse(
           '$_baseUrl$_apiPrefix/disciplina/$slug?t=${DateTime.now().millisecondsSinceEpoch}',
         ),
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
@@ -253,11 +335,69 @@ class CardDisciplinaService {
         } else {
           throw Exception(data['error'] ?? 'Erro desconhecido');
         }
+      } else if (response.statusCode == 401) {
+        throw Exception('Acesso não autorizado. Faça login novamente.');
+      } else if (response.statusCode == 403) {
+        throw Exception(
+          'Acesso negado. Você não tem permissão para esta disciplina.',
+        );
+      } else if (response.statusCode == 404) {
+        throw Exception('Disciplina não encontrada');
       } else {
         throw Exception('Erro HTTP ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Erro ao carregar disciplina: $e');
+    }
+  }
+
+  // NOVO: Buscar alunos por RA
+  static Future<List<Map<String, dynamic>>> buscarAlunosPorRA(String ra) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) {
+        throw Exception('Usuário não autenticado');
+      }
+
+      final response = await http.get(
+        Uri.parse('${_baseUrl}/api/alunos/buscar?ra=$ra'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      } else {
+        throw Exception('Erro ao buscar alunos: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Erro ao buscar alunos: $e');
+    }
+  }
+
+  // NOVO: Buscar professores por email
+  static Future<List<Map<String, dynamic>>> buscarProfessoresPorEmail(
+    String email,
+  ) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) {
+        throw Exception('Usuário não autenticado');
+      }
+
+      final response = await http.get(
+        Uri.parse('${_baseUrl}/api/professores/buscar?email=$email'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      } else {
+        throw Exception('Erro ao buscar professores: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Erro ao buscar professores: $e');
     }
   }
 }

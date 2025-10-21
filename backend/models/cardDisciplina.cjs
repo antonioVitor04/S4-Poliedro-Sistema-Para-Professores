@@ -78,24 +78,12 @@ const topicoSchema = new mongoose.Schema({
 const cardDisciplinaSchema = new mongoose.Schema(
   {
     imagem: {
-      data: {
-        type: Buffer,
-        required: true
-      },
-      contentType: {
-        type: String,
-        required: true
-      }
+      data: { type: Buffer, required: true },
+      contentType: { type: String, required: true }
     },
     icone: {
-      data: {
-        type: Buffer,
-        required: true
-      },
-      contentType: {
-        type: String,
-        required: true
-      }
+      data: { type: Buffer, required: true },
+      contentType: { type: String, required: true }
     },
     titulo: {
       type: String,
@@ -108,11 +96,22 @@ const cardDisciplinaSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
-    topicos: [topicoSchema]
+    topicos: [topicoSchema],
+    professores: [{ 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "Professor" 
+    }],
+    alunos: [{ 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "Aluno" 
+    }],
+    criadoPor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Professor",
+      required: true
+    }
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 // Middleware para gerar slug automaticamente antes de salvar

@@ -1,10 +1,12 @@
-// routes/cards/disciplinas.cjs (updated)
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const routerCards = express.Router();
 const CardDisciplina = require("../../models/cardDisciplina.cjs");
-const auth = require("../../middleware/auth.cjs"); // Import auth middleware
+const Professor = require("../../models/professor.cjs");
+const Aluno = require("../../models/aluno.cjs");
+const auth = require("../../middleware/auth.cjs");
+const { verificarProfessorDisciplina, verificarAcessoDisciplina } = require("../../middleware/disciplinaAuth.cjs");
 
 // Configurações
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -39,9 +41,9 @@ function generateSlug(title) {
   return title
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, "") // Remove caracteres especiais
-    .replace(/[\s_-]+/g, "-") // Substitui espaços e underscores por hífens
-    .replace(/^-+|-+$/g, ""); // Remove hífens no início e fim
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 // Filtro para validar tipos de arquivo
@@ -53,14 +55,7 @@ const fileFilter = (req, file, cb) => {
   const allowedMimeTypes = /^image\/(jpeg|png|gif|bmp|webp|svg\+xml)$/;
   const mimetype = allowedMimeTypes.test(file.mimetype);
 
-  console.log(
-    `File: ${file.originalname}, Extension: ${path.extname(
-      file.originalname
-    ).toLowerCase()}, Matches: ${extname}, Mimetype: ${file.mimetype}, Matches: ${mimetype}`
-  );
-
   if (extname) {
-    console.log(`Accepting file based on extension: ${file.originalname}`);
     return cb(null, true);
   } else {
     cb(
@@ -92,7 +87,6 @@ const processUploadedFiles = (req, res, next) => {
       let contentType = req.files.imagem[0].mimetype;
       if (contentType === "application/octet-stream") {
         contentType = getMimeTypeFromExtension(req.files.imagem[0].originalname);
-        console.log(`Overriding mimetype for imagem: ${contentType}`);
       }
       req.body.imagem = {
         data: req.files.imagem[0].buffer,
@@ -103,7 +97,6 @@ const processUploadedFiles = (req, res, next) => {
       let contentType = req.files.icone[0].mimetype;
       if (contentType === "application/octet-stream") {
         contentType = getMimeTypeFromExtension(req.files.icone[0].originalname);
-        console.log(`Overriding mimetype for icone: ${contentType}`);
       }
       req.body.icone = {
         data: req.files.icone[0].buffer,
@@ -137,7 +130,7 @@ const validateRequiredFields = (req, res, next) => {
   next();
 };
 
-// Rota para servir imagens do MongoDB
+// ✅ CORREÇÃO: Rota para servir imagens do MongoDB - EVITAR CACHE
 routerCards.get("/imagem/:id/:tipo", async (req, res) => {
   try {
     const { id, tipo } = req.params;
@@ -158,8 +151,15 @@ routerCards.get("/imagem/:id/:tipo", async (req, res) => {
       });
     }
 
+    // ✅ CORREÇÃO: Headers para evitar cache
     res.set("Content-Type", card[tipo].contentType);
-    res.set("Cache-Control", "public, max-age=86400"); // Cache de 1 dia
+    res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+    
+    // ✅ CORREÇÃO: Usar timestamp como ETag para cache busting
+    const timestamp = req.query.t || Date.now();
+    res.set("ETag", `"${timestamp}"`);
 
     res.send(card[tipo].data);
   } catch (err) {
@@ -171,12 +171,20 @@ routerCards.get("/imagem/:id/:tipo", async (req, res) => {
   }
 });
 
-// GET: Buscar card por slug
-routerCards.get("/disciplina/:slug", async (req, res) => {
+// ✅ CORREÇÃO: GET: Buscar card por slug (com timestamp para cache busting)
+routerCards.get("/disciplina/:slug", auth(), verificarAcessoDisciplina, async (req, res) => {
   try {
-    const { slug } = req.params;
+    if (!req.disciplina) {
+      return res.status(404).json({
+        success: false,
+        error: "Disciplina não encontrada",
+      });
+    }
 
-    const card = await CardDisciplina.findOne({ slug });
+    const card = await CardDisciplina.findById(req.disciplina._id)
+      .populate('criadoPor', 'nome email')
+      .populate('professores', 'nome email')
+      .populate('alunos', 'nome email ra');
 
     if (!card) {
       return res.status(404).json({
@@ -185,34 +193,24 @@ routerCards.get("/disciplina/:slug", async (req, res) => {
       });
     }
 
-    console.log("📦 Disciplina encontrada:", card.titulo);
-    console.log("📂 Tópicos no MongoDB:", card.topicos);
-    console.log("📊 Tipo de topicos:", typeof card.topicos);
-    console.log("🔍 Estrutura completa:", JSON.stringify(card, null, 2));
+    // ✅ CORREÇÃO: Adicionar timestamp único para evitar cache
+    const timestamp = Date.now();
 
     const cardResponse = {
       _id: card._id,
       titulo: card.titulo,
       slug: card.slug,
       topicos: card.topicos || [],
+      professores: card.professores,
+      alunos: card.alunos,
+      criadoPor: card.criadoPor,
       createdAt: card.createdAt,
       updatedAt: card.updatedAt,
-      imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${
-        card._id
-      }/imagem`,
-      icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${
-        card._id
-      }/icone`,
-      url: `${req.protocol}://${req.get(
-        "host"
-      )}/api/cardsDisciplinas/disciplina/${card.slug}`,
+      // ✅ CORREÇÃO: Adicionar timestamp às URLs
+      imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/imagem?t=${timestamp}`,
+      icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/icone?t=${timestamp}`,
+      url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${card.slug}`,
     };
-
-    console.log("🎯 Resposta enviada:", {
-      titulo: cardResponse.titulo,
-      quantidadeTopicos: cardResponse.topicos.length,
-      topicos: cardResponse.topicos,
-    });
 
     res.json({
       success: true,
@@ -227,27 +225,42 @@ routerCards.get("/disciplina/:slug", async (req, res) => {
   }
 });
 
-// GET: Buscar todos os cards (updated to include topicos like in single card fetch)
-routerCards.get("/", async (req, res) => {
+// ✅ CORREÇÃO: GET: Buscar todos os cards (com timestamp para cache busting)
+routerCards.get("/", auth(), async (req, res) => {
   try {
-    const cards = await CardDisciplina.find().sort({ createdAt: -1 });
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    let query = {};
+    if (userRole === "professor") {
+      query = { professores: userId };
+    } else if (userRole === "aluno") {
+      query = { alunos: userId };
+    }
+
+    const cards = await CardDisciplina.find(query)
+      .populate('criadoPor', 'nome email')
+      .populate('professores', 'nome email')
+      .populate('alunos', 'nome email ra')
+      .sort({ createdAt: -1 });
+
+    // ✅ CORREÇÃO: Adicionar timestamp único para evitar cache
+    const timestamp = Date.now();
 
     const cardsWithUrls = cards.map((card) => ({
       _id: card._id,
       titulo: card.titulo,
       slug: card.slug,
-      topicos: card.topicos || [], // Include topicos here to match single card structure
+      topicos: card.topicos || [],
+      professores: card.professores,
+      alunos: card.alunos,
+      criadoPor: card.criadoPor,
       createdAt: card.createdAt,
       updatedAt: card.updatedAt,
-      imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${
-        card._id
-      }/imagem`,
-      icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${
-        card._id
-      }/icone`,
-      url: `${req.protocol}://${req.get(
-        "host"
-      )}/api/cardsDisciplinas/disciplina/${card.slug}`,
+      // ✅ CORREÇÃO: Adicionar timestamp às URLs
+      imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/imagem?t=${timestamp}`,
+      icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/icone?t=${timestamp}`,
+      url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${card.slug}`,
     }));
 
     res.json({
@@ -264,16 +277,65 @@ routerCards.get("/", async (req, res) => {
   }
 });
 
+// ✅ CORREÇÃO: GET: Listar disciplinas do usuário logado (com timestamp para cache busting)
+routerCards.get("/minhas-disciplinas", auth(), async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    let query = {};
+    if (userRole === "professor") {
+      query = { professores: userId };
+    } else if (userRole === "aluno") {
+      query = { alunos: userId };
+    }
+
+    const cards = await CardDisciplina.find(query).sort({ createdAt: -1 });
+
+    // ✅ CORREÇÃO: Adicionar timestamp único para evitar cache
+    const timestamp = Date.now();
+
+    const cardsWithUrls = cards.map((card) => ({
+      _id: card._id,
+      titulo: card.titulo,
+      slug: card.slug,
+      topicos: card.topicos || [],
+      professores: card.professores,
+      alunos: card.alunos,
+      criadoPor: card.criadoPor,
+      createdAt: card.createdAt,
+      updatedAt: card.updatedAt,
+      // ✅ CORREÇÃO: Adicionar timestamp às URLs
+      imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/imagem?t=${timestamp}`,
+      icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/icone?t=${timestamp}`,
+      url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${card.slug}`,
+    }));
+
+    res.json({
+      success: true,
+      count: cards.length,
+      data: cardsWithUrls,
+    });
+  } catch (err) {
+    console.error("Erro ao buscar disciplinas:", err);
+    res.status(500).json({
+      success: false,
+      error: "Erro interno do servidor ao buscar as disciplinas",
+    });
+  }
+});
+
 // POST: Criar um novo card
 routerCards.post(
   "/",
-  auth("professor"), // Add authentication
+  auth(["professor", "admin"]),
   handleUpload,
   processUploadedFiles,
   validateRequiredFields,
   async (req, res) => {
     try {
-      const { imagem, icone, titulo } = req.body;
+      const { imagem, icone, titulo, professores, alunos } = req.body;
+      const userId = req.user.id;
 
       const slug = generateSlug(titulo.trim());
 
@@ -283,6 +345,43 @@ routerCards.post(
           success: false,
           error: "Já existe uma disciplina com este título",
         });
+      }
+
+      // Processar lista de professores
+      let professoresIds = [];
+      if (professores && Array.isArray(professores)) {
+        const professoresExistentes = await Professor.find({ 
+          _id: { $in: professores } 
+        });
+        
+        if (professoresExistentes.length !== professores.length) {
+          return res.status(400).json({
+            success: false,
+            error: "Um ou mais professores não foram encontrados",
+          });
+        }
+        professoresIds = professores;
+      }
+
+      // Adicionar o criador automaticamente como professor
+      if (!professoresIds.includes(userId)) {
+        professoresIds.push(userId);
+      }
+
+      // Processar lista de alunos
+      let alunosIds = [];
+      if (alunos && Array.isArray(alunos)) {
+        const alunosExistentes = await Aluno.find({ 
+          _id: { $in: alunos } 
+        });
+        
+        if (alunosExistentes.length !== alunos.length) {
+          return res.status(400).json({
+            success: false,
+            error: "Um ou mais alunos não foram encontrados",
+          });
+        }
+        alunosIds = alunos;
       }
 
       const novoCard = new CardDisciplina({
@@ -296,30 +395,48 @@ routerCards.post(
         },
         titulo: titulo.trim(),
         slug: slug,
+        professores: professoresIds,
+        alunos: alunosIds,
+        criadoPor: userId
       });
 
       await novoCard.save();
+
+      // Atualizar as disciplinas dos professores
+      await Professor.updateMany(
+        { _id: { $in: professoresIds } },
+        { $addToSet: { disciplinas: novoCard._id } }
+      );
+
+      // Atualizar as disciplinas dos alunos
+      if (alunosIds.length > 0) {
+        await Aluno.updateMany(
+          { _id: { $in: alunosIds } },
+          { $addToSet: { disciplinas: novoCard._id } }
+        );
+      }
+
+      // ✅ CORREÇÃO: Adicionar timestamp único para evitar cache
+      const timestamp = Date.now();
 
       const cardResponse = {
         _id: novoCard._id,
         titulo: novoCard.titulo,
         slug: novoCard.slug,
+        professores: novoCard.professores,
+        alunos: novoCard.alunos,
+        criadoPor: novoCard.criadoPor,
         createdAt: novoCard.createdAt,
         updatedAt: novoCard.updatedAt,
-        imagem: `${req.protocol}://${req.get(
-          "host"
-        )}/api/cardsDisciplinas/imagem/${novoCard._id}/imagem`,
-        icone: `${req.protocol}://${req.get(
-          "host"
-        )}/api/cardsDisciplinas/imagem/${novoCard._id}/icone`,
-        url: `${req.protocol}://${req.get(
-          "host"
-        )}/api/cardsDisciplinas/disciplina/${novoCard.slug}`,
+        // ✅ CORREÇÃO: Adicionar timestamp às URLs
+        imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${novoCard._id}/imagem?t=${timestamp}`,
+        icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${novoCard._id}/icone?t=${timestamp}`,
+        url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${novoCard.slug}`,
       };
 
       res.status(201).json({
         success: true,
-        message: "Card criado com sucesso",
+        message: "Disciplina criada com sucesso",
         data: cardResponse,
       });
     } catch (err) {
@@ -348,15 +465,16 @@ routerCards.post(
   }
 );
 
-// PUT: Atualizar um card
+// ✅ CORREÇÃO: PUT: Atualizar um card (com timestamp para cache busting)
 routerCards.put(
   "/:id",
-  auth("professor"), // Add authentication
+  auth(["professor", "admin"]),
+  verificarProfessorDisciplina,
   handleUpload,
   processUploadedFiles,
   async (req, res) => {
     const { id } = req.params;
-    const { imagem, icone, titulo } = req.body;
+    const { imagem, icone, titulo, professores, alunos } = req.body;
 
     if (!id || id.length !== 24) {
       return res.status(400).json({
@@ -401,6 +519,50 @@ routerCards.put(
       }
     }
 
+    // Atualizar professores se fornecido
+    if (professores !== undefined) {
+      if (Array.isArray(professores)) {
+        const professoresExistentes = await Professor.find({ 
+          _id: { $in: professores } 
+        });
+        
+        if (professoresExistentes.length !== professores.length) {
+          return res.status(400).json({
+            success: false,
+            error: "Um ou mais professores não foram encontrados",
+          });
+        }
+        updates.professores = professores;
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: "Professores deve ser um array",
+        });
+      }
+    }
+
+    // Atualizar alunos se fornecido
+    if (alunos !== undefined) {
+      if (Array.isArray(alunos)) {
+        const alunosExistentes = await Aluno.find({ 
+          _id: { $in: alunos } 
+        });
+        
+        if (alunosExistentes.length !== alunos.length) {
+          return res.status(400).json({
+            success: false,
+            error: "Um ou mais alunos não foram encontrados",
+          });
+        }
+        updates.alunos = alunos;
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: "Alunos deve ser um array",
+        });
+      }
+    }
+
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({
         success: false,
@@ -425,21 +587,65 @@ routerCards.put(
         });
       }
 
+      // Atualizar relações nos modelos de Professor e Aluno
+      if (professores !== undefined) {
+        const professoresAntigos = await Professor.find({ disciplinas: id });
+        const professoresAntigosIds = professoresAntigos.map(p => p._id.toString());
+        
+        const professoresRemovidos = professoresAntigosIds.filter(
+          profId => !updates.professores.includes(profId)
+        );
+        
+        if (professoresRemovidos.length > 0) {
+          await Professor.updateMany(
+            { _id: { $in: professoresRemovidos } },
+            { $pull: { disciplinas: id } }
+          );
+        }
+
+        await Professor.updateMany(
+          { _id: { $in: updates.professores } },
+          { $addToSet: { disciplinas: id } }
+        );
+      }
+
+      if (alunos !== undefined) {
+        const alunosAntigos = await Aluno.find({ disciplinas: id });
+        const alunosAntigosIds = alunosAntigos.map(a => a._id.toString());
+        
+        const alunosRemovidos = alunosAntigosIds.filter(
+          alunoId => !updates.alunos.includes(alunoId)
+        );
+        
+        if (alunosRemovidos.length > 0) {
+          await Aluno.updateMany(
+            { _id: { $in: alunosRemovidos } },
+            { $pull: { disciplinas: id } }
+          );
+        }
+
+        await Aluno.updateMany(
+          { _id: { $in: updates.alunos } },
+          { $addToSet: { disciplinas: id } }
+        );
+      }
+
+      // ✅ CORREÇÃO: Adicionar timestamp único para evitar cache
+      const timestamp = Date.now();
+
       const cardResponse = {
         _id: cardAtualizado._id,
         titulo: cardAtualizado.titulo,
         slug: cardAtualizado.slug,
+        professores: cardAtualizado.professores,
+        alunos: cardAtualizado.alunos,
+        criadoPor: cardAtualizado.criadoPor,
         createdAt: cardAtualizado.createdAt,
         updatedAt: cardAtualizado.updatedAt,
-        imagem: `${req.protocol}://${req.get(
-          "host"
-        )}/api/cardsDisciplinas/imagem/${cardAtualizado._id}/imagem`,
-        icone: `${req.protocol}://${req.get(
-          "host"
-        )}/api/cardsDisciplinas/imagem/${cardAtualizado._id}/icone`,
-        url: `${req.protocol}://${req.get(
-          "host"
-        )}/api/cardsDisciplinas/disciplina/${cardAtualizado.slug}`,
+        // ✅ CORREÇÃO: Adicionar timestamp às URLs
+        imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${cardAtualizado._id}/imagem?t=${timestamp}`,
+        icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${cardAtualizado._id}/icone?t=${timestamp}`,
+        url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${cardAtualizado.slug}`,
       };
 
       res.json({
@@ -480,10 +686,11 @@ routerCards.put(
   }
 );
 
-// DELETE: Deletar um card
+// DELETE: Deletar um card (apenas professores da disciplina ou admin)
 routerCards.delete(
   "/:id",
-  auth("professor"), // Add authentication
+  auth(["professor", "admin"]),
+  verificarProfessorDisciplina,
   async (req, res) => {
     const { id } = req.params;
 
@@ -503,6 +710,17 @@ routerCards.delete(
           error: "Card não encontrado",
         });
       }
+
+      // Remover a disciplina dos professores e alunos
+      await Professor.updateMany(
+        { disciplinas: id },
+        { $pull: { disciplinas: id } }
+      );
+
+      await Aluno.updateMany(
+        { disciplinas: id },
+        { $pull: { disciplinas: id } }
+      );
 
       res.json({
         success: true,
@@ -530,5 +748,33 @@ routerCards.delete(
     }
   }
 );
+
+// ✅ ADICIONE: Rota de debug para verificar imagens (REMOVA DEPOIS DE TESTAR)
+routerCards.get("/debug-imagem/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const card = await CardDisciplina.findById(id);
+    
+    if (!card) {
+      return res.status(404).json({ error: "Card não encontrado" });
+    }
+
+    res.json({
+      id: card._id,
+      titulo: card.titulo,
+      temImagem: !!card.imagem,
+      temIcone: !!card.icone,
+      tamanhoImagem: card.imagem?.data?.length || 0,
+      tamanhoIcone: card.icone?.data?.length || 0,
+      contentTypeImagem: card.imagem?.contentType,
+      contentTypeIcone: card.icone?.contentType,
+      updatedAt: card.updatedAt
+    });
+
+  } catch (err) {
+    console.error("Erro no debug:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = routerCards;
