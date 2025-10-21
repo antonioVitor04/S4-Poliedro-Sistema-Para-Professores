@@ -155,34 +155,78 @@ router.post(
   }
 );
 
-// Login Aluno (RA + senha)
+// LOGIN ALUNO - ROTA PRINCIPAL
 router.post("/login", async (req, res) => {
   try {
+    console.log("=== 🔐 TENTATIVA DE LOGIN ALUNO ===");
+    console.log("📦 Body recebido:", req.body);
+    
     const { ra, senha } = req.body;
+
+    if (!ra || !senha) {
+      console.log("❌ Dados incompletos:", { ra: !!ra, senha: !!senha });
+      return res.status(400).json({ 
+        success: false,
+        msg: "RA e senha são obrigatórios" 
+      });
+    }
+
+    console.log("🔍 Buscando aluno com RA:", ra);
     const aluno = await Aluno.findOne({ ra });
-    if (!aluno) return res.status(400).json({ msg: "Aluno não encontrado" });
+    
+    console.log("📊 Aluno encontrado:", {
+      encontrado: !!aluno,
+      id: aluno?._id,
+      ra: aluno?.ra,
+      nome: aluno?.nome
+    });
+
+    if (!aluno) {
+      console.log("❌ Aluno não encontrado com RA:", ra);
+      return res.status(400).json({ 
+        success: false,
+        msg: "Aluno não encontrado" 
+      });
+    }
 
     const isMatch = await bcrypt.compare(senha, aluno.senha);
-    if (!isMatch) return res.status(400).json({ msg: "Senha incorreta" });
+    console.log("🔑 Senha confere?", isMatch);
+
+    if (!isMatch) {
+      console.log("❌ Senha incorreta");
+      return res.status(400).json({ 
+        success: false,
+        msg: "Senha incorreta" 
+      });
+    }
 
     const token = jwt.sign(
       { id: aluno._id, role: "aluno" },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "24h" }
     );
 
-    // Não enviar dados da imagem no login (pode ser muito grande)
-    const alunoResponse = {
-      id: aluno._id,
-      nome: aluno.nome,
-      ra: aluno.ra,
-      email: aluno.email,
-      hasImage: !!aluno.imagem,
-    };
+    console.log("✅ Login aluno bem-sucedido");
 
-    res.json({ token, aluno: alunoResponse });
+    res.json({
+      success: true,
+      token,
+      aluno: {
+        id: aluno._id,
+        nome: aluno.nome,
+        ra: aluno.ra,
+        email: aluno.email,
+        tipo: "aluno",
+        hasImage: !!aluno.imagem,
+      }
+    });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("💥 Erro no login:", err);
+    res.status(500).json({ 
+      success: false,
+      error: err.message 
+    });
   }
 });
 
@@ -393,6 +437,32 @@ router.get("/", auth("aluno"), async (req, res) => {
   } catch (err) {
     console.log("Erro na rota GET /:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// GET: Buscar alunos por RA
+router.get("/buscar", auth(["admin", "professor"]), async (req, res) => {
+  try {
+    const { ra } = req.query;
+    
+    if (!ra) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Parâmetro 'ra' é obrigatório" 
+      });
+    }
+
+    const alunos = await Aluno.find({
+      ra: { $regex: ra, $options: 'i' }
+    }).select('_id nome ra email').limit(10);
+
+    res.json(alunos);
+  } catch (err) {
+    console.error("Erro ao buscar alunos:", err);
+    res.status(500).json({ 
+      success: false, 
+      error: "Erro interno do servidor ao buscar alunos" 
+    });
   }
 });
 

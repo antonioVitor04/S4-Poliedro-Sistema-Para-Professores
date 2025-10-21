@@ -1,9 +1,9 @@
-// routes/cards/materiais.cjs
 const express = require("express");
 const multer = require("multer");
 const routerMateriais = express.Router();
 const CardDisciplina = require("../../models/cardDisciplina.cjs");
 const auth = require("../../middleware/auth.cjs");
+const { verificarProfessorDisciplina, verificarAcessoDisciplina } = require("../../middleware/disciplinaAuth.cjs");
 
 // Configuração do Multer para arquivos
 const storage = multer.memoryStorage();
@@ -14,10 +14,11 @@ const upload = multer({
   },
 });
 
-// POST: Adicionar material a um tópico (APENAS PROFESSOR)
+// POST: Adicionar material a um tópico (APENAS PROFESSOR da disciplina)
 routerMateriais.post(
   "/:slug/topicos/:topicoId/materiais",
-  auth("professor"), // Apenas professor pode criar
+  auth(["professor", "admin"]),
+  verificarProfessorDisciplina,
   upload.single("arquivo"),
   async (req, res) => {
     try {
@@ -87,10 +88,11 @@ routerMateriais.post(
   }
 );
 
-// PUT: Atualizar material (APENAS PROFESSOR)
+// PUT: Atualizar material (APENAS PROFESSOR da disciplina)
 routerMateriais.put(
   "/:slug/topicos/:topicoId/materiais/:materialId",
-  auth("professor"), // Apenas professor pode atualizar
+  auth(["professor", "admin"]),
+  verificarProfessorDisciplina,
   upload.single("arquivo"),
   async (req, res) => {
     try {
@@ -155,10 +157,11 @@ routerMateriais.put(
   }
 );
 
-// DELETE: Deletar material (APENAS PROFESSOR)
+// DELETE: Deletar material (APENAS PROFESSOR da disciplina)
 routerMateriais.delete(
   "/:slug/topicos/:topicoId/materiais/:materialId",
-  auth("professor"), // Apenas professor pode deletar
+  auth(["professor", "admin"]),
+  verificarProfessorDisciplina,
   async (req, res) => {
     try {
       const { slug, topicoId, materialId } = req.params;
@@ -206,10 +209,11 @@ routerMateriais.delete(
   }
 );
 
-// GET: Download de arquivo (PÚBLICO - alunos e professores podem acessar)
+// GET: Download de arquivo (acesso controlado - apenas alunos e professores da disciplina)
 routerMateriais.get(
   "/:slug/topicos/:topicoId/materiais/:materialId/download",
-  // REMOVI a autenticação aqui - acesso público para download
+  auth(),
+  verificarAcessoDisciplina,
   async (req, res) => {
     try {
       const { slug, topicoId, materialId } = req.params;
@@ -256,10 +260,11 @@ routerMateriais.get(
   }
 );
 
-// ADICIONE ESTA ROTA: Obter informações do material (PÚBLICO)
+// GET: Obter informações do material (acesso controlado)
 routerMateriais.get(
   "/:slug/topicos/:topicoId/materiais/:materialId",
-  // Acesso público para visualizar informações do material
+  auth(),
+  verificarAcessoDisciplina,
   async (req, res) => {
     try {
       const { slug, topicoId, materialId } = req.params;
@@ -289,7 +294,7 @@ routerMateriais.get(
         });
       }
 
-      // Retorna o material sem os dados binários do arquivo (para economizar banda)
+      // Retorna o material sem os dados binários do arquivo
       const materialResponse = {
         _id: material._id,
         tipo: material.tipo,

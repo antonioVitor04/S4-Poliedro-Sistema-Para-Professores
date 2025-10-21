@@ -4,9 +4,11 @@ import 'package:sistema_poliedro/src/styles/cores.dart';
 import '../../../styles/fontes.dart';
 import '../../../components/disciplina_card.dart';
 import '../../../services/card_disciplina_service.dart';
+import '../../../services/auth_service.dart';
 import '../../../models/modelo_card_disciplina.dart';
 import '../../../dialogs/adicionar_card_dialog.dart';
 import '../../../dialogs/editar_card_dialog.dart';
+import '../../../dialogs/gerenciar_relacionamentos_dialog.dart';
 
 class DisciplinasPageProfessor extends StatefulWidget {
   final Function(String, String) onNavigateToDetail;
@@ -21,16 +23,37 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
   late Future<List<CardDisciplina>> _futureCards;
   bool _isLoading = true;
   String _errorMessage = '';
+  bool _isAdmin = false;
+  bool _isProfessor = false;
 
   @override
   void initState() {
     super.initState();
+    _verificarPermissoes();
     _futureCards = _loadCards();
+  }
+
+  Future<void> _verificarPermissoes() async {
+    final isAdmin = await AuthService.isAdmin();
+    final isProfessor = await AuthService.isProfessor();
+    setState(() {
+      _isAdmin = isAdmin;
+      _isProfessor = isProfessor;
+    });
   }
 
   Future<List<CardDisciplina>> _loadCards() async {
     try {
-      final cards = await CardDisciplinaService.getAllCards();
+      List<CardDisciplina> cards;
+      
+      if (_isAdmin) {
+        // Admin vê todas as disciplinas
+        cards = await CardDisciplinaService.getAllCards();
+      } else {
+        // Professor/Aluno vê apenas suas disciplinas
+        cards = await CardDisciplinaService.getMinhasDisciplinas();
+      }
+      
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -88,6 +111,18 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
   }
 
   Future<void> _editarCard(CardDisciplina card) async {
+    // Verificar permissões antes de editar
+    final podeEditar = await card.podeEditar();
+    if (!podeEditar) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Você não tem permissão para editar esta disciplina'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     await showDialog(
       context: context,
       builder: (context) => EditarCardDialog(
@@ -121,6 +156,18 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
   }
 
   Future<void> _deletarCard(CardDisciplina card) async {
+    // Verificar permissões antes de deletar
+    final podeDeletar = await card.podeDeletar();
+    if (!podeDeletar) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Você não tem permissão para deletar esta disciplina'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -168,6 +215,27 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
     }
   }
 
+  Future<void> _gerenciarRelacionamentos(CardDisciplina card) async {
+    final podeEditar = await card.podeEditar();
+    if (!podeEditar) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Você não tem permissão para gerenciar esta disciplina'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) => GerenciarRelacionamentosDialog(
+        card: card,
+        onUpdated: _refreshCards,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -206,7 +274,7 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white, //
+      backgroundColor: Colors.white,
       body: RefreshIndicator(
         onRefresh: () async {
           _refreshCards();
@@ -256,25 +324,28 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Nenhuma disciplina encontrada.',
+                            _isAdmin 
+                              ? 'Nenhuma disciplina encontrada.'
+                              : 'Você não está vinculado a nenhuma disciplina.',
                             style: AppTextStyles.fonteUbuntu.copyWith(
                               fontSize: 18,
                             ),
                           ),
                           const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: _adicionarCard,
-                            icon: const Icon(Icons.add),
-                            label: const Text('Adicionar Primeira Disciplina'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.azulClaro,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
+                          if (_isProfessor)
+                            ElevatedButton.icon(
+                              onPressed: _adicionarCard,
+                              icon: const Icon(Icons.add),
+                              label: const Text('Adicionar Primeira Disciplina'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.azulClaro,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 12,
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -286,19 +357,34 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
             final cards = snapshot.data!;
 
             return Container(
-              color: Colors
-                  .white, // ✅ Fundo branco, garantindo que o Scaffold não herde lilás
+              color: Colors.white,
               child: CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(30, 20, 20, 10),
-                      child: Text(
-                        "Disciplinas",
-                        style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: isMobile ? 22 : 25,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _isAdmin ? "Todas as Disciplinas" : "Minhas Disciplinas",
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: isMobile ? 22 : 25,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (_isAdmin)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                'Modo Administrador - Visualizando todas as disciplinas',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -313,64 +399,7 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
                       ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final card = cards[index];
-                        return Stack(
-                          children: [
-                            DisciplinaCard(
-                              disciplina: card.titulo,
-                              imageUrl: card.imagem,
-                              iconUrl: card.icone,
-                              isMobile: isMobile,
-                              onTap: () => widget.onNavigateToDetail(
-                                card.slug,
-                                card.titulo,
-                              ),
-                            ),
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: PopupMenuButton<String>(
-                                color: AppColors.branco,
-                                icon: const Icon(
-                                  Icons.more_vert,
-                                  color: Colors.white,
-                                ),
-                                onSelected: (value) {
-                                  if (value == 'edit') {
-                                    _editarCard(card);
-                                  } else if (value == 'delete') {
-                                    _deletarCard(card);
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'edit',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.edit, size: 20),
-                                        SizedBox(width: 8),
-                                        Text('Editar'),
-                                      ],
-                                    ),
-                                  ),
-                                  const PopupMenuItem(
-                                    value: 'delete',
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.delete,
-                                          size: 20,
-                                          color: Colors.red,
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text('Excluir'),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        );
+                        return _buildDisciplinaCard(card, isMobile);
                       }, childCount: cards.length),
                     ),
                   ),
@@ -380,11 +409,95 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
           },
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _adicionarCard,
-        backgroundColor: AppColors.azulClaro,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      floatingActionButton: _isProfessor 
+          ? FloatingActionButton(
+              onPressed: _adicionarCard,
+              backgroundColor: AppColors.azulClaro,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildDisciplinaCard(CardDisciplina card, bool isMobile) {
+    return FutureBuilder<bool>(
+      future: card.podeEditar(),
+      builder: (context, snapshot) {
+        final podeEditar = snapshot.data ?? false;
+        
+        return Stack(
+          children: [
+            DisciplinaCard(
+              disciplina: card.titulo,
+              imageUrl: card.imagem,
+              iconUrl: card.icone,
+              isMobile: isMobile,
+              onTap: () => widget.onNavigateToDetail(
+                card.slug,
+                card.titulo,
+              ),
+              badge: _isAdmin ? 'ADMIN' : null,
+            ),
+            if (podeEditar)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: PopupMenuButton<String>(
+                  color: AppColors.branco,
+                  icon: const Icon(
+                    Icons.more_vert,
+                    color: Colors.white,
+                  ),
+                  onSelected: (value) async {
+                    if (value == 'edit') {
+                      _editarCard(card);
+                    } else if (value == 'delete') {
+                      _deletarCard(card);
+                    } else if (value == 'manage') {
+                      _gerenciarRelacionamentos(card);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 20),
+                          SizedBox(width: 8),
+                          Text('Editar'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'manage',
+                      child: Row(
+                        children: [
+                          Icon(Icons.group, size: 20),
+                          SizedBox(width: 8),
+                          Text('Gerenciar Acessos'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete,
+                            size: 20,
+                            color: Colors.red,
+                          ),
+                          SizedBox(width: 8),
+                          Text('Excluir'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 

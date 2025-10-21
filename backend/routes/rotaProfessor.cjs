@@ -200,6 +200,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
+
 // Update Professor (self-update)
 router.put(
   "/update",
@@ -418,6 +419,33 @@ router.get("/", auth(["professor", "admin"]), async (req, res) => {
   } catch (err) {
     console.log("Erro na rota GET / professor:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+
+// GET: Buscar professores por email
+router.get("/buscar", auth(["admin", "professor"]), async (req, res) => {
+  try {
+    const { email } = req.query;
+    
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Parâmetro 'email' é obrigatório" 
+      });
+    }
+
+    const professores = await Professor.find({
+      email: { $regex: email, $options: 'i' }
+    }).select('_id nome email').limit(10);
+
+    res.json(professores);
+  } catch (err) {
+    console.error("Erro ao buscar professores:", err);
+    res.status(500).json({ 
+      success: false, 
+      error: "Erro interno do servidor ao buscar professores" 
+    });
   }
 });
 
