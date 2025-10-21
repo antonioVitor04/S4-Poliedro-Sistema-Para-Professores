@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-
+import 'package:collection/collection.dart';
 import 'dart:convert';
-
 import 'package:sistema_poliedro/src/services/auth_service.dart'; // MUDANÇA: Importar AuthService
 import '../../styles/cores.dart';
 import '../../styles/fontes.dart';
@@ -47,13 +46,157 @@ class Usuario {
 
   factory Usuario.fromJson(Map<String, dynamic> json) {
     return Usuario(
-      id: json['id']!,
+      id: json['id'] ?? json['_id']!,
       nome: json['nome']!,
       email: json['email']!,
       ra: json['ra'],
-      tipo: json['tipo']!,
+      tipo: json['tipo'] ?? 'aluno',
       fotoUrl: json['fotoUrl'],
     );
+  }
+}
+
+// NOVO MODELO PARA DISCIPLINAS (para gerenciar notas)
+class Disciplina {
+  final String id;
+  final String titulo;
+  final List<Nota> notas; // Lista de notas populadas com alunos
+  final List<Usuario> alunos; // Lista de alunos matriculados
+
+  Disciplina({
+    required this.id,
+    required this.titulo,
+    required this.notas,
+    required this.alunos,
+  });
+
+  factory Disciplina.fromJson(Map<String, dynamic> json) {
+    return Disciplina(
+      id: json['_id'] ?? json['id']!,
+      titulo: json['titulo']!,
+      alunos: (json['alunos'] as List<dynamic>? ?? [])
+          .map<Usuario>((a) => Usuario.fromJson(a))
+          .toList(),
+      notas: (json['notas'] as List<dynamic>? ?? [])
+          .map<Nota>((n) => Nota.fromJson(n))
+          .toList(),
+    );
+  }
+}
+
+// NOVO MODELO PARA NOTAS
+class Nota {
+  final String id;
+  final String disciplinaId;
+  final String alunoId;
+  final String alunoNome;
+  final String? alunoRa;
+  final List<Avaliacao> avaliacoes;
+
+  Nota({
+    required this.id,
+    required this.disciplinaId,
+    required this.alunoId,
+    required this.alunoNome,
+    this.alunoRa,
+    required this.avaliacoes,
+  });
+
+  Nota copyWith({
+    String? id,
+    String? disciplinaId,
+    String? alunoId,
+    String? alunoNome,
+    String? alunoRa,
+    List<Avaliacao>? avaliacoes,
+  }) {
+    return Nota(
+      id: id ?? this.id,
+      disciplinaId: disciplinaId ?? this.disciplinaId,
+      alunoId: alunoId ?? this.alunoId,
+      alunoNome: alunoNome ?? this.alunoNome,
+      alunoRa: alunoRa ?? this.alunoRa,
+      avaliacoes: avaliacoes ?? this.avaliacoes,
+    );
+  }
+
+  factory Nota.fromJson(Map<String, dynamic> json) {
+    return Nota(
+      id: json['_id'] ?? json['id']!,
+      disciplinaId: json['disciplina'] ?? '',
+      alunoId: json['aluno'] ?? '',
+      alunoNome: json['alunoNome'] ?? '',
+      alunoRa: json['alunoRa'],
+      avaliacoes: (json['avaliacoes'] as List<dynamic>? ?? [])
+          .map<Avaliacao>((a) => Avaliacao.fromJson(a))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'disciplina': disciplinaId,
+      'aluno': alunoId,
+      'avaliacoes': avaliacoes.map((a) => a.toJson()).toList(),
+    };
+  }
+}
+
+// Submodelo para Avaliações (provas/atividades)
+class Avaliacao {
+  final String id;
+  final String nome;
+  final String tipo; // Added: tipo from backend schema
+  final double? nota;
+  final double? peso;
+  final DateTime? data;
+
+  Avaliacao({
+    required this.id,
+    required this.nome,
+    required this.tipo,
+    this.nota,
+    this.peso,
+    this.data,
+  });
+
+  Avaliacao copyWith({
+    String? id,
+    String? nome,
+    String? tipo,
+    double? nota,
+    double? peso,
+    DateTime? data,
+  }) {
+    return Avaliacao(
+      id: id ?? this.id,
+      nome: nome ?? this.nome,
+      tipo: tipo ?? this.tipo,
+      nota: nota ?? this.nota,
+      peso: peso ?? this.peso,
+      data: data ?? this.data,
+    );
+  }
+
+  factory Avaliacao.fromJson(Map<String, dynamic> json) {
+    return Avaliacao(
+      id: json['_id'] ?? json['id'] ?? '',
+      nome: json['nome'] ?? '',
+      tipo: json['tipo'] ?? '',
+      nota: (json['nota'] as num?)?.toDouble(),
+      peso: (json['peso'] as num?)?.toDouble(),
+      data: json['data'] != null ? DateTime.parse(json['data']) : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'nome': nome,
+      'tipo': tipo,
+      'nota': nota,
+      'peso': peso,
+      if (data != null) 'data': data!.toIso8601String(),
+    };
   }
 }
 
@@ -68,6 +211,7 @@ class AdministracaoPage extends StatefulWidget {
 
 class _AdministracaoPageState extends State<AdministracaoPage>
     with TickerProviderStateMixin {
+  // Variáveis para usuários
   List<Usuario> usuarios = [];
   bool mostrarAlunos = true;
   bool carregando = false;
@@ -75,14 +219,25 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   String _searchQuery = '';
   late AnimationController _fabAnimationController;
   Animation<double>? _fabScaleAnimation;
+  // Nova variável para toggle entre usuários e notas
+  bool mostrarNotas = false;
+  // Variáveis para notas
+  List<Disciplina> disciplinas = [];
+  bool carregandoNotas = false;
+  late TextEditingController _searchNotasController;
+  String _searchNotasQuery = '';
+  String? selectedDisciplineId; // NOVA: ID da disciplina selecionada
   String? token;
   static const String apiBaseUrl =
       '/api'; // MUDANÇA: Usar baseUrl do AuthService + este path
+  static const String cardsDisciplinasPath = '/cardsDisciplinas';
+  static const String notasPath = '/notas';
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _searchNotasController = TextEditingController();
     _fabAnimationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -105,13 +260,18 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   @override
   void dispose() {
     _searchController.dispose();
+    _searchNotasController.dispose();
     _fabAnimationController.dispose();
     super.dispose();
   }
 
   Future<void> _loadToken() async {
+    debugPrint('=== DEBUG: _loadToken iniciado ===');
     token =
         await AuthService.getToken(); // MUDANÇA: Usar AuthService.getToken()
+    debugPrint(
+      '=== DEBUG: Token carregado: ${token != null ? "SIM" : "NÃO"} ===',
+    );
 
     if (token == null) {
       _showError('Faça login novamente.');
@@ -146,7 +306,11 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   }
 
   Future<void> _carregarUsuarios() async {
+    debugPrint(
+      '=== DEBUG: _carregarUsuarios iniciado - mostrarAlunos: $mostrarAlunos ===',
+    );
     if (token == null) {
+      debugPrint('=== DEBUG: Token nulo em _carregarUsuarios ===');
       _showError('Token não encontrado. Faça login novamente.');
       return;
     }
@@ -159,15 +323,20 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       final headers =
           await AuthService.getAuthHeaders(); // MUDANÇA: Usar headers do AuthService
       String endpoint = mostrarAlunos ? '/alunos/list' : '/professores/list';
-      final response = await http.get(
-        Uri.parse(
-          AuthService.baseUrl + apiBaseUrl + endpoint,
-        ), // MUDANÇA: Usar baseUrl do AuthService
-        headers: headers,
-      );
+      final url = Uri.parse(
+        AuthService.baseUrl + apiBaseUrl + endpoint,
+      ); // MUDANÇA: Usar baseUrl do AuthService
+      debugPrint('=== DEBUG: URL de usuários: $url ===');
+      final response = await http.get(url, headers: headers);
+
+      debugPrint('=== DEBUG: StatusCode usuários: ${response.statusCode} ===');
+      debugPrint('=== DEBUG: Body usuários: ${response.body} ===');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
+        debugPrint(
+          '=== DEBUG: Número de usuários carregados: ${data.length} ===',
+        );
         setState(() {
           usuarios = data.map<Usuario>((json) {
             final user = Usuario.fromJson(json);
@@ -181,6 +350,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         ); // MUDANÇA: Incluir body no erro
       }
     } catch (e) {
+      debugPrint('=== DEBUG: Erro em _carregarUsuarios: $e ===');
       setState(() {
         carregando = false;
       });
@@ -188,8 +358,341 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     }
   }
 
+  // NOVOS MÉTODOS PARA NOTAS
+  Future<void> _carregarNotasData() async {
+    debugPrint('=== DEBUG: _carregarNotasData iniciado ===');
+    if (token == null) return;
+    setState(() => carregandoNotas = true);
+    try {
+      await _carregarDisciplinas();
+    } catch (e) {
+      debugPrint('=== DEBUG: Erro geral em _carregarNotasData: $e ===');
+      _showError('Erro ao carregar dados de notas: $e');
+    } finally {
+      if (mounted) setState(() => carregandoNotas = false);
+    }
+  }
+
+  Future<void> _carregarDisciplinas() async {
+    debugPrint('=== DEBUG: _carregarDisciplinas iniciado ===');
+    final headers = await AuthService.getAuthHeaders();
+    final url = Uri.parse(
+      AuthService.baseUrl + apiBaseUrl + cardsDisciplinasPath,
+    );
+    debugPrint('=== DEBUG: URL disciplinas: $url ===');
+    final response = await http.get(url, headers: headers);
+    debugPrint('=== DEBUG: StatusCode disciplinas: ${response.statusCode} ===');
+    debugPrint('=== DEBUG: Body disciplinas: ${response.body} ===');
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> responseMap = json.decode(response.body);
+      final List<dynamic> data = responseMap['data'] ?? [];
+      debugPrint('=== DEBUG: Número de disciplinas raw: ${data.length} ===');
+      // Para cada disciplina, carregar notas
+      final List<Disciplina> loadedDisciplinas = [];
+      for (final Map<String, dynamic> discJson in data) {
+        final disciplinaId = discJson['_id'] ?? discJson['id'];
+        final notasUrl = Uri.parse(
+          AuthService.baseUrl + apiBaseUrl + notasPath + '/$disciplinaId',
+        );
+        debugPrint('=== DEBUG: URL notas para $disciplinaId: $notasUrl ===');
+        List<dynamic> notasData = [];
+        try {
+          final notasResponse = await http.get(notasUrl, headers: headers);
+          debugPrint(
+            '=== DEBUG: StatusCode notas: ${notasResponse.statusCode} ===',
+          );
+          debugPrint('=== DEBUG: Body notas: ${notasResponse.body} ===');
+          if (notasResponse.statusCode == 200) {
+            final notasMap = json.decode(notasResponse.body);
+            notasData = notasMap['data'] ?? [];
+            debugPrint(
+              '=== DEBUG: Número de notas carregadas: ${notasData.length} ===',
+            );
+          } else {
+            debugPrint(
+              '=== DEBUG: Falha ao carregar notas (status ${notasResponse.statusCode}), usando lista vazia ===',
+            );
+          }
+        } catch (e) {
+          debugPrint(
+            '=== DEBUG: Erro ao carregar notas: $e, usando lista vazia ===',
+          );
+        }
+        final disciplina = Disciplina.fromJson({
+          ...discJson,
+          'notas': notasData,
+        });
+        loadedDisciplinas.add(disciplina);
+        debugPrint(
+          '=== DEBUG: Disciplina adicionada: ${disciplina.titulo}, com ${disciplina.notas.length} notas e ${disciplina.alunos.length} alunos ===',
+        );
+      }
+      setState(() {
+        disciplinas = loadedDisciplinas;
+      });
+      debugPrint(
+        '=== DEBUG: Número total de disciplinas após processamento: ${disciplinas.length} ===',
+      );
+    } else {
+      throw Exception('Falha ao carregar disciplinas: ${response.statusCode}');
+    }
+  }
+
+  Future<void> _criarNota(Nota nota) async {
+    debugPrint(
+      '=== DEBUG: _criarNota - Disciplina: ${nota.disciplinaId}, Aluno: ${nota.alunoId} ===',
+    );
+    final headers = await AuthService.getAuthHeaders();
+    final url = Uri.parse(AuthService.baseUrl + apiBaseUrl + notasPath);
+    debugPrint('=== DEBUG: URL criar nota: $url ===');
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: json.encode(nota.toJson()),
+    );
+    debugPrint('=== DEBUG: StatusCode criar nota: ${response.statusCode} ===');
+    debugPrint('=== DEBUG: Body criar nota: ${response.body} ===');
+    if (response.statusCode == 201) {
+      _showSuccess('Nota criada com sucesso!');
+      await _carregarDisciplinas();
+    } else {
+      throw Exception(
+        'Falha ao criar nota: ${response.statusCode} - ${response.body}',
+      );
+    }
+  }
+
+  Future<void> _atualizarNota(String notaId, Nota notaAtualizada) async {
+    debugPrint('=== DEBUG: _atualizarNota - Nota: $notaId ===');
+    final headers = await AuthService.getAuthHeaders();
+    final url = Uri.parse(
+      AuthService.baseUrl + apiBaseUrl + notasPath + '/$notaId',
+    );
+    debugPrint('=== DEBUG: URL atualizar nota: $url ===');
+    final response = await http.put(
+      url,
+      headers: headers,
+      body: json.encode(notaAtualizada.toJson()),
+    );
+    debugPrint(
+      '=== DEBUG: StatusCode atualizar nota: ${response.statusCode} ===',
+    );
+    debugPrint('=== DEBUG: Body atualizar nota: ${response.body} ===');
+    if (response.statusCode == 200) {
+      _showSuccess('Nota atualizada com sucesso!');
+      await _carregarDisciplinas();
+    } else {
+      throw Exception(
+        'Falha ao atualizar nota: ${response.statusCode} - ${response.body}',
+      );
+    }
+  }
+
+  Future<void> _deletarNota(String notaId) async {
+    debugPrint('=== DEBUG: _deletarNota - Nota: $notaId ===');
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Remoção'),
+        content: const Text('Deseja remover esta nota?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remover'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      final headers = await AuthService.getAuthHeaders();
+      final url = Uri.parse(
+        AuthService.baseUrl + apiBaseUrl + notasPath + '/$notaId',
+      );
+      debugPrint('=== DEBUG: URL deletar nota: $url ===');
+      final response = await http.delete(url, headers: headers);
+      debugPrint(
+        '=== DEBUG: StatusCode deletar nota: ${response.statusCode} ===',
+      );
+      debugPrint('=== DEBUG: Body deletar nota: ${response.body} ===');
+      if (response.statusCode == 200) {
+        _showSuccess('Nota removida com sucesso!');
+        await _carregarDisciplinas();
+      } else {
+        throw Exception(
+          'Falha ao remover nota: ${response.statusCode} - ${response.body}',
+        );
+      }
+    }
+  }
+
+  Future<void> _showAddEditNotaDialog({
+    required Disciplina disciplina,
+    Nota? nota,
+    Usuario? selectedAluno,
+  }) async {
+    debugPrint(
+      '=== DEBUG: _showAddEditNotaDialog - Edit: ${nota != null}, SelectedAluno: ${selectedAluno?.nome} ===',
+    );
+    final result = await showDialog<Nota?>(
+      context: context,
+      builder: (context) => NotaDialog(
+        disciplina: disciplina,
+        nota: nota,
+        selectedAluno: selectedAluno,
+      ),
+    );
+    if (result != null) {
+      try {
+        if (nota == null) {
+          await _criarNota(result);
+        } else {
+          await _atualizarNota(nota.id, result);
+        }
+      } catch (e) {
+        debugPrint('=== DEBUG: Erro em _showAddEditNotaDialog: $e ===');
+        _showError('Erro ao salvar nota: $e');
+      }
+    }
+  }
+
+  // NOVO MÉTODO: Adicionar avaliação global para disciplina
+  Future<void> _addGlobalAvaliacao(Disciplina disciplina) async {
+    final newAv = await showDialog<Avaliacao?>(
+      context: context,
+      builder: (context) => AddGlobalAvaliacaoDialog(disciplina: disciplina),
+    );
+    if (newAv != null) {
+      for (final aluno in disciplina.alunos) {
+        Nota? existingNota = disciplina.notas.firstWhereOrNull(
+          (n) => n.alunoId == aluno.id,
+        );
+        final avaliacoes = List<Avaliacao>.from(existingNota?.avaliacoes ?? []);
+        final existingAv = avaliacoes.firstWhereOrNull(
+          (a) => a.nome == newAv.nome && a.tipo == newAv.tipo,
+        );
+        if (existingAv == null) {
+          avaliacoes.add(newAv.copyWith(nota: 0.0));
+        }
+        final notaToSave =
+            existingNota?.copyWith(avaliacoes: avaliacoes) ??
+            Nota(
+              id: '',
+              disciplinaId: disciplina.id,
+              alunoId: aluno.id,
+              alunoNome: aluno.nome,
+              alunoRa: aluno.ra,
+              avaliacoes: avaliacoes,
+            );
+        if (existingNota == null) {
+          await _criarNota(notaToSave);
+        } else {
+          await _atualizarNota(existingNota.id, notaToSave);
+        }
+      }
+      await _carregarDisciplinas();
+      _showSuccess(
+        'Avaliação "${newAv.nome}" adicionada para todos os alunos com nota padrão 0!',
+      );
+    }
+  }
+
+  // NOVO MÉTODO: Gerenciar avaliações globais
+  Future<void> _manageAvaliacoes(Disciplina disciplina) async {
+    final Map<String, Avaliacao> uniqueAvs = <String, Avaliacao>{};
+    for (final nota in disciplina.notas) {
+      for (final av in nota.avaliacoes) {
+        if (!uniqueAvs.containsKey(av.nome)) {
+          uniqueAvs[av.nome] = av.copyWith();
+        }
+      }
+    }
+    final uniqueList = uniqueAvs.values.toList();
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => ManageAvaliacoesDialog(
+        disciplina: disciplina,
+        uniqueAvaliacoes: uniqueList,
+        onEdit: (oldNome, oldTipo, newAv) =>
+            _updateGlobalAvaliacao(disciplina, oldNome, oldTipo, newAv),
+        onDelete: (nome, tipo) =>
+            _deleteGlobalAvaliacao(disciplina, nome, tipo),
+      ),
+    );
+  }
+
+  Future<void> _updateGlobalAvaliacao(
+    Disciplina disciplina,
+    String oldNome,
+    String oldTipo,
+    Avaliacao newAv,
+  ) async {
+    for (final nota in disciplina.notas) {
+      final avIndex = nota.avaliacoes.indexWhere(
+        (a) => a.nome == oldNome && a.tipo == oldTipo,
+      );
+      if (avIndex != -1) {
+        final updatedAv = nota.avaliacoes[avIndex].copyWith(
+          nome: newAv.nome,
+          tipo: newAv.tipo,
+          peso: newAv.peso,
+        );
+        final updatedAvaliacoes = List<Avaliacao>.from(nota.avaliacoes);
+        updatedAvaliacoes[avIndex] = updatedAv;
+        final updatedNota = nota.copyWith(avaliacoes: updatedAvaliacoes);
+        await _atualizarNota(nota.id, updatedNota);
+      }
+    }
+    await _carregarDisciplinas();
+    _showSuccess('Avaliação atualizada com sucesso!');
+  }
+
+  Future<void> _deleteGlobalAvaliacao(
+    Disciplina disciplina,
+    String nome,
+    String tipo,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Remoção'),
+        content: Text('Deseja remover a avaliação "$nome" de todos os alunos?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remover'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    for (final nota in disciplina.notas) {
+      final updatedAvaliacoes = nota.avaliacoes
+          .where((a) => !(a.nome == nome && a.tipo == tipo))
+          .toList();
+      if (updatedAvaliacoes.length < nota.avaliacoes.length) {
+        final updatedNota = nota.copyWith(avaliacoes: updatedAvaliacoes);
+        await _atualizarNota(nota.id, updatedNota);
+      }
+    }
+    await _carregarDisciplinas();
+    _showSuccess('Avaliação removida com sucesso!');
+  }
+
   // NOVA FUNÇÃO: Enviar senha inicial via API
   Future<void> _sendInitialPassword(String email, String tipo) async {
+    debugPrint(
+      '=== DEBUG: _sendInitialPassword - Email: $email, Tipo: $tipo ===',
+    );
     if (token == null) {
       _showError('Token não encontrado. Faça login novamente.');
       return;
@@ -197,15 +700,20 @@ class _AdministracaoPageState extends State<AdministracaoPage>
 
     try {
       final headers = await AuthService.getAuthHeaders();
+      final url = Uri.parse(
+        AuthService.baseUrl + apiBaseUrl + '/enviarEmail/enviar-senha-inicial',
+      );
+      debugPrint('=== DEBUG: URL senha inicial: $url ===');
       final response = await http.post(
-        Uri.parse(
-          AuthService.baseUrl +
-              apiBaseUrl +
-              '/enviarEmail/enviar-senha-inicial',
-        ),
+        url,
         headers: headers,
         body: json.encode({'email': email, 'tipo': tipo}),
       );
+
+      debugPrint(
+        '=== DEBUG: StatusCode senha inicial: ${response.statusCode} ===',
+      );
+      debugPrint('=== DEBUG: Body senha inicial: ${response.body} ===');
 
       if (response.statusCode != 200) {
         throw Exception(
@@ -213,6 +721,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         );
       }
     } catch (e) {
+      debugPrint('=== DEBUG: Erro em _sendInitialPassword: $e ===');
       // Não falha o processo de criação, apenas loga erro
       _showError(
         'Usuário criado, mas falha ao enviar senha: $e. Tente reenviar manualmente.',
@@ -222,6 +731,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   }
 
   void _showError(String message) {
+    debugPrint('=== DEBUG: _showError: $message ===');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -240,6 +750,13 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     setState(() {
       _searchQuery = query;
     });
+    debugPrint('=== DEBUG: _onSearchChanged: $query ===');
+  }
+
+  void _onSearchNotasChanged(String query) {
+    setState(() {
+      _searchNotasQuery = query;
+    });
   }
 
   void _clearSearch() {
@@ -247,10 +764,21 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       _searchQuery = '';
       _searchController.clear();
     });
+    debugPrint('=== DEBUG: _clearSearch chamado ===');
+  }
+
+  void _clearSearchNotas() {
+    setState(() {
+      _searchNotasQuery = '';
+      _searchNotasController.clear();
+    });
   }
 
   List<Usuario> _getUsuariosFiltrados() {
     final listaSegura = usuarios;
+    debugPrint(
+      '=== DEBUG: _getUsuariosFiltrados - Total usuarios: ${listaSegura.length}, Query: $_searchQuery ===',
+    );
 
     if (listaSegura.isEmpty) {
       return [];
@@ -268,6 +796,8 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       }
     }).toList();
 
+    debugPrint('=== DEBUG: Após filtro tipo: ${filtrados.length} ===');
+
     if (_searchQuery.isNotEmpty) {
       filtrados = filtrados.where((usuario) {
         final query = _searchQuery.toLowerCase();
@@ -275,12 +805,27 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             usuario.email.toLowerCase().contains(query) ||
             (usuario.ra != null && usuario.ra!.toLowerCase().contains(query));
       }).toList();
+      debugPrint('=== DEBUG: Após filtro busca: ${filtrados.length} ===');
     }
 
     return filtrados;
   }
 
+  List<Disciplina> _getDisciplinasFiltradas() {
+    var filtradas = disciplinas;
+    if (_searchNotasQuery.isNotEmpty) {
+      filtradas = disciplinas.where((d) {
+        final query = _searchNotasQuery.toLowerCase();
+        return d.titulo.toLowerCase().contains(query);
+      }).toList();
+    }
+    return filtradas;
+  }
+
   Future<void> _showUserDialog({Usuario? usuario}) async {
+    debugPrint(
+      '=== DEBUG: _showUserDialog - Edit: ${usuario != null}, IsAluno: ${usuario?.tipo == 'aluno' || mostrarAlunos} ===',
+    );
     final bool isEdit = usuario != null;
     final bool isAluno = usuario?.tipo == 'aluno' || mostrarAlunos;
 
@@ -293,6 +838,8 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         token: token,
       ),
     );
+
+    debugPrint('=== DEBUG: Resultado dialog usuário: $result ===');
 
     if (result != null) {
       // MUDANÇA: Removido check de token aqui, pois headers são async
@@ -313,13 +860,20 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             // MUDANÇA: Adicionar tipo para update de professor
             body['tipo'] = result['tipo']!;
           }
+          final url = Uri.parse(
+            AuthService.baseUrl + apiBaseUrl + endpoint + '/' + usuario.id,
+          ); // MUDANÇA: Usar baseUrl
+          debugPrint('=== DEBUG: URL update usuário: $url, Body: $body ===');
           final response = await http.put(
-            Uri.parse(
-              AuthService.baseUrl + apiBaseUrl + endpoint + '/' + usuario.id,
-            ), // MUDANÇA: Usar baseUrl
+            url,
             headers: headers,
             body: json.encode(body),
           );
+
+          debugPrint(
+            '=== DEBUG: StatusCode update usuário: ${response.statusCode} ===',
+          );
+          debugPrint('=== DEBUG: Body update usuário: ${response.body} ===');
 
           if (response.statusCode == 200) {
             final decodedBody = json.decode(response.body);
@@ -350,16 +904,23 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             if (isAluno) 'ra': result['ra']!,
           };
           if (!isAluno && result.containsKey('tipo')) {
-            // MUDANÇA: Adicionar tipo para create de professor
+            // MUDANÇÃO: Adicionar tipo para create de professor
             body['tipo'] = result['tipo']!;
           }
+          final url = Uri.parse(
+            AuthService.baseUrl + apiBaseUrl + endpoint,
+          ); // MUDANÇA: Usar baseUrl
+          debugPrint('=== DEBUG: URL create usuário: $url, Body: $body ===');
           final response = await http.post(
-            Uri.parse(
-              AuthService.baseUrl + apiBaseUrl + endpoint,
-            ), // MUDANÇA: Usar baseUrl
+            url,
             headers: headers,
             body: json.encode(body),
           );
+
+          debugPrint(
+            '=== DEBUG: StatusCode create usuário: ${response.statusCode} ===',
+          );
+          debugPrint('=== DEBUG: Body create usuário: ${response.body} ===');
 
           if (response.statusCode == 201) {
             final decodedBody = json.decode(response.body);
@@ -386,16 +947,20 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           }
         }
       } catch (e) {
+        debugPrint('=== DEBUG: Erro em _showUserDialog: $e ===');
         _showError('Erro ao salvar: $e');
       }
     }
   }
 
   Future<void> _showDeleteDialog(Usuario usuario) async {
+    debugPrint('=== DEBUG: _showDeleteDialog - Usuário: ${usuario.nome} ===');
     final confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => DeleteDialog(usuario: usuario),
     );
+
+    debugPrint('=== DEBUG: Confirmação delete: $confirm ===');
 
     if (confirm == true) {
       // MUDANÇA: Removido check de token aqui
@@ -403,12 +968,16 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         final headers =
             await AuthService.getAuthHeaders(); // MUDANÇA: Usar headers do AuthService
         String endpoint = usuario.tipo == 'aluno' ? '/alunos' : '/professores';
-        final response = await http.delete(
-          Uri.parse(
-            AuthService.baseUrl + apiBaseUrl + endpoint + '/' + usuario.id,
-          ), // MUDANÇA: Usar baseUrl
-          headers: headers,
+        final url = Uri.parse(
+          AuthService.baseUrl + apiBaseUrl + endpoint + '/' + usuario.id,
+        ); // MUDANÇA: Usar baseUrl
+        debugPrint('=== DEBUG: URL delete usuário: $url ===');
+        final response = await http.delete(url, headers: headers);
+
+        debugPrint(
+          '=== DEBUG: StatusCode delete usuário: ${response.statusCode} ===',
         );
+        debugPrint('=== DEBUG: Body delete usuário: ${response.body} ===');
 
         if (response.statusCode == 200) {
           setState(() {
@@ -421,12 +990,14 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           ); // MUDANÇA: Incluir body
         }
       } catch (e) {
+        debugPrint('=== DEBUG: Erro em _showDeleteDialog: $e ===');
         _showError('Erro ao excluir: $e');
       }
     }
   }
 
   void _showSuccess(String message) {
+    debugPrint('=== DEBUG: _showSuccess: $message ===');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -447,9 +1018,44 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     }
   }
 
+  void _switchToUsuarios() {
+    debugPrint('=== DEBUG: _switchToUsuarios chamado ===');
+    setState(() {
+      mostrarNotas = false;
+      mostrarAlunos = true;
+      selectedDisciplineId = null; // Resetar seleção
+    });
+    _carregarUsuarios();
+  }
+
+  void _switchToNotas() {
+    debugPrint('=== DEBUG: _switchToNotas chamado ===');
+    setState(() {
+      mostrarNotas = true;
+      selectedDisciplineId = null; // Resetar seleção ao entrar em notas
+    });
+    _carregarNotasData();
+  }
+
+  // NOVO MÉTODO: Selecionar disciplina
+  void _selectDiscipline(Disciplina disciplina) {
+    setState(() {
+      selectedDisciplineId = disciplina.id;
+    });
+  }
+
+  // NOVO MÉTODO: Voltar à lista de disciplinas
+  void _backToDisciplines() {
+    setState(() {
+      selectedDisciplineId = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final usuariosFiltrados = _getUsuariosFiltrados();
+    debugPrint(
+      '=== DEBUG: Build - mostrarNotas: $mostrarNotas, isAdmin: ${widget.isAdmin} ===',
+    );
     final Color primaryColor = AppColors.azulClaro;
 
     final fabChild = FloatingActionButton.extended(
@@ -497,9 +1103,8 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         backgroundColor: AppColors.cinzaClaro,
         appBar: AppBar(
           title: Text(
-            "Painel de Administração",
+            "Painel de Administração - ${mostrarNotas ? 'Notas' : 'Usuários'}",
             style: AppTextStyles.fonteUbuntu.copyWith(
-              // Removido backgroundColor desnecessário
               fontWeight: FontWeight.w700,
               fontSize: 20,
               letterSpacing: 0.5,
@@ -509,36 +1114,189 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           actions: [
             IconButton(
               icon: Icon(Icons.refresh, color: Colors.grey),
-              onPressed: _carregarUsuarios,
+              onPressed: mostrarNotas ? _carregarNotasData : _carregarUsuarios,
             ),
           ],
         ),
-        floatingActionButton: (widget.isAdmin || mostrarAlunos)
+        floatingActionButton:
+            (!mostrarNotas && (widget.isAdmin || mostrarAlunos))
             ? positionedFab
             : null,
-        body: Column(
-          children: [
-            // Header com estatísticas e filtros
-            _buildHeader(primaryColor, usuariosFiltrados.length),
-
-            // Barra de busca
-            _buildSearchBar(),
-
-            // Tabela
-            Expanded(
-              child: carregando
-                  ? _buildLoadingState()
-                  : usuariosFiltrados.isEmpty
-                  ? _buildEmptyState()
-                  : _buildDataTable(usuariosFiltrados, primaryColor),
-            ),
-          ],
-        ),
+        body: mostrarNotas
+            ? _buildNotasBody(primaryColor)
+            : _buildUsuariosBody(primaryColor),
       ),
     );
   }
 
-  Widget _buildHeader(Color primaryColor, int count) {
+  Widget _buildUsuariosBody(Color primaryColor) {
+    final usuariosFiltrados = _getUsuariosFiltrados();
+    return Column(
+      children: [
+        // Header com estatísticas e filtros
+        _buildUsuariosHeader(primaryColor, usuariosFiltrados.length),
+
+        // Barra de busca
+        _buildSearchBar(),
+
+        // Tabela
+        Expanded(
+          child: carregando
+              ? _buildLoadingState()
+              : usuariosFiltrados.isEmpty
+              ? _buildEmptyState()
+              : _buildDataTable(usuariosFiltrados, primaryColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotasBody(Color primaryColor) {
+    final disciplinasFiltradas = _getDisciplinasFiltradas();
+    return Column(
+      children: [
+        // Header para notas
+        _buildNotasHeader(primaryColor, disciplinasFiltradas.length),
+
+        // Barra de busca para disciplinas
+        _buildSearchNotasBar(),
+
+        // Selecione disciplina ou mostre a tabela
+        Expanded(
+          child: carregandoNotas
+              ? _buildLoadingState()
+              : selectedDisciplineId == null
+              ? _buildDisciplinesSelector(disciplinasFiltradas, primaryColor)
+              : _buildSelectedDisciplineTable(primaryColor),
+        ),
+      ],
+    );
+  }
+
+  // NOVO WIDGET: Seletor de disciplinas
+  Widget _buildDisciplinesSelector(
+    List<Disciplina> disciplinas,
+    Color primaryColor,
+  ) {
+    if (disciplinas.isEmpty) {
+      return _buildNotasEmptyState();
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: disciplinas.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        final disciplina = disciplinas[index];
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          color: AppColors.branco,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => _selectDiscipline(disciplina),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.book, color: primaryColor, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          disciplina.titulo,
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.preto,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${disciplina.alunos.length} alunos matriculados',
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.grey[400],
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // NOVO WIDGET: Tabela da disciplina selecionada
+  Widget _buildSelectedDisciplineTable(Color primaryColor) {
+    final selectedDiscipline = disciplinas.firstWhereOrNull(
+      (d) => d.id == selectedDisciplineId,
+    );
+    if (selectedDiscipline == null) {
+      return const Center(child: Text('Disciplina não encontrada'));
+    }
+
+    return Column(
+      children: [
+        // Header com botão de voltar
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: _backToDisciplines,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                selectedDiscipline.titulo,
+                style: AppTextStyles.fonteUbuntu.copyWith(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${selectedDiscipline.alunos.length} alunos',
+                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(child: _buildNotasDataTable(selectedDiscipline, primaryColor)),
+      ],
+    );
+  }
+
+  Widget _buildUsuariosHeader(Color primaryColor, int count) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -563,6 +1321,9 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Toggle principal: Usuários | Notas
+          _buildMainToggleButtons(primaryColor),
+          const SizedBox(height: 24),
           Row(
             children: [
               Container(
@@ -610,7 +1371,114 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             ],
           ),
           const SizedBox(height: 24),
-          if (widget.isAdmin) _buildToggleButtons(primaryColor),
+          if (widget.isAdmin && !mostrarNotas)
+            _buildToggleButtons(primaryColor),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotasHeader(Color primaryColor, int count) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.branco, AppColors.cinzaClaro],
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.preto.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Toggle principal: Usuários | Notas
+          _buildMainToggleButtons(primaryColor),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.grade, color: primaryColor, size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Gerenciar Notas',
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.preto,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Total: $count disciplinas',
+                      style: AppTextStyles.fonteUbuntuSans.copyWith(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainToggleButtons(Color primaryColor) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.preto.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildToggleButton(
+            text: 'Usuários',
+            isActive: !mostrarNotas,
+            primaryColor: primaryColor,
+            onTap: _switchToUsuarios,
+          ),
+          const SizedBox(width: 4),
+          _buildToggleButton(
+            text: 'Notas',
+            isActive: mostrarNotas,
+            primaryColor: primaryColor,
+            onTap: _switchToNotas,
+          ),
         ],
       ),
     );
@@ -739,6 +1607,50 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
   }
 
+  Widget _buildSearchNotasBar() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(
+          color: AppColors.branco,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.preto.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: TextField(
+          controller: _searchNotasController,
+          onChanged: _onSearchNotasChanged,
+          style: AppTextStyles.fonteUbuntuSans,
+          decoration: InputDecoration(
+            hintText: 'Buscar disciplinas por título...',
+            hintStyle: AppTextStyles.fonteUbuntuSans.copyWith(
+              color: Colors.grey[400],
+            ),
+            prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 20,
+            ),
+            suffixIcon: _searchNotasQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, color: Colors.grey),
+                    onPressed: _clearSearchNotas,
+                  )
+                : null,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLoadingState() {
     return Center(
       child: Column(
@@ -754,7 +1666,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           ),
           const SizedBox(height: 16),
           Text(
-            'Carregando dados...',
+            '${mostrarNotas ? 'Carregando' : 'Carregando dados...'}',
             style: AppTextStyles.fonteUbuntu.copyWith(
               fontSize: 16,
               color: Colors.grey[600],
@@ -823,6 +1735,39 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotasEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.grade_outlined, size: 80, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            _searchNotasQuery.isEmpty
+                ? 'Nenhuma disciplina encontrada'
+                : 'Nenhum resultado encontrado',
+            style: AppTextStyles.fonteUbuntu.copyWith(
+              fontSize: 20,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _searchNotasQuery.isEmpty
+                ? 'Adicione disciplinas para gerenciar notas'
+                : 'Tente ajustar os termos da busca',
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              fontSize: 14,
+              color: Colors.grey[500],
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -997,6 +1942,530 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
   }
 
+  // ATUALIZADO: Tabela de notas editável como Excel
+  Widget _buildNotasDataTable(Disciplina disciplina, Color primaryColor) {
+    final List<Usuario> allAlunos = List<Usuario>.from(disciplina.alunos)
+      ..sort((a, b) => a.nome.compareTo(b.nome));
+
+    // Coletar todas as avaliações únicas
+    final Set<String> avaliacaoNomes = <String>{};
+    final Map<String, String> nomeToTipo = {};
+    final Map<String, double> nomeToPeso = {};
+
+    for (final nota in disciplina.notas) {
+      for (final av in nota.avaliacoes) {
+        avaliacaoNomes.add(av.nome);
+        nomeToTipo[av.nome] = av.tipo;
+        nomeToPeso[av.nome] = av.peso ?? 1.0;
+      }
+    }
+
+    final colunasAvaliacao = avaliacaoNomes.toList();
+    final Map<String, Map<String, TextEditingController>> controllers = {};
+    final Map<String, Map<String, double?>> localNotas = {};
+
+    // Inicializar controllers e notas locais
+    for (final aluno in allAlunos) {
+      controllers[aluno.id] = {};
+      localNotas[aluno.id] = {};
+      final nota = disciplina.notas.firstWhereOrNull(
+        (n) => n.alunoId == aluno.id,
+      );
+
+      for (final nome in colunasAvaliacao) {
+        final av = nota?.avaliacoes.firstWhereOrNull((a) => a.nome == nome);
+        final currentNota = av?.nota ?? 0.0;
+        localNotas[aluno.id]![nome] = currentNota;
+        controllers[aluno.id]![nome] = TextEditingController(
+          text: currentNota > 0 ? currentNota.toStringAsFixed(1) : '',
+        );
+      }
+    }
+
+    return Column(
+      children: [
+        // Header com botões de ação
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+          ),
+          child: Row(
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => _addGlobalAvaliacao(disciplina),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Avaliação'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: AppColors.branco,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (colunasAvaliacao.isNotEmpty) ...[
+                ElevatedButton.icon(
+                  onPressed: () => _manageAvaliacoes(disciplina),
+                  icon: const Icon(Icons.settings, size: 18),
+                  label: const Text('Gerenciar'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: AppColors.branco,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              const Spacer(),
+              ElevatedButton.icon(
+                onPressed: () =>
+                    _saveAllNotas(disciplina, localNotas, controllers),
+                icon: const Icon(Icons.save, size: 18),
+                label: const Text('Salvar Todas as Notas'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.verdeConfirmacao,
+                  foregroundColor: AppColors.branco,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Tabela editável com scroll (removido height fixo para full expand)
+        Expanded(
+          child: Scrollbar(
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: Scrollbar(
+                thumbVisibility: true,
+                notificationPredicate: (notif) => notif.depth == 1,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const ClampingScrollPhysics(),
+                  child: DataTable(
+                    headingRowHeight: 80,
+                    dataRowHeight: 70,
+                    headingRowColor: MaterialStateProperty.all(Colors.grey[50]),
+                    dividerThickness: 1,
+                    columnSpacing: 12,
+                    horizontalMargin: 16,
+                    headingTextStyle: AppTextStyles.fonteUbuntu.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF424242),
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                    ),
+                    dataTextStyle: AppTextStyles.fonteUbuntuSans.copyWith(
+                      color: const Color(0xFF424242),
+                      fontSize: 14,
+                    ),
+                    columns: [
+                      const DataColumn(label: Text('RA'), numeric: false),
+                      const DataColumn(label: Text('Nome do Aluno')),
+                      ...colunasAvaliacao.map((nome) {
+                        final tipo = nomeToTipo[nome] ?? '';
+                        final peso = nomeToPeso[nome] ?? 1.0;
+                        final color = tipo == 'atividade'
+                            ? Colors.green
+                            : AppColors.azulClaro;
+
+                        return DataColumn(
+                          label: Container(
+                            constraints: const BoxConstraints(minWidth: 130),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    nome,
+                                    style: AppTextStyles.fonteUbuntu.copyWith(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: color,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 2,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  tipo.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: color.withOpacity(0.7),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  'Peso: ${peso.toStringAsFixed(1)}',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: color.withOpacity(0.8),
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      const DataColumn(label: Text('Média')),
+                    ],
+                    rows: allAlunos.map((aluno) {
+                      final nota = disciplina.notas.firstWhereOrNull(
+                        (n) => n.alunoId == aluno.id,
+                      );
+
+                      // Calcular média ponderada
+                      double media = 0.0;
+                      double totalPeso = 0.0;
+                      int avaliacoesComNota = 0;
+
+                      for (final nome in colunasAvaliacao) {
+                        final currentNota = localNotas[aluno.id]![nome] ?? 0.0;
+                        final peso = nomeToPeso[nome] ?? 1.0;
+                        if (currentNota > 0) {
+                          media += (currentNota * peso);
+                          totalPeso += peso;
+                          avaliacoesComNota++;
+                        }
+                      }
+
+                      if (totalPeso > 0) {
+                        media = media / totalPeso;
+                      }
+
+                      return DataRow(
+                        color: MaterialStateProperty.resolveWith<Color?>((
+                          Set<MaterialState> states,
+                        ) {
+                          if (states.contains(MaterialState.hovered)) {
+                            return primaryColor.withOpacity(0.05);
+                          }
+                          if (nota == null) {
+                            return Colors.orange.withOpacity(0.05);
+                          }
+                          return null;
+                        }),
+                        cells: [
+                          // Célula RA
+                          DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: nota == null
+                                    ? Colors.orange.withOpacity(0.1)
+                                    : primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: nota == null
+                                      ? Colors.orange.withOpacity(0.3)
+                                      : primaryColor.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Text(
+                                aluno.ra ?? '-',
+                                style: AppTextStyles.fonteUbuntu.copyWith(
+                                  color: nota == null
+                                      ? Colors.orange
+                                      : primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Célula Nome
+                          DataCell(
+                            SizedBox(
+                              width: 200,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    aluno.nome,
+                                    style: AppTextStyles.fonteUbuntu.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    nota != null
+                                        ? '${nota.avaliacoes.length} avaliações'
+                                        : 'Sem notas',
+                                    style: AppTextStyles.fonteUbuntuSans
+                                        .copyWith(
+                                          color: nota != null
+                                              ? primaryColor
+                                              : Colors.orange,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Células de avaliações (EDITÁVEIS - MELHORADO PARA EXCEL-LIKE)
+                          ...colunasAvaliacao.map((nome) {
+                            final tipo = nomeToTipo[nome] ?? '';
+                            final color = tipo == 'atividade'
+                                ? Colors.green
+                                : AppColors.azulClaro;
+
+                            return DataCell(
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  // Campo de texto expandido para melhor edição
+                                  Container(
+                                    width: double.infinity,
+                                    height: 50, // Altura fixa para melhor UX
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: Colors.grey[300]!,
+                                        width: 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.grey.withOpacity(0.1),
+                                          blurRadius: 2,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: TextField(
+                                      controller: controllers[aluno.id]![nome],
+                                      textAlign: TextAlign.center,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'^\d*\.?\d{0,2}$'),
+                                        ),
+                                      ],
+                                      decoration: const InputDecoration(
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 12,
+                                        ),
+                                        isDense: true,
+                                        isCollapsed: true,
+                                      ),
+                                      style: AppTextStyles.fonteUbuntu.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: color,
+                                        fontSize:
+                                            16, // Aumentado para melhor visibilidade
+                                      ),
+                                      onTap: () {
+                                        // Força o foco ao tocar no campo
+                                        FocusScope.of(
+                                          context,
+                                        ).requestFocus(FocusNode());
+                                      },
+                                      onChanged: (value) {
+                                        final num = double.tryParse(value);
+                                        if (num != null &&
+                                            num >= 0 &&
+                                            num <= 10) {
+                                          setState(() {
+                                            localNotas[aluno.id]![nome] = num;
+                                          });
+                                        } else if (value.isEmpty) {
+                                          setState(() {
+                                            localNotas[aluno.id]![nome] = 0.0;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Peso: ${nomeToPeso[nome]?.toStringAsFixed(1) ?? '1.0'}',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          // Célula Média (calculada automaticamente)
+                          DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: media > 0
+                                    ? AppColors.verdeConfirmacao.withOpacity(
+                                        0.1,
+                                      )
+                                    : Colors.grey[100],
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: media > 0
+                                      ? AppColors.verdeConfirmacao
+                                      : Colors.grey[300]!,
+                                ),
+                              ),
+                              child: Text(
+                                media > 0 ? media.toStringAsFixed(1) : '-',
+                                style: AppTextStyles.fonteUbuntu.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: media > 0
+                                      ? AppColors.verdeConfirmacao
+                                      : Colors.grey[500],
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // MÉTODO PARA SALVAR TODAS AS NOTAS
+  Future<void> _saveAllNotas(
+    Disciplina disciplina,
+    Map<String, Map<String, double?>> localNotas,
+    Map<String, Map<String, TextEditingController>> controllers,
+  ) async {
+    bool saving = false;
+    if (saving) return;
+
+    saving = true;
+    try {
+      final List<Usuario> allAlunos = List<Usuario>.from(disciplina.alunos)
+        ..sort((a, b) => a.nome.compareTo(b.nome));
+
+      // Coletar informações das avaliações
+      final Map<String, String> nomeToTipo = {};
+      final Map<String, double> nomeToPeso = {};
+
+      for (final nota in disciplina.notas) {
+        for (final av in nota.avaliacoes) {
+          nomeToTipo[av.nome] = av.tipo;
+          nomeToPeso[av.nome] = av.peso ?? 1.0;
+        }
+      }
+
+      for (final aluno in allAlunos) {
+        final notaExistente = disciplina.notas.firstWhereOrNull(
+          (n) => n.alunoId == aluno.id,
+        );
+
+        final avaliacoes = <Avaliacao>[];
+        for (final nome in localNotas[aluno.id]!.keys) {
+          final notaValue = localNotas[aluno.id]![nome] ?? 0.0;
+          final avExistente = notaExistente?.avaliacoes.firstWhereOrNull(
+            (a) => a.nome == nome,
+          );
+
+          final avaliacao =
+              avExistente?.copyWith(nota: notaValue) ??
+              Avaliacao(
+                id: '',
+                nome: nome,
+                tipo: nomeToTipo[nome] ?? 'prova',
+                nota: notaValue,
+                peso: nomeToPeso[nome] ?? 1.0,
+                data: DateTime.now(),
+              );
+
+          avaliacoes.add(avaliacao);
+        }
+
+        final notaToSave =
+            notaExistente?.copyWith(avaliacoes: avaliacoes) ??
+            Nota(
+              id: '',
+              disciplinaId: disciplina.id,
+              alunoId: aluno.id,
+              alunoNome: aluno.nome,
+              alunoRa: aluno.ra,
+              avaliacoes: avaliacoes,
+            );
+
+        if (notaExistente == null) {
+          await _criarNota(notaToSave);
+        } else {
+          await _atualizarNota(notaExistente.id, notaToSave);
+        }
+      }
+
+      await _carregarDisciplinas();
+      _showSuccess('Todas as notas foram salvas com sucesso!');
+    } catch (e) {
+      _showError('Erro ao salvar notas: $e');
+    } finally {
+      saving = false;
+    }
+  }
+
+  // MÉTODO AUXILIAR: Formatar data
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+  }
+
+  // MÉTODO AUXILIAR: Salvar notas (implementação básica)
+  Future<void> _saveNotas(Disciplina disciplina) async {
+    // Implementação do salvamento das notas
+    try {
+      // Aqui você implementaria a lógica para salvar todas as notas
+      _showSuccess('Notas salvas com sucesso!');
+    } catch (e) {
+      _showError('Erro ao salvar notas: $e');
+    }
+  }
+
   Widget _buildActionButton({
     required IconData icon,
     required Color color,
@@ -1014,6 +2483,1218 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         tooltip: tooltip,
         padding: const EdgeInsets.all(8),
         constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      ),
+    );
+  }
+}
+
+// Diálogo para adicionar avaliação global
+class AddGlobalAvaliacaoDialog extends StatefulWidget {
+  final Disciplina disciplina;
+
+  const AddGlobalAvaliacaoDialog({super.key, required this.disciplina});
+
+  @override
+  State<AddGlobalAvaliacaoDialog> createState() =>
+      _AddGlobalAvaliacaoDialogState();
+}
+
+class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nomeController = TextEditingController();
+  final _pesoController = TextEditingController(text: '1.0');
+  String _tipo = 'prova';
+
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    _pesoController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = AppColors.azulClaro;
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      elevation: 20,
+      backgroundColor: AppColors.branco,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 500),
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.assignment_add,
+                    color: primaryColor,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Nova Avaliação',
+                        style: AppTextStyles.fonteUbuntu.copyWith(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.preto,
+                        ),
+                      ),
+                      Text(
+                        'Disciplina: ${widget.disciplina.titulo}',
+                        style: AppTextStyles.fonteUbuntuSans.copyWith(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _nomeController,
+                    decoration: InputDecoration(
+                      labelText: 'Nome da Avaliação',
+                      labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[400]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: primaryColor, width: 2),
+                      ),
+                      prefixIcon: Icon(Icons.title, color: primaryColor),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                    validator: (value) =>
+                        value?.isEmpty ?? true ? 'Nome obrigatório' : null,
+                  ),
+                  const SizedBox(height: 20),
+                  DropdownButtonFormField<String>(
+                    value: _tipo,
+                    decoration: InputDecoration(
+                      labelText: 'Tipo de Avaliação',
+                      labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[400]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: primaryColor, width: 2),
+                      ),
+                      prefixIcon: Icon(Icons.category, color: primaryColor),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: 'prova',
+                        child: Row(
+                          children: [
+                            Icon(Icons.quiz, color: primaryColor),
+                            const SizedBox(width: 8),
+                            Text('Prova', style: AppTextStyles.fonteUbuntu),
+                          ],
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'atividade',
+                        child: Row(
+                          children: [
+                            Icon(Icons.assignment, color: Colors.green),
+                            const SizedBox(width: 8),
+                            Text('Atividade', style: AppTextStyles.fonteUbuntu),
+                          ],
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _tipo = value ?? 'prova'),
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _pesoController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Peso da Avaliação',
+                      labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[400]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: primaryColor, width: 2),
+                      ),
+                      prefixIcon: Icon(Icons.balance, color: primaryColor),
+                      suffixText: 'pontos',
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                    validator: (value) {
+                      final num = double.tryParse(value ?? '');
+                      if (num == null || num <= 0)
+                        return 'Peso positivo obrigatório';
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      side: BorderSide(color: Colors.grey[400]!),
+                    ),
+                    child: Text(
+                      'Cancelar',
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (_formKey.currentState!.validate()) {
+                        final newAv = Avaliacao(
+                          id: '',
+                          nome: _nomeController.text,
+                          tipo: _tipo,
+                          peso: double.parse(_pesoController.text),
+                          data: DateTime.now(),
+                        );
+                        Navigator.pop(context, newAv);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: AppColors.branco,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 4,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_circle_outline, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Criar para Todos os Alunos',
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Diálogo para editar avaliação global
+class EditAvaliacaoGlobalDialog extends StatefulWidget {
+  final Avaliacao initialAv;
+
+  const EditAvaliacaoGlobalDialog({super.key, required this.initialAv});
+
+  @override
+  State<EditAvaliacaoGlobalDialog> createState() =>
+      _EditAvaliacaoGlobalDialogState();
+}
+
+class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nomeController;
+  late TextEditingController _pesoController;
+  late String _tipo;
+
+  @override
+  void initState() {
+    super.initState();
+    _nomeController = TextEditingController(text: widget.initialAv.nome);
+    _pesoController = TextEditingController(
+      text: widget.initialAv.peso?.toString() ?? '1.0',
+    );
+    _tipo = widget.initialAv.tipo;
+  }
+
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    _pesoController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = AppColors.azulClaro;
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 400),
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Editar Avaliação',
+                style: AppTextStyles.fonteUbuntu.copyWith(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _nomeController,
+                decoration: InputDecoration(
+                  labelText: 'Nome da Avaliação',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(Icons.assignment),
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Nome obrigatório' : null,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _tipo,
+                decoration: InputDecoration(
+                  labelText: 'Tipo',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(Icons.category),
+                ),
+                items: ['prova', 'atividade']
+                    .map(
+                      (t) => DropdownMenuItem(
+                        value: t,
+                        child: Text(t.capitalize()),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _tipo = value ?? 'prova'),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _pesoController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Peso',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(Icons.balance),
+                ),
+                validator: (value) {
+                  final num = double.tryParse(value ?? '');
+                  if (num == null || num <= 0)
+                    return 'Peso positivo obrigatório';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancelar'),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (_formKey.currentState!.validate()) {
+                          final newAv = Avaliacao(
+                            id: '',
+                            nome: _nomeController.text,
+                            tipo: _tipo,
+                            peso: double.parse(_pesoController.text),
+                            data: widget.initialAv.data,
+                          );
+                          Navigator.pop(context, newAv);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                      ),
+                      child: const Text(
+                        'Salvar Alterações',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Diálogo para gerenciar avaliações
+class ManageAvaliacoesDialog extends StatelessWidget {
+  final Disciplina disciplina;
+  final List<Avaliacao> uniqueAvaliacoes;
+  final Future<void> Function(String, String, Avaliacao) onEdit;
+  final Future<void> Function(String, String) onDelete;
+
+  const ManageAvaliacoesDialog({
+    super.key,
+    required this.disciplina,
+    required this.uniqueAvaliacoes,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = AppColors.azulClaro;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      elevation: 20,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+        decoration: BoxDecoration(
+          color: AppColors.branco,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.branco.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.settings,
+                      color: AppColors.branco,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Gerenciar Avaliações',
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.branco,
+                          ),
+                        ),
+                        Text(
+                          disciplina.titulo,
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: 14,
+                            color: AppColors.branco.withOpacity(0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: AppColors.branco,
+                      size: 24,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            // Body
+            Expanded(
+              child: uniqueAvaliacoes.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.assignment_outlined,
+                            size: 80,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Nenhuma avaliação encontrada',
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: 18,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Adicione avaliações para gerenciá-las aqui',
+                            style: AppTextStyles.fonteUbuntuSans.copyWith(
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: uniqueAvaliacoes.length,
+                      itemBuilder: (context, index) {
+                        final av = uniqueAvaliacoes[index];
+                        final color = av.tipo == 'atividade'
+                            ? Colors.green
+                            : primaryColor;
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(16),
+                            leading: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: color.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                av.tipo == 'atividade'
+                                    ? Icons.assignment
+                                    : Icons.quiz,
+                                color: color,
+                                size: 24,
+                              ),
+                            ),
+                            title: Text(
+                              av.nome,
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: color.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: color.withOpacity(0.3),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        av.tipo.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: color,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: Colors.orange.withOpacity(0.3),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Peso: ${av.peso?.toStringAsFixed(1) ?? '1.0'}',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.orange,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.edit, color: primaryColor),
+                                  onPressed: () async {
+                                    final newAv = await showDialog<Avaliacao?>(
+                                      context: context,
+                                      builder: (c) => EditAvaliacaoGlobalDialog(
+                                        initialAv: av,
+                                      ),
+                                    );
+                                    if (newAv != null) {
+                                      await onEdit(av.nome, av.tipo, newAv);
+                                      if (context.mounted)
+                                        Navigator.pop(context);
+                                    }
+                                  },
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.delete,
+                                    color: AppColors.vermelho,
+                                  ),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text('Confirmar Remoção'),
+                                        content: Text(
+                                          'Deseja remover a avaliação "${av.nome}" de TODOS os alunos?',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('Cancelar'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  AppColors.vermelho,
+                                            ),
+                                            child: const Text(
+                                              'Remover',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true) {
+                                      await onDelete(av.nome, av.tipo);
+                                      if (context.mounted)
+                                        Navigator.pop(context);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Diálogo para adicionar/editar nota
+class NotaDialog extends StatefulWidget {
+  final Disciplina disciplina;
+  final Nota? nota;
+  final Usuario? selectedAluno;
+
+  const NotaDialog({
+    super.key,
+    required this.disciplina,
+    this.nota,
+    this.selectedAluno,
+  });
+
+  @override
+  State<NotaDialog> createState() => _NotaDialogState();
+}
+
+class _NotaDialogState extends State<NotaDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late Usuario _selectedAluno;
+  List<Avaliacao> _avaliacoes = [];
+  final _nomeController = TextEditingController();
+  final _tipoController = TextEditingController();
+  final _notaController = TextEditingController();
+  final _pesoController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final isEdit = widget.nota != null;
+    if (isEdit) {
+      final nota = widget.nota!;
+      final aluno = widget.disciplina.alunos.firstWhereOrNull(
+        (a) => a.id == nota.alunoId,
+      );
+      _selectedAluno =
+          aluno ??
+          Usuario(
+            id: nota.alunoId,
+            nome: nota.alunoNome,
+            email: '',
+            tipo: 'aluno',
+            ra: nota.alunoRa,
+          );
+      _avaliacoes = List<Avaliacao>.from(nota.avaliacoes);
+    } else {
+      if (widget.selectedAluno == null) {
+        throw ArgumentError('selectedAluno é obrigatório para criação');
+      }
+      _selectedAluno = widget.selectedAluno!;
+      _avaliacoes = [];
+    }
+    _tipoController.text = 'prova'; // Default
+  }
+
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    _tipoController.dispose();
+    _notaController.dispose();
+    _pesoController.dispose();
+    super.dispose();
+  }
+
+  void _addAvaliacao() {
+    if (_formKey.currentState!.validate()) {
+      final novaAvaliacao = Avaliacao(
+        id: '',
+        nome: _nomeController.text,
+        tipo: _tipoController.text,
+        nota: double.tryParse(_notaController.text),
+        peso: double.tryParse(_pesoController.text) ?? 1.0,
+        data: DateTime.now(),
+      );
+      setState(() {
+        _avaliacoes.add(novaAvaliacao);
+      });
+      // Limpar campos
+      _nomeController.clear();
+      _notaController.clear();
+      _pesoController.clear();
+    }
+  }
+
+  void _removeAvaliacao(int index) {
+    setState(() {
+      _avaliacoes.removeAt(index);
+    });
+  }
+
+  Nota? _buildNota() {
+    return Nota(
+      id: widget.nota?.id ?? '',
+      disciplinaId: widget.disciplina.id,
+      alunoId: _selectedAluno.id,
+      alunoNome: _selectedAluno.nome,
+      alunoRa: _selectedAluno.ra,
+      avaliacoes: _avaliacoes,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEdit = widget.nota != null;
+    final primaryColor = AppColors.azulClaro;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final dialogWidth = screenWidth > 600 ? 600.0 : screenWidth * 0.95;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 24,
+      child: Container(
+        width: dialogWidth,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.branco, AppColors.cinzaClaro],
+          ),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.branco.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.grade, color: AppColors.branco, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${isEdit ? 'Editar' : 'Adicionar'} Nota',
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.branco,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        Text(
+                          '${widget.disciplina.titulo} - ${_selectedAluno.nome}',
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: 14,
+                            color: AppColors.branco.withOpacity(0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppColors.branco),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            // Body
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Form para nova avaliação
+                        Text(
+                          'Adicionar Nova Avaliação',
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _nomeController,
+                          style: AppTextStyles.fonteUbuntuSans,
+                          decoration: InputDecoration(
+                            labelText: 'Nome da Avaliação',
+                            labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: primaryColor,
+                                width: 2,
+                              ),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.assignment,
+                              color: Colors.grey[500],
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Por favor, insira o nome da avaliação';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        DropdownButtonFormField<String>(
+                          value: _tipoController.text.isEmpty
+                              ? 'prova'
+                              : _tipoController.text,
+                          style: AppTextStyles.fonteUbuntuSans,
+                          decoration: InputDecoration(
+                            labelText: 'Tipo',
+                            labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: primaryColor,
+                                width: 2,
+                              ),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.category,
+                              color: Colors.grey[500],
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                          ),
+                          items: ['prova', 'atividade'].map((tipo) {
+                            return DropdownMenuItem(
+                              value: tipo,
+                              child: Text(tipo.toUpperCase()),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null) _tipoController.text = value;
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: _notaController,
+                          style: AppTextStyles.fonteUbuntuSans,
+                          decoration: InputDecoration(
+                            labelText: 'Nota (0-10)',
+                            labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: primaryColor,
+                                width: 2,
+                              ),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.star,
+                              color: Colors.grey[500],
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            final num = double.tryParse(value ?? '');
+                            if (num == null || num < 0 || num > 10)
+                              return 'Nota deve estar entre 0 e 10';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: _pesoController,
+                          style: AppTextStyles.fonteUbuntuSans,
+                          decoration: InputDecoration(
+                            labelText: 'Peso (padrão 1)',
+                            labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: primaryColor,
+                                width: 2,
+                              ),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.balance,
+                              color: Colors.grey[500],
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            final num = double.tryParse(value ?? '');
+                            if (num == null || num <= 0)
+                              return 'Peso deve ser positivo';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _addAvaliacao,
+                            icon: const Icon(Icons.add),
+                            label: Text(
+                              'Adicionar Avaliação',
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: AppColors.branco,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        // Lista de avaliações atuais
+                        Text(
+                          'Avaliações Adicionadas (${_avaliacoes.length})',
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_avaliacoes.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(32),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.assignment_outlined,
+                                  size: 64,
+                                  color: Colors.grey[400],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Nenhuma avaliação adicionada',
+                                  style: AppTextStyles.fonteUbuntu.copyWith(
+                                    fontSize: 16,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          ..._avaliacoes.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final av = entry.value;
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.all(16),
+                                title: Text(
+                                  av.nome,
+                                  style: AppTextStyles.fonteUbuntu.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${av.tipo.toUpperCase()}: ${av.nota ?? 'Não definida'}',
+                                    ),
+                                    Text('Peso: ${av.peso ?? 1.0}'),
+                                  ],
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(
+                                    Icons.delete,
+                                    color: AppColors.vermelho,
+                                  ),
+                                  onPressed: () => _removeAvaliacao(index),
+                                ),
+                              ),
+                            );
+                          }),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Footer
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.branco,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.preto.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        side: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      child: Text(
+                        'Cancelar',
+                        style: AppTextStyles.fonteUbuntu.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final novaNota = _buildNota();
+                        if (novaNota != null &&
+                            (_avaliacoes.isNotEmpty || isEdit)) {
+                          Navigator.pop(context, novaNota);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Adicione pelo menos uma avaliação',
+                              ),
+                              backgroundColor: AppColors.vermelhoErro,
+                            ),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: AppColors.branco,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: Text(
+                        isEdit ? 'Salvar Alterações' : 'Criar Nota',
+                        style: AppTextStyles.fonteUbuntu.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1057,6 +3738,9 @@ class _UserDialogState extends State<UserDialog> {
         _isAdmin = true;
       }
     }
+    debugPrint(
+      '=== DEBUG: UserDialog init - Edit: ${widget.isEdit}, IsAluno: ${widget.isAluno}, IsAdmin: $_isAdmin ===',
+    );
   }
 
   @override
@@ -1073,6 +3757,7 @@ class _UserDialogState extends State<UserDialog> {
   }
 
   void _save() {
+    debugPrint('=== DEBUG: _save UserDialog chamado ===');
     if (_formKey.currentState!.validate()) {
       final userData = <String, String>{
         'nome': _nomeController.text,
@@ -1083,6 +3768,7 @@ class _UserDialogState extends State<UserDialog> {
         // MUDANÇA: Adicionar tipo para professores
         userData['tipo'] = _isAdmin ? 'admin' : 'professor';
       }
+      debugPrint('=== DEBUG: Dados salvos: $userData ===');
       Navigator.of(context).pop(userData);
     }
   }
@@ -1552,5 +4238,13 @@ class DeleteDialog extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// Extension para capitalize
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return "${this[0].toUpperCase()}${substring(1)}";
   }
 }

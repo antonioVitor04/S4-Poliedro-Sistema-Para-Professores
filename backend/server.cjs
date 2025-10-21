@@ -40,44 +40,46 @@ app.post("/api/criar-admin-temp", async (req, res) => {
   try {
     const Professor = require("./models/professor.cjs");
     const bcrypt = require("bcryptjs");
-    
+
     console.log("=== 🛠️ CRIANDO ADMIN TEMPORÁRIO ===");
 
     // Verificar se já existe
-    const adminExistente = await Professor.findOne({ email: "admin@sistemapoliedro.br" });
+    const adminExistente = await Professor.findOne({
+      email: "admin@sistemapoliedro.br",
+    });
     if (adminExistente) {
       console.log("⚠️ Admin já existe, atualizando senha...");
-      
+
       // Atualizar senha do admin existente
       const senhaHash = await bcrypt.hash("Admin123!", 10);
       adminExistente.senha = senhaHash;
       adminExistente.nome = "Joao da Silva";
       await adminExistente.save();
-      
+
       console.log("✅ Senha do admin atualizada");
-      
+
       // TESTAR O HASH IMEDIATAMENTE
       const testMatch = await bcrypt.compare("Admin123!", senhaHash);
       console.log("🔐 Teste da senha após update:", testMatch);
-      
-      return res.json({ 
-        success: true, 
-        message: "Admin já existia - senha atualizada!", 
+
+      return res.json({
+        success: true,
+        message: "Admin já existia - senha atualizada!",
         email: adminExistente.email,
-        senhaTestada: testMatch
+        senhaTestada: testMatch,
       });
     }
 
     // Criar novo admin
     console.log("🆕 Criando novo admin...");
     const senhaHash = await bcrypt.hash("Admin123!", 10);
-    
+
     console.log("📝 Dados do admin:");
     console.log("- Nome: Joao da Silva");
     console.log("- Email: admin@sistemapoliedro.br");
     console.log("- Senha hash:", senhaHash);
     console.log("- Tipo: admin");
-    
+
     // TESTAR O HASH ANTES DE SALVAR
     const testMatch = await bcrypt.compare("Admin123!", senhaHash);
     console.log("🔐 Teste da senha antes de salvar:", testMatch);
@@ -91,19 +93,21 @@ app.post("/api/criar-admin-temp", async (req, res) => {
       email: "admin@sistemapoliedro.br",
       senha: senhaHash,
       tipo: "admin",
-      disciplinas: []
+      disciplinas: [],
     });
 
     await admin.save();
     console.log("✅ Admin salvo no banco com ID:", admin._id);
 
     // VERIFICAR NO BANCO
-    const adminVerificado = await Professor.findOne({ email: "admin@sistemapoliedro.br" });
+    const adminVerificado = await Professor.findOne({
+      email: "admin@sistemapoliedro.br",
+    });
     console.log("🔍 Admin verificado no banco:", {
       id: adminVerificado._id,
       email: adminVerificado.email,
       senhaHash: adminVerificado.senha,
-      nome: adminVerificado.nome
+      nome: adminVerificado.nome,
     });
 
     res.json({
@@ -112,20 +116,19 @@ app.post("/api/criar-admin-temp", async (req, res) => {
       credentials: {
         email: "admin@sistemapoliedro.br",
         senha: "Admin123!",
-        senhaHash: senhaHash
+        senhaHash: senhaHash,
       },
       debug: {
         hashFuncionou: testMatch,
-        adminId: admin._id
-      }
+        adminId: admin._id,
+      },
     });
-
   } catch (error) {
     console.error("💥 Erro ao criar admin:", error);
     res.status(500).json({
       success: false,
       error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
   }
 });
@@ -150,6 +153,8 @@ app.use("/api/cardsDisciplinas", require("./routes/disciplina/materiais.cjs"));
 // Nova rota para gerenciamento de relacionamentos
 app.use("/api/relacionamentos", require("./routes/cards/relacionamentos.cjs"));
 
+//nova rota para notas
+app.use("/api/notas", require("./routes/notas.cjs"));
 // Rota de saúde
 app.get("/api/health", (req, res) => {
   res.json({
