@@ -1,3 +1,4 @@
+// middleware/disciplinaAuth.cjs - CORREÇÃO COMPLETA
 const CardDisciplina = require("../models/cardDisciplina.cjs");
 
 const verificarAcessoDisciplina = async (req, res, next) => {
@@ -8,11 +9,7 @@ const verificarAcessoDisciplina = async (req, res, next) => {
 
     console.log(`=== VERIFICANDO ACESSO: User ${userId} (${userRole}) na disciplina ${slug} ===`);
 
-    // Buscar disciplina pelo slug
-    const disciplina = await CardDisciplina.findOne({ slug })
-      .populate('professores', '_id nome email')
-      .populate('alunos', '_id nome ra')
-      .populate('criadoPor', '_id nome email');
+    const disciplina = await CardDisciplina.findOne({ slug });
 
     if (!disciplina) {
       console.log('❌ Disciplina não encontrada:', slug);
@@ -22,26 +19,24 @@ const verificarAcessoDisciplina = async (req, res, next) => {
       });
     }
 
-    // ADMIN tem acesso a tudo
+    console.log('✅ Disciplina encontrada:', disciplina.titulo);
+
     if (userRole === "admin") {
       console.log('✅ Acesso concedido: ADMIN');
       req.disciplina = disciplina;
       return next();
     }
 
-    // Verificar se o usuário está na lista de professores
     const isProfessor = disciplina.professores.some(
-      prof => prof._id.toString() === userId
+      prof => prof.toString() === userId
     );
 
-    // Verificar se o usuário está na lista de alunos
     const isAluno = disciplina.alunos.some(
-      aluno => aluno._id.toString() === userId
+      aluno => aluno.toString() === userId
     );
 
     console.log(`📊 Verificação: Professor=${isProfessor}, Aluno=${isAluno}`);
 
-    // PERMITIR ACESSO se for professor OU aluno da disciplina
     if (isProfessor || isAluno) {
       console.log('✅ Acesso concedido: Usuário está na disciplina');
       req.disciplina = disciplina;
@@ -63,35 +58,43 @@ const verificarAcessoDisciplina = async (req, res, next) => {
   }
 };
 
-// Middleware para ações de edição (apenas professores e admin)
 const verificarProfessorDisciplina = async (req, res, next) => {
   try {
-    const disciplinaId = req.params.id || req.params.disciplinaId;
+    const { slug, id } = req.params;
     const userId = req.user.id;
     const userRole = req.user.role;
 
-    console.log(`=== VERIFICANDO EDIÇÃO: User ${userId} (${userRole}) na disciplina ${disciplinaId} ===`);
+    console.log(`=== VERIFICANDO EDIÇÃO: User ${userId} (${userRole}) ===`);
+    console.log('📋 Parâmetros:', { slug, id });
 
-    // ADMIN pode editar tudo
     if (userRole === "admin") {
       console.log('✅ Permissão de edição: ADMIN');
       return next();
     }
 
-    // Buscar disciplina
-    const disciplina = await CardDisciplina.findById(disciplinaId)
-      .populate('professores', '_id');
+    let disciplina;
+    if (slug) {
+      console.log('🔍 Buscando disciplina por slug:', slug);
+      disciplina = await CardDisciplina.findOne({ slug });
+    } else if (id) {
+      console.log('🔍 Buscando disciplina por ID:', id);
+      disciplina = await CardDisciplina.findById(id);
+    }
 
     if (!disciplina) {
+      console.log('❌ Disciplina não encontrada');
       return res.status(404).json({
         success: false,
         error: "Disciplina não encontrada",
       });
     }
 
-    // Verificar se o usuário é professor da disciplina
+    console.log('✅ Disciplina encontrada:', disciplina.titulo);
+    console.log('👥 Professores da disciplina:', disciplina.professores.map(p => p.toString()));
+    console.log('👤 ID do usuário:', userId);
+
     const isProfessor = disciplina.professores.some(
-      prof => prof._id.toString() === userId
+      prof => prof.toString() === userId
     );
 
     if (isProfessor) {

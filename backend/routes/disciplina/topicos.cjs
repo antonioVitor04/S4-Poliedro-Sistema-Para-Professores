@@ -1,5 +1,4 @@
-// routes/topicos.cjs - CORREÇÃO
-
+// routes/topicos.cjs - CORREÇÃO COMPLETA
 const express = require("express");
 const routerTopicos = express.Router();
 const CardDisciplina = require("../../models/cardDisciplina.cjs");
@@ -11,9 +10,16 @@ routerTopicos.get("/:slug/topicos", auth(), verificarAcessoDisciplina, async (re
   try {
     const card = req.disciplina;
 
+    if (!card) {
+      return res.status(404).json({
+        success: false,
+        error: "Disciplina não encontrada",
+      });
+    }
+
     res.json({
       success: true,
-      data: card.topicos,
+      data: card.topicos || [],
     });
   } catch (err) {
     console.error("Erro ao buscar tópicos:", err);
@@ -123,7 +129,7 @@ routerTopicos.put(
       }
 
       if (ordem !== undefined) {
-        topico.ordem = ordem;
+        topico.ordem = parseInt(ordem);
       }
 
       await card.save();
@@ -182,71 +188,6 @@ routerTopicos.delete(
       res.status(500).json({
         success: false,
         error: "Erro interno do servidor ao deletar tópico",
-      });
-    }
-  }
-);
-
-// ✅ PUT: Reordenar tópicos (APENAS PROFESSORES da disciplina)
-routerTopicos.put(
-  "/:slug/topicos/:topicoId/reordenar",
-  auth(["professor", "admin"]),
-  verificarProfessorDisciplina,
-  async (req, res) => {
-    try {
-      const { slug, topicoId } = req.params;
-      const { novaOrdem } = req.body;
-
-      if (novaOrdem === undefined || novaOrdem < 0) {
-        return res.status(400).json({
-          success: false,
-          error: "Nova ordem é obrigatória e deve ser um número positivo",
-        });
-      }
-
-      const card = await CardDisciplina.findOne({ slug });
-
-      if (!card) {
-        return res.status(404).json({
-          success: false,
-          error: "Disciplina não encontrada",
-        });
-      }
-
-      const topico = card.topicos.id(topicoId);
-      if (!topico) {
-        return res.status(404).json({
-          success: false,
-          error: "Tópico não encontrado",
-        });
-      }
-
-      const topicosOrdenados = card.topicos.sort((a, b) => a.ordem - b.ordem);
-
-      const topicoMovido = topicosOrdenados.splice(
-        topicosOrdenados.findIndex((t) => t._id.toString() === topicoId),
-        1
-      )[0];
-
-      topicosOrdenados.splice(novaOrdem, 0, topicoMovido);
-
-      topicosOrdenados.forEach((topico, index) => {
-        topico.ordem = index;
-      });
-
-      card.topicos = topicosOrdenados;
-      await card.save();
-
-      res.json({
-        success: true,
-        message: "Tópicos reordenados com sucesso",
-        data: card.topicos,
-      });
-    } catch (err) {
-      console.error("Erro ao reordenar tópicos:", err);
-      res.status(500).json({
-        success: false,
-        error: "Erro interno do servidor ao reordenar tópicos",
       });
     }
   }

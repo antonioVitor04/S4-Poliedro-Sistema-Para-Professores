@@ -1,3 +1,4 @@
+// routes/cardsDisciplinas.cjs
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
@@ -9,9 +10,11 @@ const auth = require("../../middleware/auth.cjs");
 const { verificarProfessorDisciplina, verificarAcessoDisciplina } = require("../../middleware/disciplinaAuth.cjs");
 
 // Configurações
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-// Configuração do Multer para armazenar na memória
+// routes/cardsDisciplinas.cjs - CORREÇÃO DO MULTER
+
+// Configuração do Multer CORRIGIDA
 const storage = multer.memoryStorage();
 
 // Função para obter mimetype baseado na extensão
@@ -36,31 +39,19 @@ function getMimeTypeFromExtension(filename) {
   }
 }
 
-// Função para gerar slug a partir do título
-function generateSlug(title) {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-// Filtro para validar tipos de arquivo
+// Filtro CORRIGIDO para validar tipos de arquivo
 const fileFilter = (req, file, cb) => {
   const allowedExtensions = /jpeg|jpg|png|gif|bmp|webp|svg/;
   const extname = allowedExtensions.test(
     path.extname(file.originalname).toLowerCase()
   );
-  const allowedMimeTypes = /^image\/(jpeg|png|gif|bmp|webp|svg\+xml)$/;
-  const mimetype = allowedMimeTypes.test(file.mimetype);
 
   if (extname) {
     return cb(null, true);
   } else {
     cb(
       new Error(
-        `Apenas arquivos de imagem são permitidos. Enviado: ${file.originalname} (mimetype: ${file.mimetype})`
+        `Apenas arquivos de imagem são permitidos. Enviado: ${file.originalname}`
       )
     );
   }
@@ -80,34 +71,61 @@ const handleUpload = upload.fields([
   { name: "icone", maxCount: 1 },
 ]);
 
-// Middleware para processar arquivos uploadados
+// Middleware para processar arquivos uploadados CORRIGIDO
 const processUploadedFiles = (req, res, next) => {
-  if (req.files) {
-    if (req.files.imagem) {
-      let contentType = req.files.imagem[0].mimetype;
-      if (contentType === "application/octet-stream") {
-        contentType = getMimeTypeFromExtension(req.files.imagem[0].originalname);
+  try {
+    console.log("=== PROCESSANDO ARQUIVOS UPLOADADOS ===");
+    console.log("Files recebidos:", req.files);
+    
+    if (req.files) {
+      if (req.files.imagem) {
+        let contentType = req.files.imagem[0].mimetype;
+        // Se o mimetype for application/octet-stream, tentar determinar pelo nome do arquivo
+        if (contentType === "application/octet-stream") {
+          contentType = getMimeTypeFromExtension(req.files.imagem[0].originalname);
+        }
+        req.body.imagem = {
+          data: req.files.imagem[0].buffer,
+          contentType: contentType,
+        };
+        console.log("✅ Imagem processada:", {
+          tamanho: req.files.imagem[0].buffer.length,
+          contentType: contentType,
+          nome: req.files.imagem[0].originalname
+        });
       }
-      req.body.imagem = {
-        data: req.files.imagem[0].buffer,
-        contentType: contentType,
-      };
-    }
-    if (req.files.icone) {
-      let contentType = req.files.icone[0].mimetype;
-      if (contentType === "application/octet-stream") {
-        contentType = getMimeTypeFromExtension(req.files.icone[0].originalname);
+      
+      if (req.files.icone) {
+        let contentType = req.files.icone[0].mimetype;
+        // Se o mimetype for application/octet-stream, tentar determinar pelo nome do arquivo
+        if (contentType === "application/octet-stream") {
+          contentType = getMimeTypeFromExtension(req.files.icone[0].originalname);
+        }
+        req.body.icone = {
+          data: req.files.icone[0].buffer,
+          contentType: contentType,
+        };
+        console.log("✅ Ícone processado:", {
+          tamanho: req.files.icone[0].buffer.length,
+          contentType: contentType,
+          nome: req.files.icone[0].originalname
+        });
       }
-      req.body.icone = {
-        data: req.files.icone[0].buffer,
-        contentType: contentType,
-      };
+    } else {
+      console.log("⚠️ Nenhum arquivo recebido");
     }
+    
+    next();
+  } catch (error) {
+    console.error("❌ Erro ao processar arquivos:", error);
+    return res.status(400).json({
+      success: false,
+      error: "Erro ao processar arquivos enviados"
+    });
   }
-  next();
 };
 
-// Middleware de validação
+// Validação de campos
 const validateRequiredFields = (req, res, next) => {
   const { imagem, icone, titulo } = req.body;
 
@@ -130,7 +148,17 @@ const validateRequiredFields = (req, res, next) => {
   next();
 };
 
-// ✅ CORREÇÃO: Rota para servir imagens do MongoDB - EVITAR CACHE
+// Gerar slug
+function generateSlug(title) {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+// GET: Imagem
 routerCards.get("/imagem/:id/:tipo", async (req, res) => {
   try {
     const { id, tipo } = req.params;
@@ -151,15 +179,10 @@ routerCards.get("/imagem/:id/:tipo", async (req, res) => {
       });
     }
 
-    // ✅ CORREÇÃO: Headers para evitar cache
     res.set("Content-Type", card[tipo].contentType);
     res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     res.set("Pragma", "no-cache");
     res.set("Expires", "0");
-    
-    // ✅ CORREÇÃO: Usar timestamp como ETag para cache busting
-    const timestamp = req.query.t || Date.now();
-    res.set("ETag", `"${timestamp}"`);
 
     res.send(card[tipo].data);
   } catch (err) {
@@ -171,7 +194,7 @@ routerCards.get("/imagem/:id/:tipo", async (req, res) => {
   }
 });
 
-// ✅ CORREÇÃO: GET: Buscar card por slug (com timestamp para cache busting)
+// GET: Disciplina por slug
 routerCards.get("/disciplina/:slug", auth(), verificarAcessoDisciplina, async (req, res) => {
   try {
     if (!req.disciplina) {
@@ -193,7 +216,6 @@ routerCards.get("/disciplina/:slug", auth(), verificarAcessoDisciplina, async (r
       });
     }
 
-    // ✅ CORREÇÃO: Adicionar timestamp único para evitar cache
     const timestamp = Date.now();
 
     const cardResponse = {
@@ -206,7 +228,6 @@ routerCards.get("/disciplina/:slug", auth(), verificarAcessoDisciplina, async (r
       criadoPor: card.criadoPor,
       createdAt: card.createdAt,
       updatedAt: card.updatedAt,
-      // ✅ CORREÇÃO: Adicionar timestamp às URLs
       imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/imagem?t=${timestamp}`,
       icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/icone?t=${timestamp}`,
       url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${card.slug}`,
@@ -225,7 +246,7 @@ routerCards.get("/disciplina/:slug", auth(), verificarAcessoDisciplina, async (r
   }
 });
 
-// ✅ CORREÇÃO: GET: Buscar todos os cards (com timestamp para cache busting)
+// GET: Todas as disciplinas
 routerCards.get("/", auth(), async (req, res) => {
   try {
     const userId = req.user.id;
@@ -244,7 +265,6 @@ routerCards.get("/", auth(), async (req, res) => {
       .populate('alunos', 'nome email ra')
       .sort({ createdAt: -1 });
 
-    // ✅ CORREÇÃO: Adicionar timestamp único para evitar cache
     const timestamp = Date.now();
 
     const cardsWithUrls = cards.map((card) => ({
@@ -257,7 +277,6 @@ routerCards.get("/", auth(), async (req, res) => {
       criadoPor: card.criadoPor,
       createdAt: card.createdAt,
       updatedAt: card.updatedAt,
-      // ✅ CORREÇÃO: Adicionar timestamp às URLs
       imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/imagem?t=${timestamp}`,
       icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/icone?t=${timestamp}`,
       url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${card.slug}`,
@@ -277,7 +296,7 @@ routerCards.get("/", auth(), async (req, res) => {
   }
 });
 
-// ✅ CORREÇÃO: GET: Listar disciplinas do usuário logado (com timestamp para cache busting)
+// GET: Minhas disciplinas
 routerCards.get("/minhas-disciplinas", auth(), async (req, res) => {
   try {
     const userId = req.user.id;
@@ -292,7 +311,6 @@ routerCards.get("/minhas-disciplinas", auth(), async (req, res) => {
 
     const cards = await CardDisciplina.find(query).sort({ createdAt: -1 });
 
-    // ✅ CORREÇÃO: Adicionar timestamp único para evitar cache
     const timestamp = Date.now();
 
     const cardsWithUrls = cards.map((card) => ({
@@ -305,7 +323,6 @@ routerCards.get("/minhas-disciplinas", auth(), async (req, res) => {
       criadoPor: card.criadoPor,
       createdAt: card.createdAt,
       updatedAt: card.updatedAt,
-      // ✅ CORREÇÃO: Adicionar timestamp às URLs
       imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/imagem?t=${timestamp}`,
       icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${card._id}/icone?t=${timestamp}`,
       url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${card.slug}`,
@@ -325,7 +342,7 @@ routerCards.get("/minhas-disciplinas", auth(), async (req, res) => {
   }
 });
 
-// POST: Criar um novo card
+// POST: Criar disciplina
 routerCards.post(
   "/",
   auth(["professor", "admin"]),
@@ -347,7 +364,6 @@ routerCards.post(
         });
       }
 
-      // Processar lista de professores
       let professoresIds = [];
       if (professores && Array.isArray(professores)) {
         const professoresExistentes = await Professor.find({ 
@@ -363,12 +379,10 @@ routerCards.post(
         professoresIds = professores;
       }
 
-      // Adicionar o criador automaticamente como professor
       if (!professoresIds.includes(userId)) {
         professoresIds.push(userId);
       }
 
-      // Processar lista de alunos
       let alunosIds = [];
       if (alunos && Array.isArray(alunos)) {
         const alunosExistentes = await Aluno.find({ 
@@ -402,13 +416,11 @@ routerCards.post(
 
       await novoCard.save();
 
-      // Atualizar as disciplinas dos professores
       await Professor.updateMany(
         { _id: { $in: professoresIds } },
         { $addToSet: { disciplinas: novoCard._id } }
       );
 
-      // Atualizar as disciplinas dos alunos
       if (alunosIds.length > 0) {
         await Aluno.updateMany(
           { _id: { $in: alunosIds } },
@@ -416,7 +428,6 @@ routerCards.post(
         );
       }
 
-      // ✅ CORREÇÃO: Adicionar timestamp único para evitar cache
       const timestamp = Date.now();
 
       const cardResponse = {
@@ -428,7 +439,6 @@ routerCards.post(
         criadoPor: novoCard.criadoPor,
         createdAt: novoCard.createdAt,
         updatedAt: novoCard.updatedAt,
-        // ✅ CORREÇÃO: Adicionar timestamp às URLs
         imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${novoCard._id}/imagem?t=${timestamp}`,
         icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${novoCard._id}/icone?t=${timestamp}`,
         url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${novoCard.slug}`,
@@ -446,7 +456,6 @@ routerCards.post(
         return res.status(400).json({
           success: false,
           error: "Dados de entrada inválidos",
-          details: err.errors,
         });
       }
 
@@ -465,7 +474,7 @@ routerCards.post(
   }
 );
 
-// ✅ CORREÇÃO: PUT: Atualizar um card (com timestamp para cache busting)
+// PUT: Atualizar disciplina
 routerCards.put(
   "/:id",
   auth(["professor", "admin"]),
@@ -519,7 +528,6 @@ routerCards.put(
       }
     }
 
-    // Atualizar professores se fornecido
     if (professores !== undefined) {
       if (Array.isArray(professores)) {
         const professoresExistentes = await Professor.find({ 
@@ -541,7 +549,6 @@ routerCards.put(
       }
     }
 
-    // Atualizar alunos se fornecido
     if (alunos !== undefined) {
       if (Array.isArray(alunos)) {
         const alunosExistentes = await Aluno.find({ 
@@ -587,7 +594,6 @@ routerCards.put(
         });
       }
 
-      // Atualizar relações nos modelos de Professor e Aluno
       if (professores !== undefined) {
         const professoresAntigos = await Professor.find({ disciplinas: id });
         const professoresAntigosIds = professoresAntigos.map(p => p._id.toString());
@@ -630,7 +636,6 @@ routerCards.put(
         );
       }
 
-      // ✅ CORREÇÃO: Adicionar timestamp único para evitar cache
       const timestamp = Date.now();
 
       const cardResponse = {
@@ -642,7 +647,6 @@ routerCards.put(
         criadoPor: cardAtualizado.criadoPor,
         createdAt: cardAtualizado.createdAt,
         updatedAt: cardAtualizado.updatedAt,
-        // ✅ CORREÇÃO: Adicionar timestamp às URLs
         imagem: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${cardAtualizado._id}/imagem?t=${timestamp}`,
         icone: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/imagem/${cardAtualizado._id}/icone?t=${timestamp}`,
         url: `${req.protocol}://${req.get("host")}/api/cardsDisciplinas/disciplina/${cardAtualizado.slug}`,
@@ -667,7 +671,6 @@ routerCards.put(
         return res.status(400).json({
           success: false,
           error: "Dados de entrada inválidos",
-          details: err.errors,
         });
       }
 
@@ -686,7 +689,7 @@ routerCards.put(
   }
 );
 
-// DELETE: Deletar um card (apenas professores da disciplina ou admin)
+// DELETE: Deletar disciplina
 routerCards.delete(
   "/:id",
   auth(["professor", "admin"]),
@@ -711,7 +714,6 @@ routerCards.delete(
         });
       }
 
-      // Remover a disciplina dos professores e alunos
       await Professor.updateMany(
         { disciplinas: id },
         { $pull: { disciplinas: id } }
@@ -748,33 +750,5 @@ routerCards.delete(
     }
   }
 );
-
-// ✅ ADICIONE: Rota de debug para verificar imagens (REMOVA DEPOIS DE TESTAR)
-routerCards.get("/debug-imagem/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const card = await CardDisciplina.findById(id);
-    
-    if (!card) {
-      return res.status(404).json({ error: "Card não encontrado" });
-    }
-
-    res.json({
-      id: card._id,
-      titulo: card.titulo,
-      temImagem: !!card.imagem,
-      temIcone: !!card.icone,
-      tamanhoImagem: card.imagem?.data?.length || 0,
-      tamanhoIcone: card.icone?.data?.length || 0,
-      contentTypeImagem: card.imagem?.contentType,
-      contentTypeIcone: card.icone?.contentType,
-      updatedAt: card.updatedAt
-    });
-
-  } catch (err) {
-    console.error("Erro no debug:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
 
 module.exports = routerCards;
