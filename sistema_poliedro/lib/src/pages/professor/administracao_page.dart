@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:collection/collection.dart';
+import 'package:sistema_poliedro/src/pages/professor/notas.dart';
 import 'dart:convert';
 import 'package:sistema_poliedro/src/services/auth_service.dart'; // MUDANÇA: Importar AuthService
 import '../../styles/cores.dart';
@@ -246,7 +247,36 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       CurvedAnimation(parent: _fabAnimationController, curve: Curves.easeInOut),
     );
     _fabAnimationController.forward();
-    _initializeData(); // MUDANÇA: Chamar método unificado
+
+    // Inicializar token primeiro, depois carregar dados
+    _initializeToken().then((_) {
+      if (mounted && token != null) {
+        _carregarUsuarios();
+      }
+    });
+  }
+
+  Future<void> _initializeToken() async {
+    try {
+      // Obter token do AuthService
+      final authToken = await AuthService.getToken();
+      if (authToken != null && mounted) {
+        setState(() {
+          token = authToken;
+        });
+      } else if (mounted) {
+        // Aguardar até que o contexto esteja pronto para mostrar erros
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showError('Token não encontrado. Faça login novamente.');
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showError('Erro ao carregar token: $e');
+        });
+      }
+    }
   }
 
   Future<void> _initializeData() async {
@@ -266,24 +296,17 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   }
 
   Future<void> _loadToken() async {
-    debugPrint('=== DEBUG: _loadToken iniciado ===');
-    token =
-        await AuthService.getToken(); // MUDANÇA: Usar AuthService.getToken()
-    debugPrint(
-      '=== DEBUG: Token carregado: ${token != null ? "SIM" : "NÃO"} ===',
-    );
-
-    if (token == null) {
-      _showError('Faça login novamente.');
-      if (mounted) {
-        Navigator.of(context).popUntil(
-          (route) => route.isFirst,
-        ); // Opcional: Redireciona para login se necessário
-      }
+    final authToken = await AuthService.getToken();
+    if (authToken == null && mounted) {
+      _showError('Token não encontrado. Faça login novamente.');
       return;
     }
 
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {
+        token = authToken;
+      });
+    }
   }
 
   Map<String, String> _getImageHeaders() {
@@ -306,11 +329,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   }
 
   Future<void> _carregarUsuarios() async {
-    debugPrint(
-      '=== DEBUG: _carregarUsuarios iniciado - mostrarAlunos: $mostrarAlunos ===',
-    );
     if (token == null) {
-      debugPrint('=== DEBUG: Token nulo em _carregarUsuarios ===');
       _showError('Token não encontrado. Faça login novamente.');
       return;
     }
@@ -326,17 +345,11 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       final url = Uri.parse(
         AuthService.baseUrl + apiBaseUrl + endpoint,
       ); // MUDANÇA: Usar baseUrl do AuthService
-      debugPrint('=== DEBUG: URL de usuários: $url ===');
       final response = await http.get(url, headers: headers);
-
-      debugPrint('=== DEBUG: StatusCode usuários: ${response.statusCode} ===');
-      debugPrint('=== DEBUG: Body usuários: ${response.body} ===');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        debugPrint(
-          '=== DEBUG: Número de usuários carregados: ${data.length} ===',
-        );
+
         setState(() {
           usuarios = data.map<Usuario>((json) {
             final user = Usuario.fromJson(json);
@@ -350,7 +363,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         ); // MUDANÇA: Incluir body no erro
       }
     } catch (e) {
-      debugPrint('=== DEBUG: Erro em _carregarUsuarios: $e ===');
       setState(() {
         carregando = false;
       });
@@ -360,54 +372,42 @@ class _AdministracaoPageState extends State<AdministracaoPage>
 
   // NOVOS MÉTODOS PARA NOTAS
   Future<void> _carregarNotasData() async {
-    debugPrint('=== DEBUG: _carregarNotasData iniciado ===');
     if (token == null) return;
     setState(() => carregandoNotas = true);
     try {
       await _carregarDisciplinas();
     } catch (e) {
-      debugPrint('=== DEBUG: Erro geral em _carregarNotasData: $e ===');
       _showError('Erro ao carregar dados de notas: $e');
     } finally {
       if (mounted) setState(() => carregandoNotas = false);
     }
   }
 
-  Future<void> _carregarDisciplinas() async {
-    debugPrint('=== DEBUG: _carregarDisciplinas iniciado ===');
+  // MODIFIQUE o método _carregarDisciplinas para aceitar um parâmetro opcional:
+  Future<void> _carregarDisciplinas({bool silent = false}) async {
     final headers = await AuthService.getAuthHeaders();
     final url = Uri.parse(
       AuthService.baseUrl + apiBaseUrl + cardsDisciplinasPath,
     );
-    debugPrint('=== DEBUG: URL disciplinas: $url ===');
     final response = await http.get(url, headers: headers);
-    debugPrint('=== DEBUG: StatusCode disciplinas: ${response.statusCode} ===');
-    debugPrint('=== DEBUG: Body disciplinas: ${response.body} ===');
+
     if (response.statusCode == 200) {
       final Map<String, dynamic> responseMap = json.decode(response.body);
       final List<dynamic> data = responseMap['data'] ?? [];
-      debugPrint('=== DEBUG: Número de disciplinas raw: ${data.length} ===');
-      // Para cada disciplina, carregar notas
+
       final List<Disciplina> loadedDisciplinas = [];
       for (final Map<String, dynamic> discJson in data) {
         final disciplinaId = discJson['_id'] ?? discJson['id'];
         final notasUrl = Uri.parse(
           AuthService.baseUrl + apiBaseUrl + notasPath + '/$disciplinaId',
         );
-        debugPrint('=== DEBUG: URL notas para $disciplinaId: $notasUrl ===');
         List<dynamic> notasData = [];
         try {
           final notasResponse = await http.get(notasUrl, headers: headers);
-          debugPrint(
-            '=== DEBUG: StatusCode notas: ${notasResponse.statusCode} ===',
-          );
-          debugPrint('=== DEBUG: Body notas: ${notasResponse.body} ===');
+
           if (notasResponse.statusCode == 200) {
             final notasMap = json.decode(notasResponse.body);
             notasData = notasMap['data'] ?? [];
-            debugPrint(
-              '=== DEBUG: Número de notas carregadas: ${notasData.length} ===',
-            );
           } else {
             debugPrint(
               '=== DEBUG: Falha ao carregar notas (status ${notasResponse.statusCode}), usando lista vazia ===',
@@ -423,38 +423,36 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           'notas': notasData,
         });
         loadedDisciplinas.add(disciplina);
-        debugPrint(
-          '=== DEBUG: Disciplina adicionada: ${disciplina.titulo}, com ${disciplina.notas.length} notas e ${disciplina.alunos.length} alunos ===',
-        );
       }
       setState(() {
         disciplinas = loadedDisciplinas;
       });
-      debugPrint(
-        '=== DEBUG: Número total de disciplinas após processamento: ${disciplinas.length} ===',
-      );
+
+      // SÓ MOSTRA ALERTA SE NÃO FOR SILENCIOSO
     } else {
-      throw Exception('Falha ao carregar disciplinas: ${response.statusCode}');
+      // SÓ MOSTRA ERRO SE NÃO FOR SILENCIOSO
+      if (!silent) {
+        throw Exception(
+          'Falha ao carregar disciplinas: ${response.statusCode}',
+        );
+      }
     }
   }
 
-  Future<void> _criarNota(Nota nota) async {
-    debugPrint(
-      '=== DEBUG: _criarNota - Disciplina: ${nota.disciplinaId}, Aluno: ${nota.alunoId} ===',
-    );
+  Future<void> _criarNota(Nota nota, {bool silent = false}) async {
     final headers = await AuthService.getAuthHeaders();
     final url = Uri.parse(AuthService.baseUrl + apiBaseUrl + notasPath);
-    debugPrint('=== DEBUG: URL criar nota: $url ===');
     final response = await http.post(
       url,
       headers: headers,
       body: json.encode(nota.toJson()),
     );
-    debugPrint('=== DEBUG: StatusCode criar nota: ${response.statusCode} ===');
-    debugPrint('=== DEBUG: Body criar nota: ${response.body} ===');
+
     if (response.statusCode == 201) {
-      _showSuccess('Nota criada com sucesso!');
-      await _carregarDisciplinas();
+      if (!silent) {
+        _showSuccess('Nota criada com sucesso!');
+      }
+      await _carregarDisciplinas(silent: true);
     } else {
       throw Exception(
         'Falha ao criar nota: ${response.statusCode} - ${response.body}',
@@ -462,25 +460,26 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     }
   }
 
-  Future<void> _atualizarNota(String notaId, Nota notaAtualizada) async {
-    debugPrint('=== DEBUG: _atualizarNota - Nota: $notaId ===');
+  Future<void> _atualizarNota(
+    String notaId,
+    Nota notaAtualizada, {
+    bool silent = false,
+  }) async {
     final headers = await AuthService.getAuthHeaders();
     final url = Uri.parse(
       AuthService.baseUrl + apiBaseUrl + notasPath + '/$notaId',
     );
-    debugPrint('=== DEBUG: URL atualizar nota: $url ===');
     final response = await http.put(
       url,
       headers: headers,
       body: json.encode(notaAtualizada.toJson()),
     );
-    debugPrint(
-      '=== DEBUG: StatusCode atualizar nota: ${response.statusCode} ===',
-    );
-    debugPrint('=== DEBUG: Body atualizar nota: ${response.body} ===');
+
     if (response.statusCode == 200) {
-      _showSuccess('Nota atualizada com sucesso!');
-      await _carregarDisciplinas();
+      if (!silent) {
+        _showSuccess('Nota atualizada com sucesso!');
+      }
+      await _carregarDisciplinas(silent: true);
     } else {
       throw Exception(
         'Falha ao atualizar nota: ${response.statusCode} - ${response.body}',
@@ -488,8 +487,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     }
   }
 
-  Future<void> _deletarNota(String notaId) async {
-    debugPrint('=== DEBUG: _deletarNota - Nota: $notaId ===');
+  Future<void> _deletarNota(String notaId, {bool silent = false}) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -512,15 +510,13 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       final url = Uri.parse(
         AuthService.baseUrl + apiBaseUrl + notasPath + '/$notaId',
       );
-      debugPrint('=== DEBUG: URL deletar nota: $url ===');
       final response = await http.delete(url, headers: headers);
-      debugPrint(
-        '=== DEBUG: StatusCode deletar nota: ${response.statusCode} ===',
-      );
-      debugPrint('=== DEBUG: Body deletar nota: ${response.body} ===');
+
       if (response.statusCode == 200) {
-        _showSuccess('Nota removida com sucesso!');
-        await _carregarDisciplinas();
+        if (!silent) {
+          _showSuccess('Nota removida com sucesso!');
+        }
+        await _carregarDisciplinas(silent: true);
       } else {
         throw Exception(
           'Falha ao remover nota: ${response.statusCode} - ${response.body}',
@@ -534,9 +530,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     Nota? nota,
     Usuario? selectedAluno,
   }) async {
-    debugPrint(
-      '=== DEBUG: _showAddEditNotaDialog - Edit: ${nota != null}, SelectedAluno: ${selectedAluno?.nome} ===',
-    );
     final result = await showDialog<Nota?>(
       context: context,
       builder: (context) => NotaDialog(
@@ -553,50 +546,69 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           await _atualizarNota(nota.id, result);
         }
       } catch (e) {
-        debugPrint('=== DEBUG: Erro em _showAddEditNotaDialog: $e ===');
         _showError('Erro ao salvar nota: $e');
       }
     }
   }
 
-  // NOVO MÉTODO: Adicionar avaliação global para disciplina
   Future<void> _addGlobalAvaliacao(Disciplina disciplina) async {
     final newAv = await showDialog<Avaliacao?>(
       context: context,
       builder: (context) => AddGlobalAvaliacaoDialog(disciplina: disciplina),
     );
     if (newAv != null) {
-      for (final aluno in disciplina.alunos) {
-        Nota? existingNota = disciplina.notas.firstWhereOrNull(
-          (n) => n.alunoId == aluno.id,
-        );
-        final avaliacoes = List<Avaliacao>.from(existingNota?.avaliacoes ?? []);
-        final existingAv = avaliacoes.firstWhereOrNull(
-          (a) => a.nome == newAv.nome && a.tipo == newAv.tipo,
-        );
-        if (existingAv == null) {
-          avaliacoes.add(newAv.copyWith(nota: 0.0));
+      bool hasError = false;
+      String? errorMessage;
+
+      try {
+        // Primeiro, criar todas as notas/atualizações
+        for (final aluno in disciplina.alunos) {
+          Nota? existingNota = disciplina.notas.firstWhereOrNull(
+            (n) => n.alunoId == aluno.id,
+          );
+          final avaliacoes = List<Avaliacao>.from(
+            existingNota?.avaliacoes ?? [],
+          );
+          final existingAv = avaliacoes.firstWhereOrNull(
+            (a) => a.nome == newAv.nome && a.tipo == newAv.tipo,
+          );
+          if (existingAv == null) {
+            avaliacoes.add(newAv.copyWith(nota: 0.0));
+          }
+          final notaToSave =
+              existingNota?.copyWith(avaliacoes: avaliacoes) ??
+              Nota(
+                id: '',
+                disciplinaId: disciplina.id,
+                alunoId: aluno.id,
+                alunoNome: aluno.nome,
+                alunoRa: aluno.ra,
+                avaliacoes: avaliacoes,
+              );
+          if (existingNota == null) {
+            await _criarNota(notaToSave, silent: true); // MODIFICADO
+          } else {
+            await _atualizarNota(
+              existingNota.id,
+              notaToSave,
+              silent: true,
+            ); // MODIFICADO
+          }
         }
-        final notaToSave =
-            existingNota?.copyWith(avaliacoes: avaliacoes) ??
-            Nota(
-              id: '',
-              disciplinaId: disciplina.id,
-              alunoId: aluno.id,
-              alunoNome: aluno.nome,
-              alunoRa: aluno.ra,
-              avaliacoes: avaliacoes,
-            );
-        if (existingNota == null) {
-          await _criarNota(notaToSave);
-        } else {
-          await _atualizarNota(existingNota.id, notaToSave);
-        }
+
+        // DEPOIS de todas as operações, recarregar e mostrar alerta UMA VEZ
+        await _carregarDisciplinas(silent: true);
+        _showSuccess(
+          'Avaliação "${newAv.nome}" adicionada para todos os alunos com nota padrão 0!',
+        );
+      } catch (e) {
+        hasError = true;
+        errorMessage = e.toString();
       }
-      await _carregarDisciplinas();
-      _showSuccess(
-        'Avaliação "${newAv.nome}" adicionada para todos os alunos com nota padrão 0!',
-      );
+
+      if (hasError) {
+        _showError('Erro ao adicionar avaliação: $errorMessage');
+      }
     }
   }
 
@@ -631,24 +643,39 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     String oldTipo,
     Avaliacao newAv,
   ) async {
-    for (final nota in disciplina.notas) {
-      final avIndex = nota.avaliacoes.indexWhere(
-        (a) => a.nome == oldNome && a.tipo == oldTipo,
-      );
-      if (avIndex != -1) {
-        final updatedAv = nota.avaliacoes[avIndex].copyWith(
-          nome: newAv.nome,
-          tipo: newAv.tipo,
-          peso: newAv.peso,
+    bool hasError = false;
+    String? errorMessage;
+
+    try {
+      // Primeiro, fazer todas as atualizações
+      for (final nota in disciplina.notas) {
+        final avIndex = nota.avaliacoes.indexWhere(
+          (a) => a.nome == oldNome && a.tipo == oldTipo,
         );
-        final updatedAvaliacoes = List<Avaliacao>.from(nota.avaliacoes);
-        updatedAvaliacoes[avIndex] = updatedAv;
-        final updatedNota = nota.copyWith(avaliacoes: updatedAvaliacoes);
-        await _atualizarNota(nota.id, updatedNota);
+        if (avIndex != -1) {
+          final updatedAv = nota.avaliacoes[avIndex].copyWith(
+            nome: newAv.nome,
+            tipo: newAv.tipo,
+            peso: newAv.peso,
+          );
+          final updatedAvaliacoes = List<Avaliacao>.from(nota.avaliacoes);
+          updatedAvaliacoes[avIndex] = updatedAv;
+          final updatedNota = nota.copyWith(avaliacoes: updatedAvaliacoes);
+          await _atualizarNota(nota.id, updatedNota, silent: true);
+        }
       }
+
+      // DEPOIS de todas as operações, recarregar e mostrar alerta UMA VEZ
+      await _carregarDisciplinas(silent: true);
+      _showSuccess('Avaliação atualizada com sucesso!');
+    } catch (e) {
+      hasError = true;
+      errorMessage = e.toString();
     }
-    await _carregarDisciplinas();
-    _showSuccess('Avaliação atualizada com sucesso!');
+
+    if (hasError) {
+      _showError('Erro ao atualizar avaliação: $errorMessage');
+    }
   }
 
   Future<void> _deleteGlobalAvaliacao(
@@ -668,31 +695,47 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remover'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.vermelho,
+            ),
+            child: const Text('Remover', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
+
     if (confirm != true) return;
 
-    for (final nota in disciplina.notas) {
-      final updatedAvaliacoes = nota.avaliacoes
-          .where((a) => !(a.nome == nome && a.tipo == tipo))
-          .toList();
-      if (updatedAvaliacoes.length < nota.avaliacoes.length) {
-        final updatedNota = nota.copyWith(avaliacoes: updatedAvaliacoes);
-        await _atualizarNota(nota.id, updatedNota);
+    bool hasError = false;
+    String? errorMessage;
+
+    try {
+      // Primeiro, fazer todas as remoções
+      for (final nota in disciplina.notas) {
+        final updatedAvaliacoes = nota.avaliacoes
+            .where((a) => !(a.nome == nome && a.tipo == tipo))
+            .toList();
+        if (updatedAvaliacoes.length < nota.avaliacoes.length) {
+          final updatedNota = nota.copyWith(avaliacoes: updatedAvaliacoes);
+          await _atualizarNota(nota.id, updatedNota, silent: true);
+        }
       }
+
+      // DEPOIS de todas as operações, recarregar e mostrar alerta UMA VEZ
+      await _carregarDisciplinas(silent: true);
+      _showSuccess('Avaliação removida com sucesso!');
+    } catch (e) {
+      hasError = true;
+      errorMessage = e.toString();
     }
-    await _carregarDisciplinas();
-    _showSuccess('Avaliação removida com sucesso!');
+
+    if (hasError) {
+      _showError('Erro ao remover avaliação: $errorMessage');
+    }
   }
 
   // NOVA FUNÇÃO: Enviar senha inicial via API
   Future<void> _sendInitialPassword(String email, String tipo) async {
-    debugPrint(
-      '=== DEBUG: _sendInitialPassword - Email: $email, Tipo: $tipo ===',
-    );
     if (token == null) {
       _showError('Token não encontrado. Faça login novamente.');
       return;
@@ -703,17 +746,11 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       final url = Uri.parse(
         AuthService.baseUrl + apiBaseUrl + '/enviarEmail/enviar-senha-inicial',
       );
-      debugPrint('=== DEBUG: URL senha inicial: $url ===');
       final response = await http.post(
         url,
         headers: headers,
         body: json.encode({'email': email, 'tipo': tipo}),
       );
-
-      debugPrint(
-        '=== DEBUG: StatusCode senha inicial: ${response.statusCode} ===',
-      );
-      debugPrint('=== DEBUG: Body senha inicial: ${response.body} ===');
 
       if (response.statusCode != 200) {
         throw Exception(
@@ -721,7 +758,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         );
       }
     } catch (e) {
-      debugPrint('=== DEBUG: Erro em _sendInitialPassword: $e ===');
       // Não falha o processo de criação, apenas loga erro
       _showError(
         'Usuário criado, mas falha ao enviar senha: $e. Tente reenviar manualmente.',
@@ -731,7 +767,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   }
 
   void _showError(String message) {
-    debugPrint('=== DEBUG: _showError: $message ===');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -750,7 +785,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     setState(() {
       _searchQuery = query;
     });
-    debugPrint('=== DEBUG: _onSearchChanged: $query ===');
   }
 
   void _onSearchNotasChanged(String query) {
@@ -764,7 +798,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       _searchQuery = '';
       _searchController.clear();
     });
-    debugPrint('=== DEBUG: _clearSearch chamado ===');
   }
 
   void _clearSearchNotas() {
@@ -776,9 +809,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
 
   List<Usuario> _getUsuariosFiltrados() {
     final listaSegura = usuarios;
-    debugPrint(
-      '=== DEBUG: _getUsuariosFiltrados - Total usuarios: ${listaSegura.length}, Query: $_searchQuery ===',
-    );
 
     if (listaSegura.isEmpty) {
       return [];
@@ -796,8 +826,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       }
     }).toList();
 
-    debugPrint('=== DEBUG: Após filtro tipo: ${filtrados.length} ===');
-
     if (_searchQuery.isNotEmpty) {
       filtrados = filtrados.where((usuario) {
         final query = _searchQuery.toLowerCase();
@@ -805,7 +833,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             usuario.email.toLowerCase().contains(query) ||
             (usuario.ra != null && usuario.ra!.toLowerCase().contains(query));
       }).toList();
-      debugPrint('=== DEBUG: Após filtro busca: ${filtrados.length} ===');
     }
 
     return filtrados;
@@ -823,9 +850,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   }
 
   Future<void> _showUserDialog({Usuario? usuario}) async {
-    debugPrint(
-      '=== DEBUG: _showUserDialog - Edit: ${usuario != null}, IsAluno: ${usuario?.tipo == 'aluno' || mostrarAlunos} ===',
-    );
     final bool isEdit = usuario != null;
     final bool isAluno = usuario?.tipo == 'aluno' || mostrarAlunos;
 
@@ -838,8 +862,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         token: token,
       ),
     );
-
-    debugPrint('=== DEBUG: Resultado dialog usuário: $result ===');
 
     if (result != null) {
       // MUDANÇA: Removido check de token aqui, pois headers são async
@@ -863,17 +885,11 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           final url = Uri.parse(
             AuthService.baseUrl + apiBaseUrl + endpoint + '/' + usuario.id,
           ); // MUDANÇA: Usar baseUrl
-          debugPrint('=== DEBUG: URL update usuário: $url, Body: $body ===');
           final response = await http.put(
             url,
             headers: headers,
             body: json.encode(body),
           );
-
-          debugPrint(
-            '=== DEBUG: StatusCode update usuário: ${response.statusCode} ===',
-          );
-          debugPrint('=== DEBUG: Body update usuário: ${response.body} ===');
 
           if (response.statusCode == 200) {
             final decodedBody = json.decode(response.body);
@@ -910,17 +926,11 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           final url = Uri.parse(
             AuthService.baseUrl + apiBaseUrl + endpoint,
           ); // MUDANÇA: Usar baseUrl
-          debugPrint('=== DEBUG: URL create usuário: $url, Body: $body ===');
           final response = await http.post(
             url,
             headers: headers,
             body: json.encode(body),
           );
-
-          debugPrint(
-            '=== DEBUG: StatusCode create usuário: ${response.statusCode} ===',
-          );
-          debugPrint('=== DEBUG: Body create usuário: ${response.body} ===');
 
           if (response.statusCode == 201) {
             final decodedBody = json.decode(response.body);
@@ -947,20 +957,16 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           }
         }
       } catch (e) {
-        debugPrint('=== DEBUG: Erro em _showUserDialog: $e ===');
         _showError('Erro ao salvar: $e');
       }
     }
   }
 
   Future<void> _showDeleteDialog(Usuario usuario) async {
-    debugPrint('=== DEBUG: _showDeleteDialog - Usuário: ${usuario.nome} ===');
     final confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => DeleteDialog(usuario: usuario),
     );
-
-    debugPrint('=== DEBUG: Confirmação delete: $confirm ===');
 
     if (confirm == true) {
       // MUDANÇA: Removido check de token aqui
@@ -971,13 +977,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         final url = Uri.parse(
           AuthService.baseUrl + apiBaseUrl + endpoint + '/' + usuario.id,
         ); // MUDANÇA: Usar baseUrl
-        debugPrint('=== DEBUG: URL delete usuário: $url ===');
         final response = await http.delete(url, headers: headers);
-
-        debugPrint(
-          '=== DEBUG: StatusCode delete usuário: ${response.statusCode} ===',
-        );
-        debugPrint('=== DEBUG: Body delete usuário: ${response.body} ===');
 
         if (response.statusCode == 200) {
           setState(() {
@@ -990,14 +990,12 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           ); // MUDANÇA: Incluir body
         }
       } catch (e) {
-        debugPrint('=== DEBUG: Erro em _showDeleteDialog: $e ===');
         _showError('Erro ao excluir: $e');
       }
     }
   }
 
   void _showSuccess(String message) {
-    debugPrint('=== DEBUG: _showSuccess: $message ===');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1019,7 +1017,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   }
 
   void _switchToUsuarios() {
-    debugPrint('=== DEBUG: _switchToUsuarios chamado ===');
     setState(() {
       mostrarNotas = false;
       mostrarAlunos = true;
@@ -1029,7 +1026,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   }
 
   void _switchToNotas() {
-    debugPrint('=== DEBUG: _switchToNotas chamado ===');
     setState(() {
       mostrarNotas = true;
       selectedDisciplineId = null; // Resetar seleção ao entrar em notas
@@ -1053,9 +1049,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
 
   @override
   Widget build(BuildContext context) {
-    debugPrint(
-      '=== DEBUG: Build - mostrarNotas: $mostrarNotas, isAdmin: ${widget.isAdmin} ===',
-    );
     final Color primaryColor = AppColors.azulClaro;
 
     final fabChild = FloatingActionButton.extended(
@@ -1257,9 +1250,42 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       return const Center(child: Text('Disciplina não encontrada'));
     }
 
+    // NOVO: Calcular média da turma
+    double calcularMediaTurma(Disciplina disciplina) {
+      double somaMedias = 0.0;
+      int alunosComNota = 0;
+
+      for (final aluno in disciplina.alunos) {
+        final nota = disciplina.notas.firstWhereOrNull(
+          (n) => n.alunoId == aluno.id,
+        );
+        if (nota != null && nota.avaliacoes.isNotEmpty) {
+          double mediaAluno = 0.0;
+          double totalPeso = 0.0;
+
+          for (final av in nota.avaliacoes) {
+            if (av.nota != null && av.nota! > 0) {
+              mediaAluno += (av.nota! * (av.peso ?? 1.0));
+              totalPeso += (av.peso ?? 1.0);
+            }
+          }
+
+          if (totalPeso > 0) {
+            mediaAluno = mediaAluno / totalPeso;
+            somaMedias += mediaAluno;
+            alunosComNota++;
+          }
+        }
+      }
+
+      return alunosComNota > 0 ? somaMedias / alunosComNota : 0.0;
+    }
+
+    final mediaTurma = calcularMediaTurma(selectedDiscipline);
+
     return Column(
       children: [
-        // Header com botão de voltar
+        // Header com botão de voltar E MÉDIA DA TURMA
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -1273,14 +1299,70 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                 onPressed: _backToDisciplines,
               ),
               const SizedBox(width: 8),
-              Text(
-                selectedDiscipline.titulo,
-                style: AppTextStyles.fonteUbuntu.copyWith(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      selectedDiscipline.titulo,
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // NOVO: Exibir média da turma
+                    if (mediaTurma > 0)
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: mediaTurma >= 6.0
+                                  ? AppColors.verdeConfirmacao.withOpacity(0.1)
+                                  : AppColors.vermelhoErro.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: mediaTurma >= 6.0
+                                    ? AppColors.verdeConfirmacao
+                                    : AppColors.vermelhoErro,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  mediaTurma >= 6.0
+                                      ? Icons.trending_up
+                                      : Icons.trending_down,
+                                  size: 14,
+                                  color: mediaTurma >= 6.0
+                                      ? AppColors.verdeConfirmacao
+                                      : AppColors.vermelhoErro,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Média da Turma: ${mediaTurma.toStringAsFixed(1)}',
+                                  style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: mediaTurma >= 6.0
+                                        ? AppColors.verdeConfirmacao
+                                        : AppColors.vermelhoErro,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
                 ),
               ),
-              const Spacer(),
               Text(
                 '${selectedDiscipline.alunos.length} alunos',
                 style: AppTextStyles.fonteUbuntuSans.copyWith(
@@ -1291,7 +1373,24 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             ],
           ),
         ),
-        Expanded(child: _buildNotasDataTable(selectedDiscipline, primaryColor)),
+        Expanded(
+          child: NotasDataTable(
+            key: ValueKey(selectedDiscipline.id),
+            disciplina: selectedDiscipline,
+            primaryColor: primaryColor,
+            onAddGlobalAvaliacao: _addGlobalAvaliacao,
+            onManageAvaliacoes: _manageAvaliacoes,
+            onCreateNota: _criarNota,
+            onUpdateNota: _atualizarNota,
+            onReloadDisciplinas: _carregarDisciplinas,
+            showSuccess: _showSuccess,
+            showError: _showError,
+            onMediaTurmaAtualizada: (novaMedia) {
+              // Atualiza o estado para refletir a nova média
+              setState(() {});
+            },
+          ),
+        ),
       ],
     );
   }
@@ -1940,530 +2039,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         ),
       ),
     );
-  }
-
-  // ATUALIZADO: Tabela de notas editável como Excel
-  Widget _buildNotasDataTable(Disciplina disciplina, Color primaryColor) {
-    final List<Usuario> allAlunos = List<Usuario>.from(disciplina.alunos)
-      ..sort((a, b) => a.nome.compareTo(b.nome));
-
-    // Coletar todas as avaliações únicas
-    final Set<String> avaliacaoNomes = <String>{};
-    final Map<String, String> nomeToTipo = {};
-    final Map<String, double> nomeToPeso = {};
-
-    for (final nota in disciplina.notas) {
-      for (final av in nota.avaliacoes) {
-        avaliacaoNomes.add(av.nome);
-        nomeToTipo[av.nome] = av.tipo;
-        nomeToPeso[av.nome] = av.peso ?? 1.0;
-      }
-    }
-
-    final colunasAvaliacao = avaliacaoNomes.toList();
-    final Map<String, Map<String, TextEditingController>> controllers = {};
-    final Map<String, Map<String, double?>> localNotas = {};
-
-    // Inicializar controllers e notas locais
-    for (final aluno in allAlunos) {
-      controllers[aluno.id] = {};
-      localNotas[aluno.id] = {};
-      final nota = disciplina.notas.firstWhereOrNull(
-        (n) => n.alunoId == aluno.id,
-      );
-
-      for (final nome in colunasAvaliacao) {
-        final av = nota?.avaliacoes.firstWhereOrNull((a) => a.nome == nome);
-        final currentNota = av?.nota ?? 0.0;
-        localNotas[aluno.id]![nome] = currentNota;
-        controllers[aluno.id]![nome] = TextEditingController(
-          text: currentNota > 0 ? currentNota.toStringAsFixed(1) : '',
-        );
-      }
-    }
-
-    return Column(
-      children: [
-        // Header com botões de ação
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-          ),
-          child: Row(
-            children: [
-              ElevatedButton.icon(
-                onPressed: () => _addGlobalAvaliacao(disciplina),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Avaliação'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: AppColors.branco,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (colunasAvaliacao.isNotEmpty) ...[
-                ElevatedButton.icon(
-                  onPressed: () => _manageAvaliacoes(disciplina),
-                  icon: const Icon(Icons.settings, size: 18),
-                  label: const Text('Gerenciar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: AppColors.branco,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              const Spacer(),
-              ElevatedButton.icon(
-                onPressed: () =>
-                    _saveAllNotas(disciplina, localNotas, controllers),
-                icon: const Icon(Icons.save, size: 18),
-                label: const Text('Salvar Todas as Notas'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.verdeConfirmacao,
-                  foregroundColor: AppColors.branco,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Tabela editável com scroll (removido height fixo para full expand)
-        Expanded(
-          child: Scrollbar(
-            thumbVisibility: true,
-            child: SingleChildScrollView(
-              physics: const ClampingScrollPhysics(),
-              child: Scrollbar(
-                thumbVisibility: true,
-                notificationPredicate: (notif) => notif.depth == 1,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const ClampingScrollPhysics(),
-                  child: DataTable(
-                    headingRowHeight: 80,
-                    dataRowHeight: 70,
-                    headingRowColor: MaterialStateProperty.all(Colors.grey[50]),
-                    dividerThickness: 1,
-                    columnSpacing: 12,
-                    horizontalMargin: 16,
-                    headingTextStyle: AppTextStyles.fonteUbuntu.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF424242),
-                      fontSize: 12,
-                      letterSpacing: 0.5,
-                    ),
-                    dataTextStyle: AppTextStyles.fonteUbuntuSans.copyWith(
-                      color: const Color(0xFF424242),
-                      fontSize: 14,
-                    ),
-                    columns: [
-                      const DataColumn(label: Text('RA'), numeric: false),
-                      const DataColumn(label: Text('Nome do Aluno')),
-                      ...colunasAvaliacao.map((nome) {
-                        final tipo = nomeToTipo[nome] ?? '';
-                        final peso = nomeToPeso[nome] ?? 1.0;
-                        final color = tipo == 'atividade'
-                            ? Colors.green
-                            : AppColors.azulClaro;
-
-                        return DataColumn(
-                          label: Container(
-                            constraints: const BoxConstraints(minWidth: 130),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    nome,
-                                    style: AppTextStyles.fonteUbuntu.copyWith(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: color,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 2,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  tipo.toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    color: color.withOpacity(0.7),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                Text(
-                                  'Peso: ${peso.toStringAsFixed(1)}',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    color: color.withOpacity(0.8),
-                                    fontWeight: FontWeight.w500,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                      const DataColumn(label: Text('Média')),
-                    ],
-                    rows: allAlunos.map((aluno) {
-                      final nota = disciplina.notas.firstWhereOrNull(
-                        (n) => n.alunoId == aluno.id,
-                      );
-
-                      // Calcular média ponderada
-                      double media = 0.0;
-                      double totalPeso = 0.0;
-                      int avaliacoesComNota = 0;
-
-                      for (final nome in colunasAvaliacao) {
-                        final currentNota = localNotas[aluno.id]![nome] ?? 0.0;
-                        final peso = nomeToPeso[nome] ?? 1.0;
-                        if (currentNota > 0) {
-                          media += (currentNota * peso);
-                          totalPeso += peso;
-                          avaliacoesComNota++;
-                        }
-                      }
-
-                      if (totalPeso > 0) {
-                        media = media / totalPeso;
-                      }
-
-                      return DataRow(
-                        color: MaterialStateProperty.resolveWith<Color?>((
-                          Set<MaterialState> states,
-                        ) {
-                          if (states.contains(MaterialState.hovered)) {
-                            return primaryColor.withOpacity(0.05);
-                          }
-                          if (nota == null) {
-                            return Colors.orange.withOpacity(0.05);
-                          }
-                          return null;
-                        }),
-                        cells: [
-                          // Célula RA
-                          DataCell(
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: nota == null
-                                    ? Colors.orange.withOpacity(0.1)
-                                    : primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: nota == null
-                                      ? Colors.orange.withOpacity(0.3)
-                                      : primaryColor.withOpacity(0.3),
-                                ),
-                              ),
-                              child: Text(
-                                aluno.ra ?? '-',
-                                style: AppTextStyles.fonteUbuntu.copyWith(
-                                  color: nota == null
-                                      ? Colors.orange
-                                      : primaryColor,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                          // Célula Nome
-                          DataCell(
-                            SizedBox(
-                              width: 200,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    aluno.nome,
-                                    style: AppTextStyles.fonteUbuntu.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    nota != null
-                                        ? '${nota.avaliacoes.length} avaliações'
-                                        : 'Sem notas',
-                                    style: AppTextStyles.fonteUbuntuSans
-                                        .copyWith(
-                                          color: nota != null
-                                              ? primaryColor
-                                              : Colors.orange,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          // Células de avaliações (EDITÁVEIS - MELHORADO PARA EXCEL-LIKE)
-                          ...colunasAvaliacao.map((nome) {
-                            final tipo = nomeToTipo[nome] ?? '';
-                            final color = tipo == 'atividade'
-                                ? Colors.green
-                                : AppColors.azulClaro;
-
-                            return DataCell(
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  // Campo de texto expandido para melhor edição
-                                  Container(
-                                    width: double.infinity,
-                                    height: 50, // Altura fixa para melhor UX
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: Colors.grey[300]!,
-                                        width: 1,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.grey.withOpacity(0.1),
-                                          blurRadius: 2,
-                                          offset: const Offset(0, 1),
-                                        ),
-                                      ],
-                                    ),
-                                    child: TextField(
-                                      controller: controllers[aluno.id]![nome],
-                                      textAlign: TextAlign.center,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                            decimal: true,
-                                          ),
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.allow(
-                                          RegExp(r'^\d*\.?\d{0,2}$'),
-                                        ),
-                                      ],
-                                      decoration: const InputDecoration(
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 12,
-                                        ),
-                                        isDense: true,
-                                        isCollapsed: true,
-                                      ),
-                                      style: AppTextStyles.fonteUbuntu.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: color,
-                                        fontSize:
-                                            16, // Aumentado para melhor visibilidade
-                                      ),
-                                      onTap: () {
-                                        // Força o foco ao tocar no campo
-                                        FocusScope.of(
-                                          context,
-                                        ).requestFocus(FocusNode());
-                                      },
-                                      onChanged: (value) {
-                                        final num = double.tryParse(value);
-                                        if (num != null &&
-                                            num >= 0 &&
-                                            num <= 10) {
-                                          setState(() {
-                                            localNotas[aluno.id]![nome] = num;
-                                          });
-                                        } else if (value.isEmpty) {
-                                          setState(() {
-                                            localNotas[aluno.id]![nome] = 0.0;
-                                          });
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Peso: ${nomeToPeso[nome]?.toStringAsFixed(1) ?? '1.0'}',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          // Célula Média (calculada automaticamente)
-                          DataCell(
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: media > 0
-                                    ? AppColors.verdeConfirmacao.withOpacity(
-                                        0.1,
-                                      )
-                                    : Colors.grey[100],
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: media > 0
-                                      ? AppColors.verdeConfirmacao
-                                      : Colors.grey[300]!,
-                                ),
-                              ),
-                              child: Text(
-                                media > 0 ? media.toStringAsFixed(1) : '-',
-                                style: AppTextStyles.fonteUbuntu.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: media > 0
-                                      ? AppColors.verdeConfirmacao
-                                      : Colors.grey[500],
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // MÉTODO PARA SALVAR TODAS AS NOTAS
-  Future<void> _saveAllNotas(
-    Disciplina disciplina,
-    Map<String, Map<String, double?>> localNotas,
-    Map<String, Map<String, TextEditingController>> controllers,
-  ) async {
-    bool saving = false;
-    if (saving) return;
-
-    saving = true;
-    try {
-      final List<Usuario> allAlunos = List<Usuario>.from(disciplina.alunos)
-        ..sort((a, b) => a.nome.compareTo(b.nome));
-
-      // Coletar informações das avaliações
-      final Map<String, String> nomeToTipo = {};
-      final Map<String, double> nomeToPeso = {};
-
-      for (final nota in disciplina.notas) {
-        for (final av in nota.avaliacoes) {
-          nomeToTipo[av.nome] = av.tipo;
-          nomeToPeso[av.nome] = av.peso ?? 1.0;
-        }
-      }
-
-      for (final aluno in allAlunos) {
-        final notaExistente = disciplina.notas.firstWhereOrNull(
-          (n) => n.alunoId == aluno.id,
-        );
-
-        final avaliacoes = <Avaliacao>[];
-        for (final nome in localNotas[aluno.id]!.keys) {
-          final notaValue = localNotas[aluno.id]![nome] ?? 0.0;
-          final avExistente = notaExistente?.avaliacoes.firstWhereOrNull(
-            (a) => a.nome == nome,
-          );
-
-          final avaliacao =
-              avExistente?.copyWith(nota: notaValue) ??
-              Avaliacao(
-                id: '',
-                nome: nome,
-                tipo: nomeToTipo[nome] ?? 'prova',
-                nota: notaValue,
-                peso: nomeToPeso[nome] ?? 1.0,
-                data: DateTime.now(),
-              );
-
-          avaliacoes.add(avaliacao);
-        }
-
-        final notaToSave =
-            notaExistente?.copyWith(avaliacoes: avaliacoes) ??
-            Nota(
-              id: '',
-              disciplinaId: disciplina.id,
-              alunoId: aluno.id,
-              alunoNome: aluno.nome,
-              alunoRa: aluno.ra,
-              avaliacoes: avaliacoes,
-            );
-
-        if (notaExistente == null) {
-          await _criarNota(notaToSave);
-        } else {
-          await _atualizarNota(notaExistente.id, notaToSave);
-        }
-      }
-
-      await _carregarDisciplinas();
-      _showSuccess('Todas as notas foram salvas com sucesso!');
-    } catch (e) {
-      _showError('Erro ao salvar notas: $e');
-    } finally {
-      saving = false;
-    }
-  }
-
-  // MÉTODO AUXILIAR: Formatar data
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
-  }
-
-  // MÉTODO AUXILIAR: Salvar notas (implementação básica)
-  Future<void> _saveNotas(Disciplina disciplina) async {
-    // Implementação do salvamento das notas
-    try {
-      // Aqui você implementaria a lógica para salvar todas as notas
-      _showSuccess('Notas salvas com sucesso!');
-    } catch (e) {
-      _showError('Erro ao salvar notas: $e');
-    }
   }
 
   Widget _buildActionButton({
@@ -3738,9 +3313,6 @@ class _UserDialogState extends State<UserDialog> {
         _isAdmin = true;
       }
     }
-    debugPrint(
-      '=== DEBUG: UserDialog init - Edit: ${widget.isEdit}, IsAluno: ${widget.isAluno}, IsAdmin: $_isAdmin ===',
-    );
   }
 
   @override
@@ -3757,7 +3329,6 @@ class _UserDialogState extends State<UserDialog> {
   }
 
   void _save() {
-    debugPrint('=== DEBUG: _save UserDialog chamado ===');
     if (_formKey.currentState!.validate()) {
       final userData = <String, String>{
         'nome': _nomeController.text,
@@ -3768,7 +3339,6 @@ class _UserDialogState extends State<UserDialog> {
         // MUDANÇA: Adicionar tipo para professores
         userData['tipo'] = _isAdmin ? 'admin' : 'professor';
       }
-      debugPrint('=== DEBUG: Dados salvos: $userData ===');
       Navigator.of(context).pop(userData);
     }
   }

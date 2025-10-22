@@ -6,7 +6,7 @@ import '../../components/auth_guard.dart';
 import '../../styles/cores.dart';
 import 'disciplina/disciplinas_page.dart';
 import 'disciplina/disciplina_detail_page.dart';
-import 'notas_professor_page.dart';
+
 import 'calendario_professor_page.dart';
 import 'notificacoes_professor_page.dart';
 import '../perfil_page.dart';
@@ -38,7 +38,7 @@ class _HomeProfessorState extends State<HomeProfessor>
       icon: Icons.my_library_books_rounded,
       route: '/disciplinas',
     ),
-    NavigationItem(label: "Notas", icon: Icons.bar_chart, route: '/notas'),
+
     NavigationItem(
       label: "Calendário",
       icon: Icons.calendar_month_outlined,
@@ -72,7 +72,7 @@ class _HomeProfessorState extends State<HomeProfessor>
       '/disciplinas': DisciplinasPageProfessor(
         onNavigateToDetail: _navigateToDetail, //  PASSA A FUNÇÃO
       ),
-      '/notas': const NotasPageProfessor(),
+
       '/calendario': const CalendarioPageProfessor(),
       '/notificacoes': const NotificacoesPageProfessor(),
       '/administracao': AdministracaoPage(isAdmin: true),
