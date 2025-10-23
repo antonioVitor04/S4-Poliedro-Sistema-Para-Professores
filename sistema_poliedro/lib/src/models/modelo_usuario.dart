@@ -3,37 +3,29 @@ enum TipoUsuario { aluno, professor }
 class Usuario {
   final String id;
   final String nome;
-  final String? email;
+  final String email;
   final String? ra;
-  final TipoUsuario tipo;
+  final String tipo;
+  final String? fotoUrl;
   final bool hasImage;
 
   Usuario({
     required this.id,
     required this.nome,
-    this.email,
+    required this.email,
     this.ra,
     required this.tipo,
-    required this.hasImage,
+    this.fotoUrl,
+    this.hasImage = false,
   });
-
-  factory Usuario.fromJson(Map<String, dynamic> json, TipoUsuario tipo) {
-    return Usuario(
-      id: json['_id'] ?? json['id'] ?? '',
-      nome: json['nome'] ?? '',
-      email: json['email'],
-      ra: json['ra'],
-      tipo: tipo,
-      hasImage: json['hasImage'] ?? false,
-    );
-  }
 
   Usuario copyWith({
     String? id,
     String? nome,
     String? email,
     String? ra,
-    TipoUsuario? tipo,
+    String? tipo,
+    String? fotoUrl,
     bool? hasImage,
   }) {
     return Usuario(
@@ -42,7 +34,43 @@ class Usuario {
       email: email ?? this.email,
       ra: ra ?? this.ra,
       tipo: tipo ?? this.tipo,
+      fotoUrl: fotoUrl ?? this.fotoUrl,
       hasImage: hasImage ?? this.hasImage,
     );
+  }
+
+  factory Usuario.fromJson(Map<String, dynamic> json) {
+    return Usuario(
+      id: json['id'] ?? json['_id'] ?? '',
+      nome: json['nome'] ?? '',
+      email: json['email'] ?? '',
+      ra: json['ra'],
+      tipo: json['tipo'] ?? 'aluno', // O tipo vem do JSON
+      fotoUrl: json['fotoUrl'],
+      hasImage: json['hasImage'] ?? json['fotoUrl'] != null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'nome': nome,
+      'email': email,
+      if (ra != null) 'ra': ra,
+      'tipo': tipo,
+      if (fotoUrl != null) 'fotoUrl': fotoUrl,
+      'hasImage': hasImage,
+    };
+  }
+
+  // Método auxiliar para converter para TipoUsuario enum
+  TipoUsuario get tipoUsuario {
+    switch (tipo.toLowerCase()) {
+      case 'professor':
+      case 'admin':
+        return TipoUsuario.professor;
+      default:
+        return TipoUsuario.aluno;
+    }
   }
 }

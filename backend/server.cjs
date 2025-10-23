@@ -150,9 +150,6 @@ app.use("/api/cardsDisciplinas", require("./routes/cards/disciplinas.cjs"));
 app.use("/api/cardsDisciplinas", require("./routes/disciplina/topicos.cjs"));
 app.use("/api/cardsDisciplinas", require("./routes/disciplina/materiais.cjs"));
 
-// Nova rota para gerenciamento de relacionamentos
-app.use("/api/relacionamentos", require("./routes/cards/relacionamentos.cjs"));
-
 //nova rota para notas
 app.use("/api/notas", require("./routes/notas.cjs"));
 // Rota de saúde

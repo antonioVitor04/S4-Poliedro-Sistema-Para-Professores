@@ -3,10 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_service.dart';
-import '../models/modelo_usuario.dart';
+import '../models/modelo_usuario.dart'; // Certifique-se que esta importação está correta
 import '../styles/fontes.dart';
 import '../utils/image_utils.dart';
 import '../components/alerta.dart';
+import '../dialogs/editar_perfil_dialog.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -24,13 +25,35 @@ class _PerfilPageState extends State<PerfilPage> {
   String _erro = '';
   TipoUsuario _tipoUsuarioAtual = TipoUsuario.aluno;
   Uint8List? _imagemBytes;
-  int _imageVersion = 0; // CONTADOR PARA FORÇAR ATUALIZAÇÃO
+  int _imageVersion = 0;
 
   @override
   void initState() {
     super.initState();
-
     _carregarTokenEConfigurar();
+  }
+
+  // CORREÇÃO: Método para converter string para TipoUsuario
+  TipoUsuario _stringParaTipoUsuario(String tipo) {
+    switch (tipo.toLowerCase()) {
+      case 'professor':
+        return TipoUsuario.professor;
+      case 'admin':
+        return TipoUsuario
+            .professor; // ou crie um TipoUsuario.admin se necessário
+      default:
+        return TipoUsuario.aluno;
+    }
+  }
+
+  // CORREÇÃO: Método para converter TipoUsuario para string
+  String _tipoUsuarioParaString(TipoUsuario tipo) {
+    switch (tipo) {
+      case TipoUsuario.professor:
+        return 'professor';
+      case TipoUsuario.aluno:
+        return 'aluno';
+    }
   }
 
   Future<void> _carregarTokenEConfigurar() async {
@@ -55,7 +78,7 @@ class _PerfilPageState extends State<PerfilPage> {
   Future<TipoUsuario> _determinarTipoUsuario() async {
     final prefs = await SharedPreferences.getInstance();
     final tipo = prefs.getString('tipoUsuario');
-    return tipo == 'professor' ? TipoUsuario.professor : TipoUsuario.aluno;
+    return _stringParaTipoUsuario(tipo ?? 'aluno');
   }
 
   Future<void> _carregarDadosUsuario() async {
@@ -64,12 +87,11 @@ class _PerfilPageState extends State<PerfilPage> {
 
       setState(() {
         _usuario = usuario;
-        _emailController.text = usuario.email ?? '';
+        _emailController.text = usuario.email;
         _isLoading = false;
         _erro = '';
       });
 
-      // USA APENAS O MÉTODO DEFINITIVO
       await _carregarImagem();
     } catch (e) {
       if (e.toString().contains('401') &&
@@ -83,11 +105,8 @@ class _PerfilPageState extends State<PerfilPage> {
     }
   }
 
-  // MÉTODO SIMPLIFICADO E EFETIVO PARA CARREGAR IMAGEM
-  // MÉTODO DEFINITIVO - ÚNICA VERSÃO QUE VOCÊ PRECISA
   Future<void> _carregarImagem() async {
     try {
-      // Primeiro verifica se o usuário tem imagem
       if (_usuario != null && _usuario!.hasImage) {
         final bytes = await _userService.getImagemUsuarioBytes(
           timestamp: DateTime.now().millisecondsSinceEpoch,
@@ -102,14 +121,11 @@ class _PerfilPageState extends State<PerfilPage> {
         }
       }
 
-      // Se não tem imagem ou falhou o download
-
       setState(() {
         _imagemBytes = null;
         _imageVersion++;
       });
     } catch (e) {
-      // Em caso de erro, assume que não tem imagem
       setState(() {
         _imagemBytes = null;
         _imageVersion++;
@@ -117,12 +133,10 @@ class _PerfilPageState extends State<PerfilPage> {
     }
   }
 
-  // MÉTODO ULTRA-SIMPLES - Use este para testar rapidamente
-
   void _limparImagem() {
     setState(() {
       _imagemBytes = null;
-      _imageVersion++; // INCREMENTA MESMO AO LIMPAR
+      _imageVersion++;
     });
   }
 
@@ -135,7 +149,6 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   void _mostrarAlerta(String mensagem, bool sucesso) {
-    // Cria um GlobalKey para o Scaffold interno (se necessário) ou usa SnackBar para evitar conflito com Navigator
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(mensagem),
@@ -148,37 +161,30 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
-  // MÉTODO DEFINITIVO PARA UPLOAD DE IMAGEM
   Future<void> _selecionarImagem() async {
     try {
       final imageFile = await ImageUtils.selecionarImagem();
       if (imageFile != null) {
         _mostrarAlerta('Enviando imagem...', true);
 
-        // Lê os bytes
         final bytes = await imageFile.readAsBytes();
         final timestamp = DateTime.now().millisecondsSinceEpoch;
 
-        // Verifica tamanho (máximo 5MB)
         if (bytes.length > 5 * 1024 * 1024) {
           _mostrarAlerta('Imagem muito grande. Máximo: 5MB', false);
           return;
         }
 
-        // Converte para base64
         final base64Image = base64Encode(bytes);
 
-        // Faz upload
         await _userService.uploadImagemBase64(
           base64Image,
           'profile_$timestamp.jpg',
         );
 
-        // Atualização local IMEDIATA
         setState(() {
           _imagemBytes = bytes;
           _imageVersion++;
-          // Atualiza o estado do usuário
           if (_usuario != null) {
             _usuario = _usuario!.copyWith(hasImage: true);
           }
@@ -191,12 +197,10 @@ class _PerfilPageState extends State<PerfilPage> {
     }
   }
 
-  // MÉTODO DEFINITIVO PARA REMOVER IMAGEM
   Future<void> _removerImagem() async {
     try {
       await _userService.removerImagemUsuario();
 
-      // ATUALIZAÇÃO IMEDIATA E DEFINITIVA
       setState(() {
         _imagemBytes = null;
         _imageVersion++;
@@ -211,231 +215,49 @@ class _PerfilPageState extends State<PerfilPage> {
     }
   }
 
-  // MODAL DE EDIÇÃO (mantido igual)
   void _abrirModalEditarPerfil() {
     showDialog(
       context: context,
       barrierColor: Colors.black54,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(20),
-        child: _buildModalEditarPerfil(),
+      builder: (context) => EditarPerfilDialog(
+        emailAtual: _usuario?.email ?? '',
+        onConfirm: (email, senha) async {
+          try {
+            await _userService.atualizarPerfilUsuario(
+              email: email,
+              senha: senha,
+            );
+
+            await _carregarDadosUsuario();
+            _mostrarAlerta('Perfil atualizado com sucesso!', true);
+          } catch (e) {
+            _mostrarAlerta('Erro ao atualizar perfil: $e', false);
+          }
+        },
       ),
     );
   }
 
-  Widget _buildModalEditarPerfil() {
-    return Center(
-      child: SingleChildScrollView(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          Icons.edit,
-                          size: 32,
-                          color: Colors.blue.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Editar Perfil',
-                        style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Atualize suas informações',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Email',
-                  style: AppTextStyles.fonteUbuntu.copyWith(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    hintText: 'Digite seu email',
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Nova Senha (opcional)',
-                  style: AppTextStyles.fonteUbuntu.copyWith(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _senhaController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    hintText: 'Digite nova senha',
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          _senhaController.clear();
-                          Navigator.pop(context);
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        child: Text(
-                          'Cancelar',
-                          style: TextStyle(
-                            color: Colors.grey.shade700,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _atualizarPerfil,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          'Salvar',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _atualizarPerfil() async {
-    try {
-      final novoEmail = _emailController.text.isEmpty
-          ? null
-          : _emailController.text;
-      final novaSenha = _senhaController.text.isEmpty
-          ? null
-          : _senhaController.text;
-
-      await _userService.atualizarPerfilUsuario(
-        email: novoEmail,
-        senha: novaSenha,
-      );
-
-      _senhaController.clear();
-      Navigator.pop(context);
-      await _carregarDadosUsuario();
-      _mostrarAlerta('Perfil atualizado com sucesso!', true);
-    } catch (e) {
-      _mostrarAlerta('Erro ao atualizar perfil: $e', false);
-    }
+  // CORREÇÃO: Método para verificar se é professor
+  bool get _isProfessor {
+    return _usuario?.tipoUsuario == TipoUsuario.professor;
   }
 
   String _getMensagemBoasVindas() {
     if (_usuario == null) return "Bem-vindo!";
-    return _usuario!.tipo == TipoUsuario.professor
+    return _isProfessor
         ? "Bem-vindo, Professor ${_usuario!.nome}!"
         : "Bem-vindo, ${_usuario!.nome}!";
   }
 
   String _getIdentificadorLabel() {
     if (_usuario == null) return "";
-    return _usuario!.tipo == TipoUsuario.professor
-        ? "Email Institucional"
-        : "RA";
+    return _isProfessor ? "Email Institucional" : "RA";
   }
 
   String _getIdentificadorValor() {
     if (_usuario == null) return "";
-    return _usuario!.tipo == TipoUsuario.professor
-        ? _usuario!.email ?? ''
-        : _usuario!.ra ?? '';
+    return _isProfessor ? _usuario!.email : _usuario!.ra ?? '';
   }
 
   void _fazerLogout() async {
@@ -668,9 +490,7 @@ class _PerfilPageState extends State<PerfilPage> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      _usuario!.tipo == TipoUsuario.professor
-                          ? "PROFESSOR"
-                          : "ALUNO",
+                      _isProfessor ? "PROFESSOR" : "ALUNO",
                       style: AppTextStyles.fonteUbuntu.copyWith(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -740,7 +560,7 @@ class _PerfilPageState extends State<PerfilPage> {
                         _buildInfoItem(
                           _getIdentificadorLabel(),
                           _getIdentificadorValor(),
-                          _usuario!.tipo == TipoUsuario.professor
+                          _isProfessor
                               ? Icons.email_outlined
                               : Icons.numbers_outlined,
                         ),
@@ -923,7 +743,7 @@ class _PerfilPageState extends State<PerfilPage> {
     return Container(
       color: Colors.grey.shade200,
       child: Icon(
-        _usuario!.tipo == TipoUsuario.professor ? Icons.school : Icons.person,
+        _isProfessor ? Icons.school : Icons.person,
         size: 40,
         color: Colors.grey.shade400,
       ),

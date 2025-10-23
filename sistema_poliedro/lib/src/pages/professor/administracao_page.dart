@@ -8,198 +8,11 @@ import 'package:sistema_poliedro/src/services/auth_service.dart'; // MUDANÇA: I
 import '../../styles/cores.dart';
 import '../../styles/fontes.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-
-// Modelo de dados
-class Usuario {
-  final String id;
-  final String nome;
-  final String email;
-  final String? ra;
-  final String tipo;
-  final String? fotoUrl;
-
-  Usuario({
-    required this.id,
-    required this.nome,
-    required this.email,
-    this.ra,
-    required this.tipo,
-    this.fotoUrl,
-  });
-
-  Usuario copyWith({
-    String? id,
-    String? nome,
-    String? email,
-    String? ra,
-    String? tipo,
-    String? fotoUrl,
-  }) {
-    return Usuario(
-      id: id ?? this.id,
-      nome: nome ?? this.nome,
-      email: email ?? this.email,
-      ra: ra ?? this.ra,
-      tipo: tipo ?? this.tipo,
-      fotoUrl: fotoUrl ?? this.fotoUrl,
-    );
-  }
-
-  factory Usuario.fromJson(Map<String, dynamic> json) {
-    return Usuario(
-      id: json['id'] ?? json['_id']!,
-      nome: json['nome']!,
-      email: json['email']!,
-      ra: json['ra'],
-      tipo: json['tipo'] ?? 'aluno',
-      fotoUrl: json['fotoUrl'],
-    );
-  }
-}
-
-// NOVO MODELO PARA DISCIPLINAS (para gerenciar notas)
-class Disciplina {
-  final String id;
-  final String titulo;
-  final List<Nota> notas; // Lista de notas populadas com alunos
-  final List<Usuario> alunos; // Lista de alunos matriculados
-
-  Disciplina({
-    required this.id,
-    required this.titulo,
-    required this.notas,
-    required this.alunos,
-  });
-
-  factory Disciplina.fromJson(Map<String, dynamic> json) {
-    return Disciplina(
-      id: json['_id'] ?? json['id']!,
-      titulo: json['titulo']!,
-      alunos: (json['alunos'] as List<dynamic>? ?? [])
-          .map<Usuario>((a) => Usuario.fromJson(a))
-          .toList(),
-      notas: (json['notas'] as List<dynamic>? ?? [])
-          .map<Nota>((n) => Nota.fromJson(n))
-          .toList(),
-    );
-  }
-}
-
-// NOVO MODELO PARA NOTAS
-class Nota {
-  final String id;
-  final String disciplinaId;
-  final String alunoId;
-  final String alunoNome;
-  final String? alunoRa;
-  final List<Avaliacao> avaliacoes;
-
-  Nota({
-    required this.id,
-    required this.disciplinaId,
-    required this.alunoId,
-    required this.alunoNome,
-    this.alunoRa,
-    required this.avaliacoes,
-  });
-
-  Nota copyWith({
-    String? id,
-    String? disciplinaId,
-    String? alunoId,
-    String? alunoNome,
-    String? alunoRa,
-    List<Avaliacao>? avaliacoes,
-  }) {
-    return Nota(
-      id: id ?? this.id,
-      disciplinaId: disciplinaId ?? this.disciplinaId,
-      alunoId: alunoId ?? this.alunoId,
-      alunoNome: alunoNome ?? this.alunoNome,
-      alunoRa: alunoRa ?? this.alunoRa,
-      avaliacoes: avaliacoes ?? this.avaliacoes,
-    );
-  }
-
-  factory Nota.fromJson(Map<String, dynamic> json) {
-    return Nota(
-      id: json['_id'] ?? json['id']!,
-      disciplinaId: json['disciplina'] ?? '',
-      alunoId: json['aluno'] ?? '',
-      alunoNome: json['alunoNome'] ?? '',
-      alunoRa: json['alunoRa'],
-      avaliacoes: (json['avaliacoes'] as List<dynamic>? ?? [])
-          .map<Avaliacao>((a) => Avaliacao.fromJson(a))
-          .toList(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'disciplina': disciplinaId,
-      'aluno': alunoId,
-      'avaliacoes': avaliacoes.map((a) => a.toJson()).toList(),
-    };
-  }
-}
-
-// Submodelo para Avaliações (provas/atividades)
-class Avaliacao {
-  final String id;
-  final String nome;
-  final String tipo; // Added: tipo from backend schema
-  final double? nota;
-  final double? peso;
-  final DateTime? data;
-
-  Avaliacao({
-    required this.id,
-    required this.nome,
-    required this.tipo,
-    this.nota,
-    this.peso,
-    this.data,
-  });
-
-  Avaliacao copyWith({
-    String? id,
-    String? nome,
-    String? tipo,
-    double? nota,
-    double? peso,
-    DateTime? data,
-  }) {
-    return Avaliacao(
-      id: id ?? this.id,
-      nome: nome ?? this.nome,
-      tipo: tipo ?? this.tipo,
-      nota: nota ?? this.nota,
-      peso: peso ?? this.peso,
-      data: data ?? this.data,
-    );
-  }
-
-  factory Avaliacao.fromJson(Map<String, dynamic> json) {
-    return Avaliacao(
-      id: json['_id'] ?? json['id'] ?? '',
-      nome: json['nome'] ?? '',
-      tipo: json['tipo'] ?? '',
-      nota: (json['nota'] as num?)?.toDouble(),
-      peso: (json['peso'] as num?)?.toDouble(),
-      data: json['data'] != null ? DateTime.parse(json['data']) : null,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'nome': nome,
-      'tipo': tipo,
-      'nota': nota,
-      'peso': peso,
-      if (data != null) 'data': data!.toIso8601String(),
-    };
-  }
-}
+import '../../dialogs/administracao_dialogs.dart';
+import '../../models/modelo_usuario.dart';
+import '../../models/modelo_nota.dart';
+import '../../models/modelo_disciplina.dart';
+import '../../models/modelo_avaliacao.dart';
 
 class AdministracaoPage extends StatefulWidget {
   final bool isAdmin;
@@ -629,8 +442,21 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       builder: (context) => ManageAvaliacoesDialog(
         disciplina: disciplina,
         uniqueAvaliacoes: uniqueList,
-        onEdit: (oldNome, oldTipo, newAv) =>
-            _updateGlobalAvaliacao(disciplina, oldNome, oldTipo, newAv),
+        onEdit: (oldNome, oldTipo, newAv) async {
+          // USANDO O DIÁLOGO PADRONIZADO
+          final updatedAv = await showDialog<Avaliacao?>(
+            context: context,
+            builder: (c) => EditAvaliacaoGlobalDialog(initialAv: newAv),
+          );
+          if (updatedAv != null) {
+            await _updateGlobalAvaliacao(
+              disciplina,
+              oldNome,
+              oldTipo,
+              updatedAv,
+            );
+          }
+        },
         onDelete: (nome, tipo) =>
             _deleteGlobalAvaliacao(disciplina, nome, tipo),
       ),
@@ -849,7 +675,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     return filtradas;
   }
 
-  Future<void> _showUserDialog({Usuario? usuario}) async {
+  void _showUserDialog({Usuario? usuario}) async {
     final bool isEdit = usuario != null;
     final bool isAluno = usuario?.tipo == 'aluno' || mostrarAlunos;
 
