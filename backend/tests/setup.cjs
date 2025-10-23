@@ -1,3 +1,4 @@
+// tests/setup.cjs
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
@@ -34,11 +35,12 @@ afterAll(async () => {
   console.log('✅ MongoDB em memória desconectado');
 });
 
-// Mock do console para evitar poluição
-global.console = {
-  ...console,
-  log: jest.fn(),
-  error: jest.fn(),
-  warn: jest.fn(),
-  info: jest.fn(),
-};
+// REMOVIDO: Mock do console para permitir logs durante os testes
+// Agora os console.log nos testes e middlewares serão visíveis
+// Se quiser mockar só em produção de testes, use conditional
+if (process.env.NO_LOGS) {
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  jest.spyOn(console, 'info').mockImplementation(() => {});
+}
