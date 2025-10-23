@@ -8,8 +8,10 @@ import '../../../styles/cores.dart';
 import '../../../styles/fontes.dart';
 import '../../../dialogs/adicionar_topico_dialog.dart';
 import '../../../dialogs/adicionar_material_dialog.dart';
+import '../../../dialogs/editar_material_dialog.dart';
 import 'tasks_page.dart';
 import 'visualizacao_material_professor.dart';
+import '../../../components/alerta.dart'; // Import corrigido com base na estrutura de pastas
 
 class DisciplinaDetailPageProfessor extends StatefulWidget {
   final String slug;
@@ -32,6 +34,8 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   DateTime _lastScrollUpdate = DateTime.now();
+  String? _alertaMensagem; // Novo: Mensagem do alerta
+  bool? _alertaSucesso;   // Novo: Flag de sucesso/erro
 
   @override
   void initState() {
@@ -108,20 +112,10 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
 
       _carregarDisciplina();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Tópico "$titulo" criado com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _mostrarAlerta('Tópico "$titulo" criado com sucesso!', true); // Substituído por AlertaWidget
     } catch (e) {
       print('❌ Erro ao criar tópico: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao criar tópico: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _mostrarAlerta('Erro ao criar tópico: $e', false); // Substituído por AlertaWidget
     } finally {
       setState(() => _isLoading = false);
     }
@@ -180,16 +174,89 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
 
       _carregarDisciplina();
 
+      _mostrarAlerta('Material "$titulo" adicionado com sucesso!', true); // Substituído por AlertaWidget
+    } catch (e) {
+      _mostrarAlerta('Erro ao adicionar material: $e', false); // Substituído por AlertaWidget
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // NOVO MÉTODO: Editar Material
+  Future<void> _editarMaterial(int topicoIndex, int materialIndex) async {
+    final card = await _futureCard;
+    final topico = card.topicos[topicoIndex];
+    final material = topico.materiais[materialIndex];
+
+    await showDialog(
+      context: context,
+      builder: (context) => EditarMaterialDialog(
+        onConfirm: (tipo, titulo, descricao, url, peso, prazo, arquivo) async {
+          await _atualizarMaterial(
+            topicoIndex,
+            materialIndex,
+            tipo,
+            titulo,
+            descricao,
+            url,
+            peso,
+            prazo,
+            arquivo,
+          );
+        },
+        tipo: material.tipo,
+        titulo: material.titulo,
+        descricao: material.descricao,
+        url: material.url,
+        peso: material.peso,
+        prazo: material.prazo,
+        nomeArquivoAtual: material.nomeOriginal ?? '',
+      ),
+    );
+  }
+
+  // NOVO MÉTODO: Atualizar Material
+  Future<void> _atualizarMaterial(
+    int topicoIndex,
+    int materialIndex,
+    String tipo,
+    String titulo,
+    String? descricao,
+    String? url,
+    double peso,
+    DateTime? prazo,
+    PlatformFile? arquivo,
+  ) async {
+    setState(() => _isLoading = true);
+    try {
+      final card = await _futureCard;
+      final topico = card.topicos[topicoIndex];
+      final material = topico.materiais[materialIndex];
+
+      await MaterialService.atualizarMaterial(
+        slug: widget.slug,
+        topicoId: topico.id,
+        materialId: material.id,
+        tipo: tipo,
+        titulo: titulo,
+        descricao: descricao,
+        url: url,
+        peso: peso,
+        prazo: prazo,
+        arquivo: arquivo,
+      );
+
+      _carregarDisciplina();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Material "$titulo" adicionado com sucesso!'),
+          content: Text('Material "$titulo" atualizado com sucesso!'),
           backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erro ao adicionar material: $e'),
+          content: Text('Erro ao atualizar material: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -430,19 +497,9 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
 
       _carregarDisciplina();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Tópico atualizado com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _mostrarAlerta('Tópico atualizado com sucesso!', true); // Substituído por AlertaWidget
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao atualizar tópico: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _mostrarAlerta('Erro ao atualizar tópico: $e', false); // Substituído por AlertaWidget
     } finally {
       setState(() => _isLoading = false);
     }
@@ -485,19 +542,9 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
         await TopicoService.deletarTopico(widget.slug, topico.id);
         _carregarDisciplina();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Tópico "${topico.titulo}" excluído com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _mostrarAlerta('Tópico "${topico.titulo}" excluído com sucesso!', true); // Substituído por AlertaWidget
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao excluir tópico: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _mostrarAlerta('Erro ao excluir tópico: $e', false); // Substituído por AlertaWidget
       } finally {
         setState(() => _isLoading = false);
       }
@@ -547,21 +594,9 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
 
         _carregarDisciplina();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Material "${material.titulo}" excluído com sucesso!',
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _mostrarAlerta('Material "${material.titulo}" excluído com sucesso!', true); // Substituído por AlertaWidget
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao excluir material: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _mostrarAlerta('Erro ao excluir material: $e', false); // Substituído por AlertaWidget
       } finally {
         setState(() => _isLoading = false);
       }
@@ -583,6 +618,23 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
       default:
         return 'application/octet-stream';
     }
+  }
+
+  // Novo: Método para mostrar o alerta e escondê-lo após 3 segundos
+  void _mostrarAlerta(String mensagem, bool sucesso) {
+    setState(() {
+      _alertaMensagem = mensagem;
+      _alertaSucesso = sucesso;
+    });
+
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _alertaMensagem = null;
+          _alertaSucesso = null;
+        });
+      }
+    });
   }
 
   @override
@@ -975,6 +1027,11 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
                 ),
               ),
             ),
+          if (_alertaMensagem != null) // Novo: Adiciona o AlertaWidget na Stack
+            AlertaWidget(
+              mensagem: _alertaMensagem!,
+              sucesso: _alertaSucesso!,
+            ),
         ],
       ),
     );
@@ -1332,11 +1389,23 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
             color: AppColors.branco,
             icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
             onSelected: (value) {
-              if (value == 'delete') {
+              if (value == 'edit') {
+                _editarMaterial(topicoIndex, materialIndex);
+              } else if (value == 'delete') {
                 _deletarMaterial(topicoIndex, materialIndex);
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, size: 16, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Text('Editar', style: TextStyle(color: Colors.black)),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'delete',
                 child: Row(
