@@ -36,7 +36,40 @@ class AuthService {
         final prefs = await SharedPreferences.getInstance();
 
         await prefs.setString('token', token);
-        await prefs.setString('tipoUsuario', tipo);
+
+        String finalUserType = tipo; // default para o tipo passado
+
+        // Tentar 1: Verificar se tem tipo na resposta
+        final userData = data['professor'] ?? data['aluno'] ?? data['user'];
+        if (userData != null && userData['tipo'] != null) {
+          finalUserType = userData['tipo'].toString();
+          print('=== DEBUG: Tipo da resposta: $finalUserType ===');
+        }
+        // Tentar 2: Verificar role no token (prioridade máxima)
+        else if (token != null) {
+          try {
+            final parts = token.split('.');
+            if (parts.length == 3) {
+              String payload = parts[1];
+              while (payload.length % 4 != 0) {
+                payload += '=';
+              }
+              final decoded = utf8.decode(base64.decode(payload));
+              final payloadMap = json.decode(decoded);
+              final tokenRole = payloadMap['role']?.toString();
+              if (tokenRole != null) {
+                finalUserType = tokenRole;
+                print('=== DEBUG: Role do token: $finalUserType ===');
+              }
+            }
+          } catch (e) {
+            print('Erro ao decodificar token: $e');
+          }
+        }
+
+        // Salvar o tipo final
+        await prefs.setString('tipoUsuario', finalUserType);
+        print('=== DEBUG: Tipo final salvo: $finalUserType ===');
 
         return token;
       } else {
@@ -44,6 +77,33 @@ class AuthService {
       }
     } catch (e) {
       throw Exception("Erro na requisição: $e");
+    }
+  }
+
+  // NOVO MÉTODO: Debug completo do usuário
+  static Future<void> debugUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final tipo = prefs.getString('tipoUsuario');
+
+    print('=== DEBUG USER INFO ===');
+    print('Token: $token');
+    print('Tipo salvo: $tipo');
+
+    if (token != null) {
+      try {
+        final parts = token.split('.');
+        if (parts.length == 3) {
+          String payload = parts[1];
+          while (payload.length % 4 != 0) {
+            payload += '=';
+          }
+          final decoded = utf8.decode(base64.decode(payload));
+          print('Payload do token: $decoded');
+        }
+      } catch (e) {
+        print('Erro no debug do token: $e');
+      }
     }
   }
 
@@ -172,7 +232,7 @@ class AuthService {
       try {
         print('=== DEBUG getUserId ===');
         print('Token completo: $token');
-        
+
         final parts = token.split('.');
         if (parts.length != 3) {
           print('Token não tem 3 partes');
@@ -185,16 +245,17 @@ class AuthService {
         while (normalized.length % 4 != 0) {
           normalized += '=';
         }
-        
+
         final decoded = utf8.decode(base64.decode(normalized));
         final payloadMap = json.decode(decoded);
-        
+
         print('Payload decodificado: $payloadMap');
-        
+
         // Tentar diferentes campos possíveis
-        final userId = payloadMap['id'] ?? payloadMap['userId'] ?? payloadMap['sub'];
+        final userId =
+            payloadMap['id'] ?? payloadMap['userId'] ?? payloadMap['sub'];
         print('User ID encontrado: $userId');
-        
+
         return userId?.toString();
       } catch (e) {
         print('Erro ao decodificar token: $e');
@@ -210,7 +271,7 @@ class AuthService {
     if (token != null) {
       print('=== DEBUG TOKEN ===');
       print('Token: $token');
-      
+
       try {
         final parts = token.split('.');
         if (parts.length == 3) {
@@ -241,10 +302,10 @@ class AuthService {
         while (payload.length % 4 != 0) {
           payload += '=';
         }
-        
+
         final decoded = utf8.decode(base64.decode(payload));
         final payloadMap = json.decode(decoded);
-        
+
         return payloadMap['role']?.toString();
       } catch (e) {
         print('Erro ao obter role: $e');
