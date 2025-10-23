@@ -28,12 +28,11 @@ class _ListaDisciplinasState extends State<ListaDisciplinas> {
     if (widget.searchText.isEmpty) {
       return widget.disciplinas;
     }
-    
+
     return widget.disciplinas.where((disciplina) {
-      return disciplina["disciplina"]
-          .toString()
-          .toLowerCase()
-          .contains(widget.searchText.toLowerCase());
+      return disciplina["disciplina"].toString().toLowerCase().contains(
+        widget.searchText.toLowerCase(),
+      );
     }).toList();
   }
 
@@ -54,20 +53,16 @@ class _ListaDisciplinasState extends State<ListaDisciplinas> {
 
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      children: _disciplinasFiltradas
-          .asMap()
-          .entries
-          .map((entry) {
-            final index = entry.key;
-            final disciplina = entry.value;
-            
-            return DisciplinaCard(
-              disciplina: disciplina,
-              isExpanded: _expandedIndex == index,
-              onTap: () => _toggleExpansion(index),
-            );
-          })
-          .toList(),
+      children: _disciplinasFiltradas.asMap().entries.map((entry) {
+        final index = entry.key;
+        final disciplina = entry.value;
+
+        return DisciplinaCard(
+          disciplina: disciplina,
+          isExpanded: _expandedIndex == index,
+          onTap: () => _toggleExpansion(index),
+        );
+      }).toList(),
     );
   }
 }

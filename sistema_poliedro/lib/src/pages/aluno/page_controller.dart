@@ -1,5 +1,6 @@
 // main_aluno_page.dart
 import 'package:flutter/material.dart';
+import 'package:sistema_poliedro/src/services/auth_service.dart';
 import '../../components/adaptive_navigation.dart';
 import '../../components/auth_guard.dart';
 import '../../styles/cores.dart';
@@ -23,6 +24,8 @@ class _MainAlunoPageState extends State<MainAlunoPage>
   late String _currentRoute;
   String _previousRoute = '/disciplinas';
   bool _isProfileOpen = false;
+  String? _token;
+  bool _isLoading = true;
 
   late AnimationController _profileController;
   late Animation<double> _profileAnimation;
@@ -49,7 +52,7 @@ class _MainAlunoPageState extends State<MainAlunoPage>
     ),
   ];
 
-  //  FUNÇÃO PARA NAVEGAÇÃO INTERNA (AGORA PÚBLICA)
+  // FUNÇÃO PARA NAVEGAÇÃO INTERNA
   void _navigateToDetail(String slug, String titulo) {
     _navigatorKey.currentState?.push(
       MaterialPageRoute(
@@ -58,15 +61,22 @@ class _MainAlunoPageState extends State<MainAlunoPage>
     );
   }
 
-  //  MAP DE PÁGINAS COM CALLBACK
+  Future<void> _loadToken() async {
+    final token = await AuthService.getToken();
+    setState(() {
+      _token = token;
+      _isLoading = false;
+    });
+  }
+
+  // MAP DE PÁGINAS COM CALLBACK
   Map<String, Widget> get _pages {
     return {
-      '/disciplinas': DisciplinasPage(
-        onNavigateToDetail: _navigateToDetail, //  PASSA A FUNÇÃO
-      ),
-      '/notas': const NotasPage(),
+      '/disciplinas': DisciplinasPage(onNavigateToDetail: _navigateToDetail),
+      '/notas': NotasPage(token: _token ?? ''),
       '/calendario': const CalendarioPage(),
       '/notificacoes': const NotificacoesPage(),
+      '/perfil': PerfilPage(), // Adicionei esta linha também
     };
   }
 
@@ -74,6 +84,7 @@ class _MainAlunoPageState extends State<MainAlunoPage>
   void initState() {
     super.initState();
     _currentRoute = widget.initialRoute;
+    _loadToken(); // Carrega o token ao inicializar
 
     _profileController = AnimationController(
       vsync: this,
@@ -118,82 +129,95 @@ class _MainAlunoPageState extends State<MainAlunoPage>
     });
   }
 
+  Widget _buildWebLayout() {
+    return Row(
+      children: [
+        AdaptiveNavigation(
+          currentRoute: _currentRoute,
+          items: _navItems,
+          isWeb: true,
+          onTap: _onNavTap,
+          profileSelected: _isProfileOpen,
+        ),
+        // Profile panel animado entre sidebar e conteúdo
+        AnimatedBuilder(
+          animation: _profileAnimation,
+          builder: (context, child) {
+            return Container(
+              width: _profileAnimation.value * 300,
+              height: MediaQuery.of(context).size.height,
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    offset: const Offset(2, 0),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    child: Container(
+                      width: 300,
+                      height: MediaQuery.of(context).size.height,
+                      color: const Color(0xFFFEF7FF),
+                      child: _isProfileOpen
+                          ? PerfilPage()
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Navigator(
+                  key: _navigatorKey,
+                  onGenerateRoute: (settings) {
+                    return MaterialPageRoute(
+                      builder: (context) =>
+                          _pages[_currentRoute] ?? _pages['/disciplinas']!,
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout() {
+    return Stack(
+      children: [
+        _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Navigator(
+                key: _navigatorKey,
+                onGenerateRoute: (settings) {
+                  return MaterialPageRoute(
+                    builder: (context) =>
+                        _pages[_currentRoute] ?? _pages['/disciplinas']!,
+                  );
+                },
+              ),
+        if (_isProfileOpen)
+          Container(
+            width: MediaQuery.of(context).size.width,
+            height: MediaQuery.of(context).size.height,
+            color: const Color(0xFFFEF7FF),
+            child: PerfilPage(),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isWeb = MediaQuery.of(context).size.width >= 600;
-
-    Widget mainContent = Navigator(
-      key: _navigatorKey,
-      onGenerateRoute: (settings) {
-        return MaterialPageRoute(
-          builder: (context) =>
-              _pages[_currentRoute] ?? _pages[_previousRoute]!,
-        );
-      },
-    );
-
-    if (isWeb) {
-      mainContent = Row(
-        children: [
-          AdaptiveNavigation(
-            currentRoute: _currentRoute,
-            items: _navItems,
-            isWeb: true,
-            onTap: _onNavTap,
-            profileSelected: _isProfileOpen,
-          ),
-          // Profile panel animado entre sidebar e conteúdo
-          AnimatedBuilder(
-            animation: _profileAnimation,
-            builder: (context, child) {
-              return Container(
-                width: _profileAnimation.value * 300,
-                height: MediaQuery.of(context).size.height,
-                decoration: BoxDecoration(
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      offset: const Offset(2, 0),
-                      blurRadius: 6,
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 0,
-                      child: Container(
-                        width: 300,
-                        height: MediaQuery.of(context).size.height,
-                        color: const Color(0xFFFEF7FF),
-                        child: _isProfileOpen
-                            ? PerfilPage()
-                            : const SizedBox.shrink(),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          Expanded(child: mainContent),
-        ],
-      );
-    } else {
-      // Para mobile, usa overlay full screen
-      mainContent = Stack(
-        children: [
-          mainContent,
-          if (_isProfileOpen)
-            Container(
-              width: MediaQuery.of(context).size.width,
-              height: MediaQuery.of(context).size.height,
-              color: const Color(0xFFFEF7FF),
-              child: PerfilPage(),
-            ),
-        ],
-      );
-    }
 
     return AuthGuard(
       child: Scaffold(
@@ -203,7 +227,7 @@ class _MainAlunoPageState extends State<MainAlunoPage>
                 backgroundColor: AppColors.azulEscuro,
                 leading: IconButton(
                   icon: const Icon(Icons.menu),
-                  onPressed: () => _onNavTap('/perfil'), // Agora abre o perfil
+                  onPressed: () => _onNavTap('/perfil'),
                   color: AppColors.branco,
                 ),
                 title: Image.asset(
@@ -214,7 +238,7 @@ class _MainAlunoPageState extends State<MainAlunoPage>
                 centerTitle: true,
               )
             : null,
-        body: mainContent,
+        body: isWeb ? _buildWebLayout() : _buildMobileLayout(),
         bottomNavigationBar: !isWeb
             ? AdaptiveNavigation(
                 currentRoute: _currentRoute,

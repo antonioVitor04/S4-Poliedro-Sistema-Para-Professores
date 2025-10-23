@@ -196,4 +196,62 @@ routerNotas.delete("/:id", auth(["professor", "admin"]), async (req, res) => {
   }
 });
 
+// GET: Listar notas do aluno logado
+routerNotas.get(
+  "/aluno/minhas-notas",
+  auth(["aluno", "professor", "admin"]),
+  async (req, res) => {
+    try {
+      const alunoId = req.user.id; // ID do aluno logado
+
+      const notas = await Nota.find({ aluno: alunoId })
+        .populate("disciplina", "titulo descricao")
+        .populate("aluno", "nome ra email");
+
+      const notasFormatadas = notas.map((nota) => ({
+        _id: nota._id,
+        disciplina: nota.disciplina.titulo,
+        disciplinaId: nota.disciplina._id,
+        aluno: nota.aluno.nome,
+        alunoRa: nota.aluno.ra,
+        detalhes: nota.avaliacoes.map((av) => ({
+          tipo: av.tipo,
+          nota: av.nota,
+          peso: av.peso,
+        })),
+        media: calcularMedia(nota.avaliacoes),
+        createdAt: nota.createdAt,
+        updatedAt: nota.updatedAt,
+      }));
+
+      res.json({
+        success: true,
+        count: notas.length,
+        data: notasFormatadas,
+      });
+    } catch (err) {
+      console.error("Erro ao buscar notas do aluno:", err);
+      res.status(500).json({
+        success: false,
+        error: "Erro interno do servidor ao buscar notas",
+      });
+    }
+  }
+);
+
+// Função auxiliar para calcular média
+function calcularMedia(avaliacoes) {
+  if (!avaliacoes || avaliacoes.length === 0) return 0;
+
+  let somaPonderada = 0;
+  let totalPesos = 0;
+
+  avaliacoes.forEach((av) => {
+    somaPonderada += av.nota * av.peso;
+    totalPesos += av.peso;
+  });
+
+  return totalPesos > 0 ? somaPonderada / totalPesos : 0;
+}
+
 module.exports = routerNotas;
