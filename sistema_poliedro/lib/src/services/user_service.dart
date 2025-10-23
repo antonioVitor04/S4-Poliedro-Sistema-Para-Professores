@@ -13,7 +13,7 @@ class UserService {
     return dotenv.env['BASE_URL_MOBILE']!;
   }
 
-  static const String _apiPrefix = '/api';  
+  static const String _apiPrefix = '/api';
 
   final Map<String, String> headers = {
     'Content-Type': 'application/json',
@@ -31,24 +31,25 @@ class UserService {
   }
 
   String get endpointBase {
-    final basePath = _tipoUsuario == TipoUsuario.professor ? 'professores' : 'alunos';
-    return '$_baseUrl$_apiPrefix/$basePath';  
+    final basePath = _tipoUsuario == TipoUsuario.professor
+        ? 'professores'
+        : 'alunos';
+    return '$_baseUrl$_apiPrefix/$basePath';
   }
 
   Future<Usuario> getPerfilUsuario() async {
     try {
-
-
       final response = await http.get(
-        Uri.parse('$endpointBase/'), 
+        Uri.parse('$endpointBase/'),
         headers: headers,
       );
-
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final usuarioData = data['professor'] ?? data['aluno'] ?? data;
-        return Usuario.fromJson(usuarioData, _tipoUsuario);
+
+        // CORREÇÃO: Remover o segundo argumento _tipoUsuario
+        return Usuario.fromJson(usuarioData);
       } else {
         throw Exception(
           'Falha ao carregar perfil - Status: ${response.statusCode} - ${response.body}',
@@ -71,17 +72,17 @@ class UserService {
       if (email != null) body['email'] = email;
       if (senha != null) body['senha'] = senha;
 
-
       final response = await http.put(
-        Uri.parse('$endpointBase/update'),  // Agora com /api/
+        Uri.parse('$endpointBase/update'), // Agora com /api/
         headers: headers,
         body: jsonEncode(body),
       );
 
-
       if (response.statusCode != 200) {
         final errorData = jsonDecode(response.body);
-        throw Exception('Falha ao atualizar perfil: ${errorData['msg'] ?? response.statusCode}');
+        throw Exception(
+          'Falha ao atualizar perfil: ${errorData['msg'] ?? response.statusCode}',
+        );
       }
     } catch (e) {
       rethrow;
@@ -96,7 +97,7 @@ class UserService {
           ? '$endpointBase/image?t=$timestamp'
           : '$endpointBase/image';
 
-      print('🔍 [DEBUG] URL da imagem: $url');  // Agora com /api/
+      print('🔍 [DEBUG] URL da imagem: $url'); // Agora com /api/
       print(
         '🔍 [DEBUG] Headers: ${headers['Authorization']?.substring(0, 20)}...',
       );
@@ -135,7 +136,7 @@ class UserService {
       print('🗑️ [DEBUG] Iniciando remoção de imagem...');
 
       final response = await http.delete(
-        Uri.parse('$endpointBase/remove-image'),  // Agora com /api/
+        Uri.parse('$endpointBase/remove-image'), // Agora com /api/
         headers: headers,
       );
 
@@ -189,7 +190,7 @@ class UserService {
       print('📤 [DEBUG] Tamanho do body: ${body.length} caracteres');
 
       final response = await http.put(
-        Uri.parse('$endpointBase/update-image-base64'),  // Agora com /api/
+        Uri.parse('$endpointBase/update-image-base64'), // Agora com /api/
         headers: headers,
         body: body,
       );

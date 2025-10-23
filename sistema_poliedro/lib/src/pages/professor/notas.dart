@@ -8,6 +8,10 @@ import '../../styles/cores.dart';
 import '../../styles/fontes.dart';
 
 import 'package:sistema_poliedro/src/pages/professor/administracao_page.dart';
+import '../../models/modelo_disciplina.dart';
+import '../../models/modelo_avaliacao.dart';
+import '../../models/modelo_nota.dart';
+import '../../models/modelo_usuario.dart';
 
 // Widget Stateful para gerenciar o estado das notas - CORRIGIDO
 class NotasDataTable extends StatefulWidget {
