@@ -10,6 +10,7 @@ import '../../../dialogs/adicionar_topico_dialog.dart';
 import '../../../dialogs/adicionar_material_dialog.dart';
 import 'tasks_page.dart';
 import 'visualizacao_material_professor.dart';
+import '../../../components/alerta.dart'; // Import corrigido com base na estrutura de pastas
 
 class DisciplinaDetailPageProfessor extends StatefulWidget {
   final String slug;
@@ -32,6 +33,8 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   DateTime _lastScrollUpdate = DateTime.now();
+  String? _alertaMensagem; // Novo: Mensagem do alerta
+  bool? _alertaSucesso;   // Novo: Flag de sucesso/erro
 
   @override
   void initState() {
@@ -108,20 +111,10 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
 
       _carregarDisciplina();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Tópico "$titulo" criado com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _mostrarAlerta('Tópico "$titulo" criado com sucesso!', true); // Substituído por AlertaWidget
     } catch (e) {
       print('❌ Erro ao criar tópico: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao criar tópico: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _mostrarAlerta('Erro ao criar tópico: $e', false); // Substituído por AlertaWidget
     } finally {
       setState(() => _isLoading = false);
     }
@@ -180,19 +173,9 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
 
       _carregarDisciplina();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Material "$titulo" adicionado com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _mostrarAlerta('Material "$titulo" adicionado com sucesso!', true); // Substituído por AlertaWidget
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao adicionar material: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _mostrarAlerta('Erro ao adicionar material: $e', false); // Substituído por AlertaWidget
     } finally {
       setState(() => _isLoading = false);
     }
@@ -430,19 +413,9 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
 
       _carregarDisciplina();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Tópico atualizado com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _mostrarAlerta('Tópico atualizado com sucesso!', true); // Substituído por AlertaWidget
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao atualizar tópico: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _mostrarAlerta('Erro ao atualizar tópico: $e', false); // Substituído por AlertaWidget
     } finally {
       setState(() => _isLoading = false);
     }
@@ -485,19 +458,9 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
         await TopicoService.deletarTopico(widget.slug, topico.id);
         _carregarDisciplina();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Tópico "${topico.titulo}" excluído com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _mostrarAlerta('Tópico "${topico.titulo}" excluído com sucesso!', true); // Substituído por AlertaWidget
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao excluir tópico: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _mostrarAlerta('Erro ao excluir tópico: $e', false); // Substituído por AlertaWidget
       } finally {
         setState(() => _isLoading = false);
       }
@@ -547,21 +510,9 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
 
         _carregarDisciplina();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Material "${material.titulo}" excluído com sucesso!',
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _mostrarAlerta('Material "${material.titulo}" excluído com sucesso!', true); // Substituído por AlertaWidget
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao excluir material: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _mostrarAlerta('Erro ao excluir material: $e', false); // Substituído por AlertaWidget
       } finally {
         setState(() => _isLoading = false);
       }
@@ -583,6 +534,23 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
       default:
         return 'application/octet-stream';
     }
+  }
+
+  // Novo: Método para mostrar o alerta e escondê-lo após 3 segundos
+  void _mostrarAlerta(String mensagem, bool sucesso) {
+    setState(() {
+      _alertaMensagem = mensagem;
+      _alertaSucesso = sucesso;
+    });
+
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _alertaMensagem = null;
+          _alertaSucesso = null;
+        });
+      }
+    });
   }
 
   @override
@@ -974,6 +942,11 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
                   ),
                 ),
               ),
+            ),
+          if (_alertaMensagem != null) // Novo: Adiciona o AlertaWidget na Stack
+            AlertaWidget(
+              mensagem: _alertaMensagem!,
+              sucesso: _alertaSucesso!,
             ),
         ],
       ),
