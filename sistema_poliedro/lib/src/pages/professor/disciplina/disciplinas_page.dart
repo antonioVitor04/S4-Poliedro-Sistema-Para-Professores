@@ -16,7 +16,8 @@ class DisciplinasPageProfessor extends StatefulWidget {
   const DisciplinasPageProfessor({super.key, required this.onNavigateToDetail});
 
   @override
-  State<DisciplinasPageProfessor> createState() => _DisciplinasPageProfessorState();
+  State<DisciplinasPageProfessor> createState() =>
+      _DisciplinasPageProfessorState();
 }
 
 class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
@@ -45,7 +46,7 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
   Future<List<CardDisciplina>> _loadCards() async {
     try {
       List<CardDisciplina> cards;
-      
+
       if (_isAdmin) {
         // Admin vê todas as disciplinas
         cards = await CardDisciplinaService.getAllCards();
@@ -53,7 +54,7 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
         // Professor/Aluno vê apenas suas disciplinas
         cards = await CardDisciplinaService.getMinhasDisciplinas();
       }
-      
+
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -220,7 +221,9 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
     if (!podeEditar) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Você não tem permissão para gerenciar esta disciplina'),
+          content: Text(
+            'Você não tem permissão para gerenciar esta disciplina',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -229,10 +232,8 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
 
     await showDialog(
       context: context,
-      builder: (context) => GerenciarRelacionamentosDialog(
-        card: card,
-        onUpdated: _refreshCards,
-      ),
+      builder: (context) =>
+          GerenciarRelacionamentosDialog(card: card, onUpdated: _refreshCards),
     );
   }
 
@@ -324,9 +325,9 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            _isAdmin 
-                              ? 'Nenhuma disciplina encontrada.'
-                              : 'Você não está vinculado a nenhuma disciplina.',
+                            _isAdmin
+                                ? 'Nenhuma disciplina encontrada.'
+                                : 'Você não está vinculado a nenhuma disciplina.',
                             style: AppTextStyles.fonteUbuntu.copyWith(
                               fontSize: 18,
                             ),
@@ -336,7 +337,9 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
                             ElevatedButton.icon(
                               onPressed: _adicionarCard,
                               icon: const Icon(Icons.add),
-                              label: const Text('Adicionar Primeira Disciplina'),
+                              label: const Text(
+                                'Adicionar Primeira Disciplina',
+                              ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.azulClaro,
                                 foregroundColor: Colors.white,
@@ -367,7 +370,9 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _isAdmin ? "Todas as Disciplinas" : "Minhas Disciplinas",
+                            _isAdmin
+                                ? "Todas as Disciplinas"
+                                : "Minhas Disciplinas",
                             style: AppTextStyles.fonteUbuntu.copyWith(
                               fontSize: isMobile ? 22 : 25,
                               fontWeight: FontWeight.bold,
@@ -409,7 +414,7 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
           },
         ),
       ),
-      floatingActionButton: _isProfessor 
+      floatingActionButton: _isProfessor
           ? FloatingActionButton(
               onPressed: _adicionarCard,
               backgroundColor: AppColors.azulClaro,
@@ -424,7 +429,7 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
       future: card.podeEditar(),
       builder: (context, snapshot) {
         final podeEditar = snapshot.data ?? false;
-        
+
         return Stack(
           children: [
             DisciplinaCard(
@@ -432,67 +437,77 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
               imageUrl: card.imagem,
               iconUrl: card.icone,
               isMobile: isMobile,
-              onTap: () => widget.onNavigateToDetail(
-                card.slug,
-                card.titulo,
-              ),
+              onTap: () => widget.onNavigateToDetail(card.slug, card.titulo),
               badge: _isAdmin ? 'ADMIN' : null,
             ),
             if (podeEditar)
               Positioned(
                 top: 8,
                 right: 8,
-                child: PopupMenuButton<String>(
-                  color: AppColors.branco,
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: Colors.white,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  onSelected: (value) async {
-                    if (value == 'edit') {
-                      _editarCard(card);
-                    } else if (value == 'delete') {
-                      _deletarCard(card);
-                    } else if (value == 'manage') {
-                      _gerenciarRelacionamentos(card);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit, size: 20),
-                          SizedBox(width: 8),
-                          Text('Editar'),
-                        ],
+                  child: PopupMenuButton<String>(
+                    color: AppColors.branco,
+                    icon: Container(
+                      padding: const EdgeInsets.all(4),
+                      child: const Icon(
+                        Icons.more_vert,
+                        color: Colors.white,
+                        size: 20,
                       ),
                     ),
-                    const PopupMenuItem(
-                      value: 'manage',
-                      child: Row(
-                        children: [
-                          Icon(Icons.group, size: 20),
-                          SizedBox(width: 8),
-                          Text('Gerenciar Acessos'),
-                        ],
+                    onSelected: (value) async {
+                      if (value == 'edit') {
+                        _editarCard(card);
+                      } else if (value == 'delete') {
+                        _deletarCard(card);
+                      } else if (value == 'manage') {
+                        _gerenciarRelacionamentos(card);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 20, color: Colors.blue),
+                            SizedBox(width: 8),
+                            Text('Editar'),
+                          ],
+                        ),
                       ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete,
-                            size: 20,
-                            color: Colors.red,
-                          ),
-                          SizedBox(width: 8),
-                          Text('Excluir'),
-                        ],
+                      const PopupMenuItem(
+                        value: 'manage',
+                        child: Row(
+                          children: [
+                            Icon(Icons.group, size: 20, color: Colors.green),
+                            SizedBox(width: 8),
+                            Text('Gerenciar Acessos'),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, size: 20, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Excluir'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
           ],

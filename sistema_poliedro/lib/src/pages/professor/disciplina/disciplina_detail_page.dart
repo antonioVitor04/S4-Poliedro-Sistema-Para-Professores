@@ -8,6 +8,7 @@ import '../../../styles/cores.dart';
 import '../../../styles/fontes.dart';
 import '../../../dialogs/adicionar_topico_dialog.dart';
 import '../../../dialogs/adicionar_material_dialog.dart';
+import '../../../dialogs/editar_material_dialog.dart';
 import 'tasks_page.dart';
 import 'visualizacao_material_professor.dart';
 
@@ -190,6 +191,89 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erro ao adicionar material: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // NOVO MÉTODO: Editar Material
+  Future<void> _editarMaterial(int topicoIndex, int materialIndex) async {
+    final card = await _futureCard;
+    final topico = card.topicos[topicoIndex];
+    final material = topico.materiais[materialIndex];
+
+    await showDialog(
+      context: context,
+      builder: (context) => EditarMaterialDialog(
+        onConfirm: (tipo, titulo, descricao, url, peso, prazo, arquivo) async {
+          await _atualizarMaterial(
+            topicoIndex,
+            materialIndex,
+            tipo,
+            titulo,
+            descricao,
+            url,
+            peso,
+            prazo,
+            arquivo,
+          );
+        },
+        tipo: material.tipo,
+        titulo: material.titulo,
+        descricao: material.descricao,
+        url: material.url,
+        peso: material.peso,
+        prazo: material.prazo,
+        nomeArquivoAtual: material.nomeOriginal ?? '',
+      ),
+    );
+  }
+
+  // NOVO MÉTODO: Atualizar Material
+  Future<void> _atualizarMaterial(
+    int topicoIndex,
+    int materialIndex,
+    String tipo,
+    String titulo,
+    String? descricao,
+    String? url,
+    double peso,
+    DateTime? prazo,
+    PlatformFile? arquivo,
+  ) async {
+    setState(() => _isLoading = true);
+    try {
+      final card = await _futureCard;
+      final topico = card.topicos[topicoIndex];
+      final material = topico.materiais[materialIndex];
+
+      await MaterialService.atualizarMaterial(
+        slug: widget.slug,
+        topicoId: topico.id,
+        materialId: material.id,
+        tipo: tipo,
+        titulo: titulo,
+        descricao: descricao,
+        url: url,
+        peso: peso,
+        prazo: prazo,
+        arquivo: arquivo,
+      );
+
+      _carregarDisciplina();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Material "$titulo" atualizado com sucesso!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao atualizar material: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -1332,11 +1416,23 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
             color: AppColors.branco,
             icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
             onSelected: (value) {
-              if (value == 'delete') {
+              if (value == 'edit') {
+                _editarMaterial(topicoIndex, materialIndex);
+              } else if (value == 'delete') {
                 _deletarMaterial(topicoIndex, materialIndex);
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, size: 16, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Text('Editar', style: TextStyle(color: Colors.black)),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'delete',
                 child: Row(
