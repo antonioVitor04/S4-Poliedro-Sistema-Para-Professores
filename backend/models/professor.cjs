@@ -24,10 +24,12 @@ const professorSchema = new mongoose.Schema(
       filename: String,
       size: Number,
     },
-    disciplinas: [{ 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: "CardDisciplina" 
-    }],
+    disciplinas: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CardDisciplina",
+      },
+    ],
   },
   { timestamps: true }
 );
