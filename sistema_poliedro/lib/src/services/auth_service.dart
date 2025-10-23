@@ -176,8 +176,19 @@ class AuthService {
   }
 
   static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString("token");
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString("token");
+    } catch (e) {
+      print('Erro ao obter token: $e');
+      return null;
+    }
+  }
+
+  // Método adicional para verificar se está autenticado
+  static Future<bool> isAuthenticated() async {
+    final token = await getToken();
+    return token != null && token.isNotEmpty;
   }
 
   // ADICIONE ESTE MÉTODO - getUserType
