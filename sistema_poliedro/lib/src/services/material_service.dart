@@ -55,6 +55,32 @@ class MaterialService {
     return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
   }
 
+  // Helper: Converter para horário de Brasília (UTC-3)
+  static DateTime _toBrasiliaTime(DateTime dateTime) {
+    // Brasília é UTC-3 (horário padrão)
+    // Não vamos converter, vamos usar o horário local como se fosse Brasília
+    // O backend deve interpretar como horário local
+    return dateTime.toLocal();
+  }
+
+  // Helper: Converter string do backend para DateTime no fuso de Brasília
+  static DateTime _parseBrasiliaTime(String dateString) {
+    try {
+      // Se a string já tem offset, usar parse
+      if (dateString.contains('+') || dateString.endsWith('Z')) {
+        final utcTime = DateTime.parse(dateString);
+        return utcTime.toLocal();
+      } else {
+        // Se não tem offset, assumir que é local e converter
+        final localTime = DateTime.parse(dateString);
+        return localTime;
+      }
+    } catch (e) {
+      print('=== DEBUG: Erro ao parsear data: $e ===');
+      return DateTime.now();
+    }
+  }
+
   // POST: Adicionar material a um tópico (APENAS PROFESSOR DA DISCIPLINA OU ADMIN)
   static Future<void> criarMaterial({
     required String slug,
@@ -96,7 +122,13 @@ class MaterialService {
       if (descricao != null) request.fields['descricao'] = descricao;
       if (url != null) request.fields['url'] = url;
       request.fields['peso'] = peso.toString();
-      if (prazo != null) request.fields['prazo'] = prazo.toIso8601String();
+      if (prazo != null) {
+        // CORREÇÃO: Enviar como horário local (Brasília)
+        final prazoBrasilia = _toBrasiliaTime(prazo);
+        request.fields['prazo'] = prazoBrasilia.toIso8601String();
+        print('=== DEBUG: Prazo original: ${prazo.toLocal()} ===');
+        print('=== DEBUG: Prazo enviado (Brasília): ${prazoBrasilia.toIso8601String()} ===');
+      }
 
       // Processar arquivo
       if (arquivo != null) {
@@ -219,9 +251,14 @@ class MaterialService {
       if (descricao != null) request.fields['descricao'] = descricao;
       if (url != null) request.fields['url'] = url;
       if (peso != null) request.fields['peso'] = peso.toString();
-      if (prazo != null) request.fields['prazo'] = prazo.toIso8601String();
+      if (prazo != null) {
+        // CORREÇÃO: Enviar como horário local (Brasília)
+        final prazoBrasilia = _toBrasiliaTime(prazo);
+        request.fields['prazo'] = prazoBrasilia.toIso8601String();
+        print('=== DEBUG: Prazo atualizado (Brasília): ${prazoBrasilia.toIso8601String()} ===');
+      }
 
-      // Processar arquivo
+      // Processar arquivo (opcional)
       if (arquivo != null) {
         if (arquivo.bytes != null && arquivo.bytes!.isNotEmpty) {
           final file = http.MultipartFile.fromBytes(

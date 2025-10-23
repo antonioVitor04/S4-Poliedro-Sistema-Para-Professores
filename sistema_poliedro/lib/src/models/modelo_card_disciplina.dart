@@ -1,3 +1,4 @@
+// models/modelo_card_disciplina.dart
 import 'package:sistema_poliedro/src/services/auth_service.dart';
 
 class CardDisciplina {
@@ -228,6 +229,26 @@ class MaterialDisciplina {
   });
 
   factory MaterialDisciplina.fromJson(Map<String, dynamic> json) {
+    // CORREÇÃO: Parsear o prazo considerando o fuso horário local (Brasília)
+    DateTime? parsePrazo(dynamic prazoData) {
+      if (prazoData == null) return null;
+      try {
+        if (prazoData is String) {
+          // Se a string tem offset ou Z, converter para local
+          if (prazoData.contains('+') || prazoData.endsWith('Z')) {
+            return DateTime.parse(prazoData).toLocal();
+          } else {
+            // Se não tem offset, assumir que já é local
+            return DateTime.parse(prazoData);
+          }
+        }
+        return null;
+      } catch (e) {
+        print('=== DEBUG: Erro ao parsear prazo: $e ===');
+        return null;
+      }
+    }
+
     return MaterialDisciplina(
       id: json['_id'] ?? json['id'] ?? '',
       tipo: json['tipo'] ?? '',
@@ -235,7 +256,7 @@ class MaterialDisciplina {
       descricao: json['descricao'],
       url: json['url'],
       peso: (json['peso'] as num?)?.toDouble() ?? 0.0,
-      prazo: json['prazo'] != null ? DateTime.parse(json['prazo']) : null,
+      prazo: parsePrazo(json['prazo']),
       dataCriacao: DateTime.parse(json['dataCriacao']),
       ordem: json['ordem'] ?? 0,
       contentType: json['arquivo']?['contentType'],

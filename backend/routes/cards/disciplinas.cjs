@@ -364,6 +364,12 @@ routerCards.post(
         });
       }
 
+      // BUSCAR TODOS OS ADMINS PARA ADICIONAR AUTOMATICAMENTE
+      const todosAdmins = await Professor.find({ tipo: "admin" }).select('_id');
+      const adminIds = todosAdmins.map(admin => admin._id.toString());
+      
+      console.log('=== ADMINS ENCONTRADOS:', adminIds);
+
       let professoresIds = [];
       if (professores && Array.isArray(professores)) {
         const professoresExistentes = await Professor.find({ 
@@ -379,9 +385,19 @@ routerCards.post(
         professoresIds = professores;
       }
 
+      // ADICIONAR O USUÁRIO ATUAL SE NÃO ESTIVER NA LISTA
       if (!professoresIds.includes(userId)) {
         professoresIds.push(userId);
       }
+
+      // ADICIONAR TODOS OS ADMINS AUTOMATICAMENTE
+      adminIds.forEach(adminId => {
+        if (!professoresIds.includes(adminId)) {
+          professoresIds.push(adminId);
+        }
+      });
+
+      console.log('=== LISTA FINAL DE PROFESSORES:', professoresIds);
 
       let alunosIds = [];
       if (alunos && Array.isArray(alunos)) {
@@ -416,6 +432,7 @@ routerCards.post(
 
       await novoCard.save();
 
+      // ATUALIZAR TODOS OS PROFESSORES (INCLUINDO ADMINS) COM A NOVA DISCIPLINA
       await Professor.updateMany(
         { _id: { $in: professoresIds } },
         { $addToSet: { disciplinas: novoCard._id } }

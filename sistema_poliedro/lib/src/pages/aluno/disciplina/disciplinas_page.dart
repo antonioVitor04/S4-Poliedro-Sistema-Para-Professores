@@ -55,6 +55,7 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
       _futureCards = _loadCards();
     });
   }
+  
 
   @override
   Widget build(BuildContext context) {
