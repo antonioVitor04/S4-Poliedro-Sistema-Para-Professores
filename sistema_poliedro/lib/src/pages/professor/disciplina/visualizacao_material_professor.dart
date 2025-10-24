@@ -12,6 +12,7 @@ import '../../../services/material_service.dart';
 import '../../../models/modelo_card_disciplina.dart';
 import '../../../styles/cores.dart';
 import '../../../styles/fontes.dart';
+import '../../../components/alerta.dart'; // ✅ usa o componente de alerta
 
 class VisualizacaoMaterialPage extends StatefulWidget {
   final MaterialDisciplina material;
@@ -55,6 +56,36 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     } else {
       _fileBytesFuture = Future.value(null);
     }
+  }
+
+  // =======================
+  // ALERTA PADRÃO (HELPER)
+  // =======================
+  Future<void> _mostrarAlerta(
+    String mensagem, {
+    required bool sucesso,
+    Duration autoClose = const Duration(seconds: 3),
+  }) async {
+    if (!mounted) return;
+
+    // limpa qualquer snackbar pendente
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.clearSnackBars();
+
+    final navigator = Navigator.of(context);
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.transparent,
+      builder: (_) => AlertaWidget(
+        mensagem: mensagem,
+        sucesso: sucesso,
+      ),
+    );
+
+    await Future.delayed(autoClose);
+    if (mounted && navigator.canPop()) navigator.pop();
   }
 
   // Métodos para PDF
@@ -141,35 +172,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
         print('=== DEBUG: Arquivo salvo em: ${file.path} ===');
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Download concluído!',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'Arquivo salvo em: SistemaPoliedro/$fileName',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-            backgroundColor: AppColors.verdeConfirmacao,
-            duration: Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'Abrir',
-              textColor: Colors.white,
-              onPressed: () async {
-                final result = await OpenFile.open(file.path);
-                if (result.type != ResultType.done) {
-                  _showFileLocationDialog(file.path);
-                }
-              },
-            ),
-          ),
+        // ✅ alerta de sucesso no padrão
+        await _mostrarAlerta(
+          'Download concluído! Salvo em: SistemaPoliedro/$fileName',
+          sucesso: true,
         );
 
         // Tentar abrir o arquivo automaticamente
@@ -180,6 +186,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           );
           print('=== DEBUG: Resultado: $result ===');
           // Não mostrar erro aqui, pois o arquivo foi salvo com sucesso
+          _showFileLocationDialog(file.path);
         }
       } else {
         _showError('Não foi possível acessar o armazenamento do dispositivo');
@@ -273,7 +280,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   }
 
   // MÉTODOS ESPECÍFICOS PARA WEB (serão chamados apenas se kIsWeb for true)
-  void _downloadPdfWeb(Uint8List bytes, String fileName) {
+  void _downloadPdfWeb(Uint8List bytes, String fileName) async {
     if (!kIsWeb) return;
 
     try {
@@ -287,19 +294,15 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       anchor.click();
       anchor.remove();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Download iniciado: $fileName'),
-          backgroundColor: AppColors.verdeConfirmacao,
-        ),
-      );
+      // ✅ alerta (antes era SnackBar)
+      await _mostrarAlerta('Download iniciado: $fileName', sucesso: true);
     } catch (e) {
       print('=== DEBUG ERRO download web: $e ===');
       _showError('Erro ao fazer download');
     }
   }
 
-  void _downloadImageWeb(Uint8List? bytes, String? url, String fileName) {
+  void _downloadImageWeb(Uint8List? bytes, String? url, String fileName) async {
     if (!kIsWeb) return;
 
     try {
@@ -323,11 +326,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         anchor.remove();
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Download iniciado: ${widget.material.titulo}'),
-          backgroundColor: AppColors.verdeConfirmacao,
-        ),
+      // ✅ alerta (antes era SnackBar)
+      await _mostrarAlerta(
+        'Download iniciado: ${widget.material.titulo}',
+        sucesso: true,
       );
     } catch (e) {
       print('=== DEBUG ERRO download imagem web: $e ===');
@@ -722,13 +724,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
   }
 
+  // ✅ usa alerta padrão em vez de SnackBar
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: AppTextStyles.fonteUbuntuSans),
-        backgroundColor: AppColors.vermelhoErro,
-      ),
-    );
+    _mostrarAlerta(message, sucesso: false);
   }
 
   Widget _buildErrorWidget(String message) {
@@ -1428,14 +1426,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   void _copyLink(String url) async {
     await Clipboard.setData(ClipboardData(text: url));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Link copiado para a área de transferência',
-          style: AppTextStyles.fonteUbuntuSans,
-        ),
-        backgroundColor: AppColors.verdeConfirmacao,
-      ),
+    // ✅ alerta no padrão
+    await _mostrarAlerta(
+      'Link copiado para a área de transferência',
+      sucesso: true,
     );
   }
 
