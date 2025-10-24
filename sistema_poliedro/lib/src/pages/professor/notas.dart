@@ -246,6 +246,7 @@ class _NotasDataTableState extends State<NotasDataTable> {
     return media;
   }
 
+  // SOLUÇÃO SIMPLES - APENAS MODIFIQUE O MÉTODO _saveAllNotas EXISTENTE
   Future<void> _saveAllNotas() async {
     if (_isSaving) return;
 
@@ -253,53 +254,76 @@ class _NotasDataTableState extends State<NotasDataTable> {
     setState(() {});
 
     try {
-      for (final aluno in _allAlunos) {
-        final notaExistente = widget.disciplina.notas.firstWhereOrNull(
-          (n) => n.alunoId == aluno.id,
-        );
+      int successCount = 0;
+      int errorCount = 0;
+      List<String> errors = [];
 
-        final avaliacoes = <Avaliacao>[];
-        for (final nome in _colunasAvaliacao) {
-          final notaValue = _localNotas[aluno.id]![nome] ?? 0.0;
-          final avExistente = notaExistente?.avaliacoes.firstWhereOrNull(
-            (a) => a.nome == nome,
+      // Processar todas as notas primeiro
+      for (final aluno in _allAlunos) {
+        try {
+          final notaExistente = widget.disciplina.notas.firstWhereOrNull(
+            (n) => n.alunoId == aluno.id,
           );
 
-          final avaliacao =
-              avExistente?.copyWith(nota: notaValue) ??
-              Avaliacao(
-                id: '',
-                nome: nome,
-                tipo: _nomeToTipo[nome] ?? 'prova',
-                nota: notaValue,
-                peso: _nomeToPeso[nome] ?? 1.0,
-                data: DateTime.now(),
-              );
-
-          avaliacoes.add(avaliacao);
-        }
-
-        final notaToSave =
-            notaExistente?.copyWith(avaliacoes: avaliacoes) ??
-            Nota(
-              id: '',
-              disciplinaId: widget.disciplina.id,
-              alunoId: aluno.id,
-              alunoNome: aluno.nome,
-              alunoRa: aluno.ra,
-              avaliacoes: avaliacoes,
+          final avaliacoes = <Avaliacao>[];
+          for (final nome in _colunasAvaliacao) {
+            final notaValue = _localNotas[aluno.id]![nome] ?? 0.0;
+            final avExistente = notaExistente?.avaliacoes.firstWhereOrNull(
+              (a) => a.nome == nome,
             );
 
-        if (notaExistente == null) {
-          await widget.onCreateNota(notaToSave);
-        } else {
-          await widget.onUpdateNota(notaExistente.id, notaToSave);
+            final avaliacao =
+                avExistente?.copyWith(nota: notaValue) ??
+                Avaliacao(
+                  id: '',
+                  nome: nome,
+                  tipo: _nomeToTipo[nome] ?? 'prova',
+                  nota: notaValue,
+                  peso: _nomeToPeso[nome] ?? 1.0,
+                  data: DateTime.now(),
+                );
+
+            avaliacoes.add(avaliacao);
+          }
+
+          final notaToSave =
+              notaExistente?.copyWith(avaliacoes: avaliacoes) ??
+              Nota(
+                id: notaExistente?.id ?? '',
+                disciplinaId: widget.disciplina.id,
+                alunoId: aluno.id,
+                alunoNome: aluno.nome,
+                alunoRa: aluno.ra,
+                avaliacoes: avaliacoes,
+              );
+
+          if (notaExistente == null) {
+            await widget.onCreateNota(notaToSave);
+          } else {
+            await widget.onUpdateNota(notaExistente.id, notaToSave);
+          }
+          successCount++;
+        } catch (e) {
+          errorCount++;
+          errors.add('${aluno.nome}: $e');
         }
       }
 
       final mediaAtualizada = _calcularMediaTurma();
       await widget.onReloadDisciplinas();
-      widget.showSuccess('Todas as notas foram salvas com sucesso!');
+
+      // MOSTRAR APENAS UM ALERTA
+      if (errorCount == 0) {
+        widget.showSuccess(
+          'Todas as $successCount notas foram salvas com sucesso!',
+        );
+      } else {
+        widget.showSuccess(
+          '$successCount notas salvas com sucesso. '
+          '$errorCount notas não puderam ser salvas.',
+        );
+      }
+
       widget.onMediaTurmaAtualizada(mediaAtualizada);
     } catch (e) {
       widget.showError('Erro ao salvar notas: $e');
