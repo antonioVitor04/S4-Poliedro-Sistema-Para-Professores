@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../styles/cores.dart';
 import '../styles/fontes.dart';
+import '../components/alerta.dart'; // ✅ usa o seu componente de alerta
 
 class AdicionarCardDialog extends StatefulWidget {
   final Function(
@@ -23,6 +24,34 @@ class _AdicionarCardDialogState extends State<AdicionarCardDialog> {
 
   PlatformFile? _imagemSelecionada;
   PlatformFile? _iconeSelecionado;
+
+  // ✅ helper local: mostra o AlertaWidget acima do diálogo
+  Future<void> _mostrarAlerta(
+    String mensagem, {
+    required bool sucesso,
+    bool barrierDismissible = true,
+    Duration autoClose = const Duration(seconds: 3),
+  }) async {
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    // some qualquer SnackBar que possa estar visível
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.clearSnackBars();
+
+    showDialog(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      barrierColor: Colors.transparent,
+      builder: (_) => AlertaWidget(
+        mensagem: mensagem,
+        sucesso: sucesso,
+      ),
+    );
+
+    await Future.delayed(autoClose);
+    if (mounted && navigator.canPop()) navigator.pop();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -88,6 +117,7 @@ class _AdicionarCardDialogState extends State<AdicionarCardDialog> {
                       ),
                     ),
                     const SizedBox(height: 24),
+
                     // Título
                     TextFormField(
                       controller: _tituloController,
@@ -124,6 +154,7 @@ class _AdicionarCardDialogState extends State<AdicionarCardDialog> {
                       },
                     ),
                     const SizedBox(height: 16),
+
                     // Imagem Principal
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,6 +275,7 @@ class _AdicionarCardDialogState extends State<AdicionarCardDialog> {
                         const SizedBox(height: 16),
                       ],
                     ),
+
                     // Ícone
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,7 +396,8 @@ class _AdicionarCardDialogState extends State<AdicionarCardDialog> {
                         const SizedBox(height: 16),
                       ],
                     ),
-                    // Validação de arquivos
+
+                    // ⚠️ Textinhos de validação visual continuam (não são SnackBar)
                     if (_imagemSelecionada == null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
@@ -387,6 +420,7 @@ class _AdicionarCardDialogState extends State<AdicionarCardDialog> {
                           ),
                         ),
                       ),
+
                     // Botões
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -447,16 +481,13 @@ class _AdicionarCardDialogState extends State<AdicionarCardDialog> {
 
         // Preencher automaticamente o título se estiver vazio
         if (_tituloController.text.isEmpty) {
-          _tituloController.text = _imagemSelecionada!.name.replaceAll(RegExp(r'\.[^.\s]+$'), '');
+          _tituloController.text =
+              _imagemSelecionada!.name.replaceAll(RegExp(r'\.[^.\s]+$'), '');
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao selecionar imagem: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // ❌ antes era SnackBar; agora usa o alerta padrão
+      await _mostrarAlerta('Erro ao selecionar imagem: $e', sucesso: false);
     }
   }
 
@@ -473,33 +504,25 @@ class _AdicionarCardDialogState extends State<AdicionarCardDialog> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao selecionar ícone: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // ❌ antes era SnackBar; agora usa o alerta padrão
+      await _mostrarAlerta('Erro ao selecionar ícone: $e', sucesso: false);
     }
   }
 
-  void _salvar() {
-    // Validação especial para arquivos
+  void _salvar() async {
+    // ✅ validação com alerta padrão (sem SnackBar)
     if (_imagemSelecionada == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Por favor, selecione uma imagem principal'),
-          backgroundColor: Colors.orange,
-        ),
+      await _mostrarAlerta(
+        'Por favor, selecione uma imagem principal',
+        sucesso: false,
       );
       return;
     }
 
     if (_iconeSelecionado == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Por favor, selecione um ícone'),
-          backgroundColor: Colors.orange,
-        ),
+      await _mostrarAlerta(
+        'Por favor, selecione um ícone',
+        sucesso: false,
       );
       return;
     }

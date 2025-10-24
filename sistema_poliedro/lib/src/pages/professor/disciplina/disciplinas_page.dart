@@ -9,6 +9,7 @@ import '../../../models/modelo_card_disciplina.dart';
 import '../../../dialogs/adicionar_card_dialog.dart';
 import '../../../dialogs/editar_card_dialog.dart';
 import '../../../dialogs/gerenciar_relacionamentos_dialog.dart';
+import '../../../components/alerta.dart'; // componente alerta
 
 class DisciplinasPageProfessor extends StatefulWidget {
   final Function(String, String) onNavigateToDetail;
@@ -48,10 +49,8 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
       List<CardDisciplina> cards;
 
       if (_isAdmin) {
-        // Admin vê todas as disciplinas
         cards = await CardDisciplinaService.getAllCards();
       } else {
-        // Professor/Aluno vê apenas suas disciplinas
         cards = await CardDisciplinaService.getMinhasDisciplinas();
       }
 
@@ -80,11 +79,59 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
     });
   }
 
+  // --- Helpers de UI ---
+
+  void _limparSnackbars() {
+    // Esconde/limpa qualquer SnackBar pendente (inclusive disparado dentro de diálogos)
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.clearSnackBars();
+  }
+
+  Future<void> _mostrarAlerta(
+    String mensagem, {
+    required bool sucesso,
+    bool barrierDismissible = true,
+    Duration autoClose = const Duration(seconds: 3),
+    Color? barrierColor,
+  }) async {
+    if (!mounted) return;
+
+    // garante que nenhuma barra laranja fique visível
+    _limparSnackbars();
+
+    final navigator = Navigator.of(context);
+    showDialog(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      barrierColor: barrierColor ?? Colors.transparent,
+      builder: (_) => AlertaWidget(
+        mensagem: mensagem,
+        sucesso: sucesso,
+      ),
+    );
+
+    await Future.delayed(autoClose);
+    if (mounted && navigator.canPop()) navigator.pop();
+  }
+
+  // --- Ações ---
+
   Future<void> _adicionarCard() async {
     await showDialog(
       context: context,
       builder: (context) => AdicionarCardDialog(
         onConfirm: (titulo, imagemFile, iconeFile) async {
+          // validação obrigatória da imagem
+          if (imagemFile == null) {
+            _limparSnackbars(); // <- limpa o aviso laranja do diálogo
+            await _mostrarAlerta(
+              'É obrigatório selecionar uma imagem para a matéria.',
+              sucesso: false,
+            );
+            return;
+          }
+
           try {
             await CardDisciplinaService.criarCard(
               titulo,
@@ -92,18 +139,16 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
               iconeFile,
             );
             _refreshCards();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Disciplina adicionada com sucesso!'),
-                backgroundColor: Colors.green,
-              ),
+            _limparSnackbars();
+            await _mostrarAlerta(
+              'Disciplina adicionada com sucesso!',
+              sucesso: true,
             );
           } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Erro ao adicionar disciplina: $e'),
-                backgroundColor: Colors.red,
-              ),
+            _limparSnackbars();
+            await _mostrarAlerta(
+              'Erro ao adicionar disciplina: $e',
+              sucesso: false,
             );
           }
         },
@@ -112,14 +157,12 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
   }
 
   Future<void> _editarCard(CardDisciplina card) async {
-    // Verificar permissões antes de editar
     final podeEditar = await card.podeEditar();
     if (!podeEditar) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Você não tem permissão para editar esta disciplina'),
-          backgroundColor: Colors.red,
-        ),
+      _limparSnackbars();
+      await _mostrarAlerta(
+        'Você não tem permissão para editar esta disciplina',
+        sucesso: false,
       );
       return;
     }
@@ -137,18 +180,16 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
               iconeFile,
             );
             _refreshCards();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Disciplina atualizada com sucesso!'),
-                backgroundColor: Colors.green,
-              ),
+            _limparSnackbars();
+            await _mostrarAlerta(
+              'Disciplina atualizada com sucesso!',
+              sucesso: true,
             );
           } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Erro ao atualizar disciplina: $e'),
-                backgroundColor: Colors.red,
-              ),
+            _limparSnackbars();
+            await _mostrarAlerta(
+              'Erro ao atualizar disciplina: $e',
+              sucesso: false,
             );
           }
         },
@@ -157,14 +198,12 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
   }
 
   Future<void> _deletarCard(CardDisciplina card) async {
-    // Verificar permissões antes de deletar
     final podeDeletar = await card.podeDeletar();
     if (!podeDeletar) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Você não tem permissão para deletar esta disciplina'),
-          backgroundColor: Colors.red,
-        ),
+      _limparSnackbars();
+      await _mostrarAlerta(
+        'Você não tem permissão para deletar esta disciplina',
+        sucesso: false,
       );
       return;
     }
@@ -199,18 +238,16 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
       try {
         await CardDisciplinaService.deletarCard(card.id);
         _refreshCards();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Disciplina "${card.titulo}" excluída com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
+        _limparSnackbars();
+        await _mostrarAlerta(
+          'Disciplina "${card.titulo}" excluída com sucesso!',
+          sucesso: true,
         );
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao excluir disciplina: $e'),
-            backgroundColor: Colors.red,
-          ),
+        _limparSnackbars();
+        await _mostrarAlerta(
+          'Erro ao excluir disciplina: $e',
+          sucesso: false,
         );
       }
     }
@@ -219,13 +256,10 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
   Future<void> _gerenciarRelacionamentos(CardDisciplina card) async {
     final podeEditar = await card.podeEditar();
     if (!podeEditar) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Você não tem permissão para gerenciar esta disciplina',
-          ),
-          backgroundColor: Colors.red,
-        ),
+      _limparSnackbars();
+      await _mostrarAlerta(
+        'Você não tem permissão para gerenciar esta disciplina',
+        sucesso: false,
       );
       return;
     }
@@ -236,6 +270,8 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
           GerenciarRelacionamentosDialog(card: card, onUpdated: _refreshCards),
     );
   }
+
+  // --- Build ---
 
   @override
   Widget build(BuildContext context) {
@@ -333,14 +369,11 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          if ((_isProfessor ||
-                              _isAdmin)) // Adicione || _isAdmin
+                          if ((_isProfessor || _isAdmin))
                             ElevatedButton.icon(
                               onPressed: _adicionarCard,
                               icon: const Icon(Icons.add),
-                              label: const Text(
-                                'Adicionar Primeira Disciplina',
-                              ), // Ou "Adicionar Disciplina (Admin)" se quiser diferenciar
+                              label: const Text('Adicionar Primeira Disciplina'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.azulClaro,
                                 foregroundColor: Colors.white,
@@ -415,8 +448,7 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
           },
         ),
       ),
-      floatingActionButton:
-          (_isProfessor || _isAdmin) // Adicione || _isAdmin
+      floatingActionButton: (_isProfessor || _isAdmin)
           ? FloatingActionButton(
               onPressed: _adicionarCard,
               backgroundColor: AppColors.azulClaro,
