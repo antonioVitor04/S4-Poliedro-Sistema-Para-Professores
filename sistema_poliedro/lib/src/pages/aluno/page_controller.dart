@@ -76,7 +76,6 @@ class _MainAlunoPageState extends State<MainAlunoPage>
       '/notas': NotasPage(token: _token ?? ''),
       '/calendario': const CalendarioPage(),
       '/notificacoes': const NotificacoesPage(),
-      '/perfil': PerfilPage(), // Adicionei esta linha também
     };
   }
 
