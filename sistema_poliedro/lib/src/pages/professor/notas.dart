@@ -13,7 +13,7 @@ import '../../models/modelo_avaliacao.dart';
 import '../../models/modelo_nota.dart';
 import '../../models/modelo_usuario.dart';
 
-// Widget Stateful para gerenciar o estado das notas - CORRIGIDO
+// Widget Stateful para gerenciar o estado das notas - VERSÃO RESPONSIVA
 class NotasDataTable extends StatefulWidget {
   final Disciplina disciplina;
   final Color primaryColor;
@@ -24,8 +24,7 @@ class NotasDataTable extends StatefulWidget {
   final Future<void> Function() onReloadDisciplinas;
   final void Function(String) showSuccess;
   final void Function(String) showError;
-  final void Function(double)
-  onMediaTurmaAtualizada; // NOVO: callback para atualizar média
+  final void Function(double) onMediaTurmaAtualizada;
 
   const NotasDataTable({
     super.key,
@@ -51,20 +50,17 @@ class _NotaInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    // Se estiver vazio, permite
     if (newValue.text.isEmpty) {
       return newValue;
     }
 
-    // Verifica se é um número válido
     final num = double.tryParse(newValue.text);
     if (num == null) {
-      return oldValue; // Não permite caracteres não numéricos
+      return oldValue;
     }
 
-    // Verifica se está dentro do range permitido
     if (num < 0.0 || num > 10.0) {
-      return oldValue; // Não permite valores fora do range
+      return oldValue;
     }
 
     return newValue;
@@ -84,7 +80,6 @@ class _NotasDataTableState extends State<NotasDataTable> {
 
   @override
   void dispose() {
-    // Limpar todos os controllers
     for (final alunoControllers in _controllers.values) {
       for (final controller in alunoControllers.values) {
         controller.dispose();
@@ -99,7 +94,6 @@ class _NotasDataTableState extends State<NotasDataTable> {
     _initializeData();
   }
 
-  // NOVO: Método para calcular média da turma
   double _calcularMediaTurma() {
     double somaMedias = 0.0;
     int alunosComNota = 0;
@@ -115,9 +109,7 @@ class _NotasDataTableState extends State<NotasDataTable> {
     return alunosComNota > 0 ? somaMedias / alunosComNota : 0.0;
   }
 
-  // Método para atualizar os dados quando uma nova avaliação é adicionada
   void _refreshData() {
-    // Coletar avaliações atualizadas
     final Set<String> avaliacaoNomes = <String>{};
     _nomeToTipo.clear();
     _nomeToPeso.clear();
@@ -132,7 +124,6 @@ class _NotasDataTableState extends State<NotasDataTable> {
 
     final novasColunas = avaliacaoNomes.toList();
 
-    // Verificar se houve mudanças nas colunas
     if (novasColunas.length != _colunasAvaliacao.length ||
         !const SetEquality().equals(
           novasColunas.toSet(),
@@ -142,7 +133,6 @@ class _NotasDataTableState extends State<NotasDataTable> {
         _colunasAvaliacao = novasColunas;
       });
 
-      // Atualizar controllers para as novas colunas
       for (final aluno in _allAlunos) {
         final nota = widget.disciplina.notas.firstWhereOrNull(
           (n) => n.alunoId == aluno.id,
@@ -167,7 +157,6 @@ class _NotasDataTableState extends State<NotasDataTable> {
     _allAlunos = List<Usuario>.from(widget.disciplina.alunos)
       ..sort((a, b) => a.nome.compareTo(b.nome));
 
-    // Coletar todas as avaliações únicas
     final Set<String> avaliacaoNomes = <String>{};
     _nomeToTipo = {};
     _nomeToPeso = {};
@@ -182,7 +171,6 @@ class _NotasDataTableState extends State<NotasDataTable> {
 
     _colunasAvaliacao = avaliacaoNomes.toList();
 
-    // Inicializar controllers e notas locais APENAS UMA VEZ
     for (final aluno in _allAlunos) {
       _controllers[aluno.id] = {};
       _localNotas[aluno.id] = {};
@@ -195,13 +183,11 @@ class _NotasDataTableState extends State<NotasDataTable> {
         final currentNota = av?.nota ?? 0.0;
         _localNotas[aluno.id]![nome] = currentNota;
 
-        // Verificar se o controller já existe antes de criar um novo
         if (_controllers[aluno.id]![nome] == null) {
           _controllers[aluno.id]![nome] = TextEditingController(
             text: currentNota > 0 ? currentNota.toStringAsFixed(1) : '',
           );
         } else {
-          // Se já existe, apenas atualize o texto se necessário
           final currentText = _controllers[aluno.id]![nome]!.text;
           final expectedText = currentNota > 0
               ? currentNota.toStringAsFixed(1)
@@ -218,12 +204,10 @@ class _NotasDataTableState extends State<NotasDataTable> {
   void didUpdateWidget(NotasDataTable oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Atualizar sempre que a disciplina mudar
     if (oldWidget.disciplina.id != widget.disciplina.id ||
         oldWidget.disciplina.notas.length != widget.disciplina.notas.length) {
       _refreshData();
     } else {
-      // Verificar se houve mudanças nas avaliações
       bool avaliacoesMudaram = false;
       for (final nota in widget.disciplina.notas) {
         for (final av in nota.avaliacoes) {
@@ -250,10 +234,10 @@ class _NotasDataTableState extends State<NotasDataTable> {
     for (final nome in _colunasAvaliacao) {
       final currentNota = _localNotas[alunoId]![nome] ?? 0.0;
       final peso = _nomeToPeso[nome] ?? 1.0;
-      if (currentNota > 0) {
-        media += (currentNota * peso);
-        totalPeso += peso;
-      }
+
+      // Inclui TODAS as notas, mesmo as zero
+      media += (currentNota * peso);
+      totalPeso += peso;
     }
 
     if (totalPeso > 0) {
@@ -262,7 +246,6 @@ class _NotasDataTableState extends State<NotasDataTable> {
     return media;
   }
 
-  // NO MÉTODO _saveAllNotas, modifique para evitar o loop:
   Future<void> _saveAllNotas() async {
     if (_isSaving) return;
 
@@ -314,16 +297,9 @@ class _NotasDataTableState extends State<NotasDataTable> {
         }
       }
 
-      // NOVA IMPLEMENTAÇÃO: Calcular a média ANTES de recarregar
       final mediaAtualizada = _calcularMediaTurma();
-
-      // Recarregar disciplinas SEM mostrar alerta interno
       await widget.onReloadDisciplinas();
-
-      // Mostrar sucesso APENAS UMA VEZ
       widget.showSuccess('Todas as notas foram salvas com sucesso!');
-
-      // Notificar a média atualizada DEPOIS do sucesso
       widget.onMediaTurmaAtualizada(mediaAtualizada);
     } catch (e) {
       widget.showError('Erro ao salvar notas: $e');
@@ -336,20 +312,16 @@ class _NotasDataTableState extends State<NotasDataTable> {
   }
 
   void _onNotaChanged(String alunoId, String nome, String value) {
-    // Se estiver vazio, define como 0.0
     if (value.isEmpty) {
       setState(() {
         _localNotas[alunoId]![nome] = 0.0;
       });
-
       return;
     }
 
     final num = double.tryParse(value);
 
-    // Se não for um número válido, mantém o valor anterior
     if (num == null) {
-      // Restaura o valor anterior no controller
       final previousValue = _localNotas[alunoId]![nome] ?? 0.0;
       _controllers[alunoId]![nome]!.text = previousValue > 0
           ? previousValue.toStringAsFixed(1)
@@ -357,7 +329,6 @@ class _NotasDataTableState extends State<NotasDataTable> {
       return;
     }
 
-    // Validação: deve estar entre 0.0 e 10.0
     if (num < 0.0) {
       setState(() {
         _localNotas[alunoId]![nome] = 0.0;
@@ -369,7 +340,6 @@ class _NotasDataTableState extends State<NotasDataTable> {
       });
       _controllers[alunoId]![nome]!.text = '10.0';
     } else {
-      // Valor válido
       setState(() {
         _localNotas[alunoId]![nome] = num;
       });
@@ -378,88 +348,24 @@ class _NotasDataTableState extends State<NotasDataTable> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
+    final isTablet = screenWidth < 1024;
+
     return Column(
       children: [
-        // Header com botões de ação
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-          ),
-          child: Row(
-            children: [
-              ElevatedButton.icon(
-                onPressed: () => widget.onAddGlobalAvaliacao(widget.disciplina),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Avaliação'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.primaryColor,
-                  foregroundColor: AppColors.branco,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (_colunasAvaliacao.isNotEmpty) ...[
-                ElevatedButton.icon(
-                  onPressed: () => widget.onManageAvaliacoes(widget.disciplina),
-                  icon: const Icon(Icons.settings, size: 18),
-                  label: const Text('Gerenciar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: AppColors.branco,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              const Spacer(),
-              ElevatedButton.icon(
-                onPressed: _isSaving ? null : _saveAllNotas,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save, size: 18),
-                label: Text(
-                  _isSaving ? 'Salvando...' : 'Salvar Todas as Notas',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isSaving
-                      ? Colors.grey
-                      : AppColors.verdeConfirmacao,
-                  foregroundColor: AppColors.branco,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        // Header responsivo
+        _buildHeader(isMobile, isTablet),
 
-        // Tabela editável
+        // Tabela editável responsiva
         Expanded(
           child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            margin: EdgeInsets.fromLTRB(
+              isMobile ? 8 : 16,
+              isMobile ? 8 : 16,
+              isMobile ? 8 : 16,
+              isMobile ? 8 : 16,
+            ),
             decoration: BoxDecoration(
               color: AppColors.branco,
               borderRadius: BorderRadius.circular(16),
@@ -471,24 +377,361 @@ class _NotasDataTableState extends State<NotasDataTable> {
                 ),
               ],
             ),
-            child: _buildDataTable(),
+            child: isMobile
+                ? _buildMobileNotasView()
+                : _buildDesktopNotasView(isTablet),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDataTable() {
+  Widget _buildHeader(bool isMobile, bool isTablet) {
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 12 : 16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: isMobile ? _buildMobileHeader() : _buildDesktopHeader(isTablet),
+    );
+  }
+
+  Widget _buildMobileHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Linha 1: Botões principais
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => widget.onAddGlobalAvaliacao(widget.disciplina),
+                icon: const Icon(Icons.add, size: 16),
+                label: Text('Avaliação', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.primaryColor,
+                  foregroundColor: AppColors.branco,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: 8),
+            if (_colunasAvaliacao.isNotEmpty)
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => widget.onManageAvaliacoes(widget.disciplina),
+                  icon: const Icon(Icons.settings, size: 16),
+                  label: Text('Gerenciar', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: AppColors.branco,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        SizedBox(height: 8),
+        // Linha 2: Botão salvar
+        ElevatedButton.icon(
+          onPressed: _isSaving ? null : _saveAllNotas,
+          icon: _isSaving
+              ? SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(Icons.save, size: 16),
+          label: Text(
+            _isSaving ? 'Salvando...' : 'Salvar Todas',
+            style: TextStyle(fontSize: 12),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _isSaving
+                ? Colors.grey
+                : AppColors.verdeConfirmacao,
+            foregroundColor: AppColors.branco,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopHeader(bool isTablet) {
+    return Row(
+      children: [
+        ElevatedButton.icon(
+          onPressed: () => widget.onAddGlobalAvaliacao(widget.disciplina),
+          icon: Icon(Icons.add, size: isTablet ? 16 : 18),
+          label: Text(
+            'Avaliação',
+            style: TextStyle(fontSize: isTablet ? 12 : 14),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: widget.primaryColor,
+            foregroundColor: AppColors.branco,
+            padding: EdgeInsets.symmetric(
+              horizontal: isTablet ? 12 : 16,
+              vertical: isTablet ? 8 : 10,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        ),
+        SizedBox(width: 8),
+        if (_colunasAvaliacao.isNotEmpty) ...[
+          ElevatedButton.icon(
+            onPressed: () => widget.onManageAvaliacoes(widget.disciplina),
+            icon: Icon(Icons.settings, size: isTablet ? 16 : 18),
+            label: Text(
+              'Gerenciar',
+              style: TextStyle(fontSize: isTablet ? 12 : 14),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: AppColors.branco,
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? 12 : 16,
+                vertical: isTablet ? 8 : 10,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+          ),
+          SizedBox(width: 8),
+        ],
+        Spacer(),
+        ElevatedButton.icon(
+          onPressed: _isSaving ? null : _saveAllNotas,
+          icon: _isSaving
+              ? SizedBox(
+                  width: isTablet ? 14 : 16,
+                  height: isTablet ? 14 : 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(Icons.save, size: isTablet ? 16 : 18),
+          label: Text(
+            _isSaving ? 'Salvando...' : 'Salvar Todas as Notas',
+            style: TextStyle(fontSize: isTablet ? 12 : 14),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _isSaving
+                ? Colors.grey
+                : AppColors.verdeConfirmacao,
+            foregroundColor: AppColors.branco,
+            padding: EdgeInsets.symmetric(
+              horizontal: isTablet ? 16 : 20,
+              vertical: isTablet ? 8 : 10,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileNotasView() {
+    return ListView.builder(
+      padding: EdgeInsets.all(8),
+      itemCount: _allAlunos.length,
+      itemBuilder: (context, index) {
+        final aluno = _allAlunos[index];
+        final nota = widget.disciplina.notas.firstWhereOrNull(
+          (n) => n.alunoId == aluno.id,
+        );
+        final media = _calcularMedia(aluno.id);
+
+        return Card(
+          color: AppColors.branco,
+          margin: EdgeInsets.only(bottom: 8),
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header do aluno
+                Row(
+                  children: [
+                    _buildRACell(aluno, nota != null),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            aluno.nome,
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            nota != null
+                                ? '${nota.avaliacoes.length} avaliações'
+                                : 'Sem notas',
+                            style: AppTextStyles.fonteUbuntuSans.copyWith(
+                              color: nota != null
+                                  ? widget.primaryColor
+                                  : Colors.orange,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _buildMediaCell(media),
+                  ],
+                ),
+
+                SizedBox(height: 12),
+
+                // VERSÃO MAIS SEGURA - sem spread operator
+                // Avaliações
+                if (_colunasAvaliacao.isNotEmpty)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Avaliações:',
+                        style: AppTextStyles.fonteUbuntu.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      ..._colunasAvaliacao.map((nome) {
+                        return _buildMobileNotaRow(aluno.id, nome);
+                      }).toList(),
+                    ],
+                  )
+                else
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Nenhuma avaliação cadastrada',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileNotaRow(String alunoId, String nome) {
+    final tipo = _nomeToTipo[nome] ?? '';
+    final color = tipo == 'atividade' ? Colors.green : widget.primaryColor;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nome,
+                  style: AppTextStyles.fonteUbuntu.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  '${tipo.toUpperCase()} • Peso: ${_nomeToPeso[nome]?.toStringAsFixed(1) ?? '1.0'}',
+                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 8),
+          Container(
+            width: 80,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.grey[400]!, width: 1),
+            ),
+            child: TextField(
+              controller: _controllers[alunoId]![nome]!,
+              textAlign: TextAlign.center,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(
+                  RegExp(r'^\d{1,2}(\.\d{0,2})?$'),
+                ),
+                _NotaInputFormatter(),
+              ],
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 6,
+                ),
+                isDense: true,
+                hintText: '0.0',
+                hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              style: AppTextStyles.fonteUbuntu.copyWith(
+                fontWeight: FontWeight.w600,
+                color: color,
+                fontSize: 12,
+              ),
+              onChanged: (value) => _onNotaChanged(alunoId, nome, value),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopNotasView(bool isTablet) {
     return Column(
       children: [
-        // Indicador de scroll (opcional)
         if (_colunasAvaliacao.length > 3)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: Text(
               '← Deslize para ver mais colunas →',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: isTablet ? 10 : 12,
                 color: Colors.grey[600],
                 fontStyle: FontStyle.italic,
               ),
@@ -505,7 +748,8 @@ class _NotasDataTableState extends State<NotasDataTable> {
               physics: const ClampingScrollPhysics(),
               child: Container(
                 constraints: BoxConstraints(
-                  minWidth: MediaQuery.of(context).size.width - 32,
+                  minWidth:
+                      MediaQuery.of(context).size.width - (isTablet ? 48 : 32),
                 ),
                 child: Scrollbar(
                   controller: _verticalController,
@@ -516,32 +760,38 @@ class _NotasDataTableState extends State<NotasDataTable> {
                     scrollDirection: Axis.vertical,
                     physics: const ClampingScrollPhysics(),
                     child: DataTable(
-                      headingRowHeight: 80,
-                      dataRowHeight: 70,
+                      headingRowHeight: isTablet ? 70 : 80,
+                      dataRowHeight: isTablet ? 60 : 70,
                       headingRowColor: MaterialStateProperty.all(
                         Colors.grey[50],
                       ),
                       dividerThickness: 1,
-                      columnSpacing: 12,
-                      horizontalMargin: 16,
+                      columnSpacing: isTablet ? 8 : 12,
+                      horizontalMargin: isTablet ? 12 : 16,
                       headingTextStyle: AppTextStyles.fonteUbuntu.copyWith(
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF424242),
-                        fontSize: 12,
+                        fontSize: isTablet ? 10 : 12,
                         letterSpacing: 0.5,
                       ),
                       dataTextStyle: AppTextStyles.fonteUbuntuSans.copyWith(
                         color: const Color(0xFF424242),
-                        fontSize: 14,
+                        fontSize: isTablet ? 12 : 14,
                       ),
                       columns: [
-                        const DataColumn(
-                          label: Text('RA'),
+                        DataColumn(
+                          label: Text(
+                            'RA',
+                            style: TextStyle(fontSize: isTablet ? 10 : 12),
+                          ),
                           numeric: false,
                           tooltip: 'Registro Acadêmico',
                         ),
-                        const DataColumn(
-                          label: Text('Nome do Aluno'),
+                        DataColumn(
+                          label: Text(
+                            'Nome do Aluno',
+                            style: TextStyle(fontSize: isTablet ? 10 : 12),
+                          ),
                           tooltip: 'Nome completo do aluno',
                         ),
                         ..._colunasAvaliacao.map((nome) {
@@ -553,7 +803,9 @@ class _NotasDataTableState extends State<NotasDataTable> {
 
                           return DataColumn(
                             label: Container(
-                              constraints: const BoxConstraints(minWidth: 150),
+                              constraints: BoxConstraints(
+                                minWidth: isTablet ? 120 : 150,
+                              ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -565,7 +817,7 @@ class _NotasDataTableState extends State<NotasDataTable> {
                                         nome,
                                         style: AppTextStyles.fonteUbuntu
                                             .copyWith(
-                                              fontSize: 12,
+                                              fontSize: isTablet ? 10 : 12,
                                               fontWeight: FontWeight.w600,
                                               color: color,
                                             ),
@@ -575,11 +827,11 @@ class _NotasDataTableState extends State<NotasDataTable> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  SizedBox(height: 2),
                                   Text(
                                     tipo.toUpperCase(),
                                     style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: isTablet ? 8 : 10,
                                       color: color.withOpacity(0.7),
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -587,7 +839,7 @@ class _NotasDataTableState extends State<NotasDataTable> {
                                   Text(
                                     'Peso: ${peso.toStringAsFixed(1)}',
                                     style: TextStyle(
-                                      fontSize: 9,
+                                      fontSize: isTablet ? 7 : 9,
                                       color: color.withOpacity(0.8),
                                       fontWeight: FontWeight.w500,
                                       fontStyle: FontStyle.italic,
@@ -598,8 +850,11 @@ class _NotasDataTableState extends State<NotasDataTable> {
                             ),
                           );
                         }).toList(),
-                        const DataColumn(
-                          label: Text('Média'),
+                        DataColumn(
+                          label: Text(
+                            'Média',
+                            style: TextStyle(fontSize: isTablet ? 10 : 12),
+                          ),
                           tooltip: 'Média ponderada das avaliações',
                         ),
                       ],
@@ -624,9 +879,13 @@ class _NotasDataTableState extends State<NotasDataTable> {
                           }),
                           cells: [
                             DataCell(_buildRACell(aluno, nota != null)),
-                            DataCell(_buildNomeCell(aluno, nota != null)),
+                            DataCell(
+                              _buildNomeCell(aluno, nota != null, isTablet),
+                            ),
                             ..._colunasAvaliacao.map((nome) {
-                              return DataCell(_buildNotaCell(aluno.id, nome));
+                              return DataCell(
+                                _buildNotaCell(aluno.id, nome, isTablet),
+                              );
                             }).toList(),
                             DataCell(_buildMediaCell(media)),
                           ],
@@ -645,12 +904,12 @@ class _NotasDataTableState extends State<NotasDataTable> {
 
   Widget _buildRACell(Usuario aluno, bool hasNota) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: hasNota
             ? widget.primaryColor.withOpacity(0.1)
             : Colors.orange.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: hasNota
               ? widget.primaryColor.withOpacity(0.3)
@@ -662,19 +921,20 @@ class _NotasDataTableState extends State<NotasDataTable> {
         style: AppTextStyles.fonteUbuntu.copyWith(
           color: hasNota ? widget.primaryColor : Colors.orange,
           fontWeight: FontWeight.w600,
-          fontSize: 12,
+          fontSize: 10,
         ),
+        textAlign: TextAlign.center,
       ),
     );
   }
 
-  Widget _buildNomeCell(Usuario aluno, bool hasNota) {
+  Widget _buildNomeCell(Usuario aluno, bool hasNota, bool isTablet) {
     final nota = widget.disciplina.notas.firstWhereOrNull(
       (n) => n.alunoId == aluno.id,
     );
 
     return SizedBox(
-      width: 200,
+      width: isTablet ? 120 : 150,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -683,16 +943,16 @@ class _NotasDataTableState extends State<NotasDataTable> {
             aluno.nome,
             style: AppTextStyles.fonteUbuntu.copyWith(
               fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontSize: isTablet ? 12 : 14,
             ),
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 2),
           Text(
             hasNota ? '${nota?.avaliacoes.length} avaliações' : 'Sem notas',
             style: AppTextStyles.fonteUbuntuSans.copyWith(
               color: hasNota ? widget.primaryColor : Colors.orange,
-              fontSize: 11,
+              fontSize: isTablet ? 9 : 11,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -701,7 +961,7 @@ class _NotasDataTableState extends State<NotasDataTable> {
     );
   }
 
-  Widget _buildNotaCell(String alunoId, String nome) {
+  Widget _buildNotaCell(String alunoId, String nome, bool isTablet) {
     final tipo = _nomeToTipo[nome] ?? '';
     final color = tipo == 'atividade' ? Colors.green : widget.primaryColor;
 
@@ -709,8 +969,8 @@ class _NotasDataTableState extends State<NotasDataTable> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
-          width: 120,
-          height: 40,
+          width: isTablet ? 80 : 100,
+          height: isTablet ? 32 : 36,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(6),
@@ -720,34 +980,37 @@ class _NotasDataTableState extends State<NotasDataTable> {
             controller: _controllers[alunoId]![nome]!,
             textAlign: TextAlign.center,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            // No método _buildNotaCell, substitua os inputFormatters por:
             inputFormatters: [
-              // Permite apenas números com até 2 casas decimais
               FilteringTextInputFormatter.allow(
                 RegExp(r'^\d{1,2}(\.\d{0,2})?$'),
               ),
-              // Validação customizada para limitar o valor
               _NotaInputFormatter(),
             ],
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: isTablet ? 6 : 8,
+              ),
               isDense: true,
               hintText: '0.0',
-              hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+              hintStyle: TextStyle(
+                color: Colors.grey,
+                fontSize: isTablet ? 12 : 14,
+              ),
             ),
             style: AppTextStyles.fonteUbuntu.copyWith(
               fontWeight: FontWeight.w600,
               color: color,
-              fontSize: 14,
+              fontSize: isTablet ? 12 : 14,
             ),
             onChanged: (value) => _onNotaChanged(alunoId, nome, value),
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 2),
         Text(
           'Peso: ${_nomeToPeso[nome]?.toStringAsFixed(1) ?? '1.0'}',
-          style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+          style: TextStyle(fontSize: isTablet ? 8 : 9, color: Colors.grey[600]),
         ),
       ],
     );
@@ -776,10 +1039,10 @@ class _NotasDataTableState extends State<NotasDataTable> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: borderColor),
       ),
       child: Text(
@@ -787,7 +1050,7 @@ class _NotasDataTableState extends State<NotasDataTable> {
         style: AppTextStyles.fonteUbuntu.copyWith(
           fontWeight: FontWeight.w700,
           color: textColor,
-          fontSize: 14,
+          fontSize: 12,
         ),
       ),
     );

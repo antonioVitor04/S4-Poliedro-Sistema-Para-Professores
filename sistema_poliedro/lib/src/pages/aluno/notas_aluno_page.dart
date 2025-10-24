@@ -81,6 +81,7 @@ class _NotasPageState extends State<NotasPage>
             detalhe,
           ) {
             return {
+              "nome": detalhe['nome'], // USA DIRETAMENTE O NOME DO BACKEND
               "tipo": detalhe['tipo'],
               "nota": detalhe['nota']?.toDouble(),
               "peso": detalhe['peso']?.toDouble(),
@@ -116,6 +117,22 @@ class _NotasPageState extends State<NotasPage>
         );
       }
     }
+  }
+
+  double _calcularMediaPonderada(List<Map<String, dynamic>> avaliacoes) {
+    if (avaliacoes.isEmpty) return 0.0;
+
+    double somaPonderada = 0.0;
+    double somaPesos = 0.0;
+
+    for (final av in avaliacoes) {
+      final nota = (av["nota"] as double?) ?? 0.0;
+      final peso = (av["peso"] as double?) ?? 1.0;
+      somaPonderada += nota * peso;
+      somaPesos += peso;
+    }
+
+    return somaPesos > 0 ? somaPonderada / somaPesos : 0.0;
   }
 
   void _scrollToTop() {
