@@ -76,7 +76,6 @@ class _MainAlunoPageState extends State<MainAlunoPage>
       '/notas': NotasPage(token: _token ?? ''),
       '/calendario': const CalendarioPage(),
       '/notificacoes': const NotificacoesPage(),
-      '/perfil': PerfilPage(), // Adicionei esta linha também
     };
   }
 
@@ -106,17 +105,15 @@ class _MainAlunoPageState extends State<MainAlunoPage>
   void _onNavTap(String route) {
     setState(() {
       if (route == '/perfil') {
-        if (!_isProfileOpen) {
-          _previousRoute = _currentRoute;
-          _currentRoute = '/perfil';
-          _isProfileOpen = true;
+        // APENAS ABRE/FECHA O MENU LATERAL, NÃO MUDA A ROTA
+        _isProfileOpen = !_isProfileOpen;
+        if (_isProfileOpen) {
           _profileController.forward();
         } else {
-          _isProfileOpen = false;
-          _currentRoute = _previousRoute;
           _profileController.reverse();
         }
       } else {
+        // PARA OUTRAS ROTAS, MUDA A PÁGINA E FECHA O PERFIL
         _currentRoute = route;
         if (_isProfileOpen) {
           _isProfileOpen = false;
