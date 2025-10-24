@@ -333,13 +333,14 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          if (_isProfessor)
+                          if ((_isProfessor ||
+                              _isAdmin)) // Adicione || _isAdmin
                             ElevatedButton.icon(
                               onPressed: _adicionarCard,
                               icon: const Icon(Icons.add),
                               label: const Text(
                                 'Adicionar Primeira Disciplina',
-                              ),
+                              ), // Ou "Adicionar Disciplina (Admin)" se quiser diferenciar
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.azulClaro,
                                 foregroundColor: Colors.white,
@@ -414,7 +415,8 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
           },
         ),
       ),
-      floatingActionButton: _isProfessor
+      floatingActionButton:
+          (_isProfessor || _isAdmin) // Adicione || _isAdmin
           ? FloatingActionButton(
               onPressed: _adicionarCard,
               backgroundColor: AppColors.azulClaro,
