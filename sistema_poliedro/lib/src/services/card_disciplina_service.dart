@@ -78,8 +78,8 @@ class CardDisciplinaService {
       print('=== DEBUG: Verificando autenticação para criar card ===');
 
       // Verificar se é professor
-      if (!await AuthService.isProfessor()) {
-        throw Exception('Apenas professores podem criar disciplinas');
+      if (await AuthService.isAluno()) {
+        throw Exception('Apenas professores ou admins podem criar disciplinas');
       }
 
       final token = await AuthService.getToken();
@@ -125,7 +125,7 @@ class CardDisciplinaService {
       } else if (response.statusCode == 401) {
         throw Exception('Acesso não autorizado. Faça login novamente.');
       } else if (response.statusCode == 403) {
-        throw Exception('Apenas professores podem criar disciplinas');
+        throw Exception('Apenas professores ou alunos podem criar disciplinas');
       } else {
         throw Exception('Erro HTTP ${response.statusCode}: ${response.body}');
       }
