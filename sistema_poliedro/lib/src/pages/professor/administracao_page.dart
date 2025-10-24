@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -39,6 +41,10 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   String? selectedDisciplineId;
   String? token;
   String? userType;
+  bool _mostrarAlerta = false;
+  String _mensagemAlerta = '';
+  bool _alertaSucesso = false;
+  Timer? _timerAlerta;
 
   static const String apiBaseUrl = '/api';
   static const String cardsDisciplinasPath = '/cardsDisciplinas';
@@ -66,6 +72,51 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         _carregarUsuarios();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _timerAlerta?.cancel();
+    super.dispose();
+  }
+
+  // MÉTODOS PARA CONTROLE DE ALERTAS
+  void _mostrarAlertaCustom(String mensagem, bool sucesso) {
+    // Cancela alerta anterior se existir
+    _timerAlerta?.cancel();
+
+    setState(() {
+      _mostrarAlerta = true;
+      _mensagemAlerta = mensagem;
+      _alertaSucesso = sucesso;
+    });
+
+    // Configura timer para esconder o alerta após 3 segundos
+    _timerAlerta = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _mostrarAlerta = false;
+        });
+      }
+    });
+  }
+
+  void _esconderAlerta() {
+    _timerAlerta?.cancel();
+    if (mounted) {
+      setState(() {
+        _mostrarAlerta = false;
+      });
+    }
+  }
+
+  // SUBSTITUA OS MÉTODOS EXISTENTES _showSuccess E _showError
+  void _showSuccess(String message) {
+    _mostrarAlertaCustom(message, true);
+  }
+
+  void _showError(String message) {
+    _mostrarAlertaCustom(message, false);
   }
 
   Future<void> _initializeTokenAndUserType() async {
@@ -123,14 +174,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     if (token != null && mounted) {
       _carregarUsuarios();
     }
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _searchNotasController.dispose();
-    _fabAnimationController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadToken() async {
@@ -283,14 +326,75 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
 
     if (response.statusCode == 201) {
-      if (!silent) {
-        _showSuccess('Nota criada com sucesso!');
-      }
       await _carregarDisciplinas(silent: true);
     } else {
       throw Exception(
         'Falha ao criar nota: ${response.statusCode} - ${response.body}',
       );
+    }
+  }
+
+  Future<void> _deletarNota({
+    required String notaId,
+    String? alunoNome,
+    bool silent = false,
+  }) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('Confirmar Remoção'),
+        content: Text(
+          alunoNome != null
+              ? 'Deseja remover a nota do aluno $alunoNome?'
+              : 'Deseja remover esta nota?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.vermelho,
+            ),
+            child: const Text('Remover', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final headers = await AuthService.getAuthHeaders();
+        final url = Uri.parse(
+          AuthService.baseUrl + apiBaseUrl + notasPath + '/$notaId',
+        );
+        final response = await http.delete(url, headers: headers);
+
+        if (response.statusCode == 200) {
+          if (mounted) {
+            await _carregarDisciplinas(silent: true);
+
+            if (!silent && mounted) {
+              _showSuccess(
+                alunoNome != null
+                    ? 'Nota do aluno $alunoNome removida com sucesso!'
+                    : 'Nota removida com sucesso!',
+              );
+            }
+          }
+        } else {
+          throw Exception(
+            'Falha ao remover nota: ${response.statusCode} - ${response.body}',
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          _showError('Erro ao remover nota: $e');
+        }
+      }
     }
   }
 
@@ -310,9 +414,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
 
     if (response.statusCode == 200) {
-      if (!silent) {
-        _showSuccess('Nota atualizada com sucesso!');
-      }
       await _carregarDisciplinas(silent: true);
     } else {
       throw Exception(
@@ -321,121 +422,82 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     }
   }
 
-  Future<void> _deletarNota(String notaId, {bool silent = false}) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar Remoção'),
-        content: const Text('Deseja remover esta nota?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remover'),
-          ),
-        ],
-      ),
-    );
-    if (confirm == true) {
-      final headers = await AuthService.getAuthHeaders();
-      final url = Uri.parse(
-        AuthService.baseUrl + apiBaseUrl + notasPath + '/$notaId',
-      );
-      final response = await http.delete(url, headers: headers);
-
-      if (response.statusCode == 200) {
-        if (!silent) {
-          _showSuccess('Nota removida com sucesso!');
-        }
-        await _carregarDisciplinas(silent: true);
-      } else {
-        throw Exception(
-          'Falha ao remover nota: ${response.statusCode} - ${response.body}',
-        );
-      }
-    }
-  }
-
-  Future<void> _showAddEditNotaDialog({
-    required Disciplina disciplina,
-    Nota? nota,
-    Usuario? selectedAluno,
-  }) async {
-    final result = await showDialog<Nota?>(
-      context: context,
-      builder: (context) => NotaDialog(
-        disciplina: disciplina,
-        nota: nota,
-        selectedAluno: selectedAluno,
-      ),
-    );
-    if (result != null) {
-      try {
-        if (nota == null) {
-          await _criarNota(result);
-        } else {
-          await _atualizarNota(nota.id, result);
-        }
-      } catch (e) {
-        _showError('Erro ao salvar nota: $e');
-      }
-    }
-  }
-
   Future<void> _addGlobalAvaliacao(Disciplina disciplina) async {
     final newAv = await showDialog<Avaliacao?>(
       context: context,
       builder: (context) => AddGlobalAvaliacaoDialog(disciplina: disciplina),
     );
+
     if (newAv != null) {
-      bool hasError = false;
-      String? errorMessage;
+      setState(() => carregandoNotas = true);
 
       try {
+        int successCount = 0;
+        int errorCount = 0;
+
+        // Executar todas as operações primeiro
         for (final aluno in disciplina.alunos) {
-          Nota? existingNota = disciplina.notas.firstWhereOrNull(
-            (n) => n.alunoId == aluno.id,
-          );
-          final avaliacoes = List<Avaliacao>.from(
-            existingNota?.avaliacoes ?? [],
-          );
-          final existingAv = avaliacoes.firstWhereOrNull(
-            (a) => a.nome == newAv.nome && a.tipo == newAv.tipo,
-          );
-          if (existingAv == null) {
-            avaliacoes.add(newAv.copyWith(nota: 0.0));
-          }
-          final notaToSave =
-              existingNota?.copyWith(avaliacoes: avaliacoes) ??
-              Nota(
-                id: '',
-                disciplinaId: disciplina.id,
-                alunoId: aluno.id,
-                alunoNome: aluno.nome,
-                alunoRa: aluno.ra,
-                avaliacoes: avaliacoes,
-              );
-          if (existingNota == null) {
-            await _criarNota(notaToSave, silent: true);
-          } else {
-            await _atualizarNota(existingNota.id, notaToSave, silent: true);
+          try {
+            Nota? existingNota = disciplina.notas.firstWhereOrNull(
+              (n) => n.alunoId == aluno.id,
+            );
+            final avaliacoes = List<Avaliacao>.from(
+              existingNota?.avaliacoes ?? [],
+            );
+            final existingAv = avaliacoes.firstWhereOrNull(
+              (a) => a.nome == newAv.nome && a.tipo == newAv.tipo,
+            );
+
+            if (existingAv == null) {
+              avaliacoes.add(newAv.copyWith(nota: 0.0));
+            }
+
+            final notaToSave =
+                existingNota?.copyWith(avaliacoes: avaliacoes) ??
+                Nota(
+                  id: '',
+                  disciplinaId: disciplina.id,
+                  alunoId: aluno.id,
+                  alunoNome: aluno.nome,
+                  alunoRa: aluno.ra,
+                  avaliacoes: avaliacoes,
+                );
+
+            if (existingNota == null) {
+              await _criarNota(notaToSave, silent: true);
+            } else {
+              await _atualizarNota(existingNota.id, notaToSave, silent: true);
+            }
+
+            successCount++;
+          } catch (e) {
+            errorCount++;
+            debugPrint('Erro ao processar aluno ${aluno.nome}: $e');
           }
         }
 
+        // Recarregar os dados
         await _carregarDisciplinas(silent: true);
-        _showSuccess(
-          'Avaliação "${newAv.nome}" adicionada para todos os alunos com nota padrão 0!',
-        );
-      } catch (e) {
-        hasError = true;
-        errorMessage = e.toString();
-      }
 
-      if (hasError) {
-        _showError('Erro ao adicionar avaliação: $errorMessage');
+        // Mostrar apenas UM alerta com o resumo
+        if (mounted) {
+          if (errorCount == 0) {
+            _showSuccess(
+              'Avaliação "${newAv.nome}" adicionada com sucesso para todos os $successCount alunos!',
+            );
+          } else {
+            _showSuccess(
+              'Avaliação "${newAv.nome}" adicionada para $successCount alunos. '
+              '$errorCount alunos não puderam ser processados.',
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          _showError('Erro ao adicionar avaliação global: $e');
+        }
+      } finally {
+        if (mounted) setState(() => carregandoNotas = false);
       }
     }
   }
@@ -482,36 +544,55 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     String oldTipo,
     Avaliacao newAv,
   ) async {
-    bool hasError = false;
-    String? errorMessage;
+    setState(() => carregandoNotas = true);
 
     try {
+      int successCount = 0;
+      int errorCount = 0;
+
       for (final nota in disciplina.notas) {
-        final avIndex = nota.avaliacoes.indexWhere(
-          (a) => a.nome == oldNome && a.tipo == oldTipo,
-        );
-        if (avIndex != -1) {
-          final updatedAv = nota.avaliacoes[avIndex].copyWith(
-            nome: newAv.nome,
-            tipo: newAv.tipo,
-            peso: newAv.peso,
+        try {
+          final avIndex = nota.avaliacoes.indexWhere(
+            (a) => a.nome == oldNome && a.tipo == oldTipo,
           );
-          final updatedAvaliacoes = List<Avaliacao>.from(nota.avaliacoes);
-          updatedAvaliacoes[avIndex] = updatedAv;
-          final updatedNota = nota.copyWith(avaliacoes: updatedAvaliacoes);
-          await _atualizarNota(nota.id, updatedNota, silent: true);
+          if (avIndex != -1) {
+            final updatedAv = nota.avaliacoes[avIndex].copyWith(
+              nome: newAv.nome,
+              tipo: newAv.tipo,
+              peso: newAv.peso,
+            );
+            final updatedAvaliacoes = List<Avaliacao>.from(nota.avaliacoes);
+            updatedAvaliacoes[avIndex] = updatedAv;
+            final updatedNota = nota.copyWith(avaliacoes: updatedAvaliacoes);
+            await _atualizarNota(nota.id, updatedNota, silent: true);
+            successCount++;
+          }
+        } catch (e) {
+          errorCount++;
+          debugPrint('Erro ao atualizar nota do aluno ${nota.alunoNome}: $e');
         }
       }
 
       await _carregarDisciplinas(silent: true);
-      _showSuccess('Avaliação atualizada com sucesso!');
-    } catch (e) {
-      hasError = true;
-      errorMessage = e.toString();
-    }
 
-    if (hasError) {
-      _showError('Erro ao atualizar avaliação: $errorMessage');
+      if (mounted) {
+        if (errorCount == 0) {
+          _showSuccess(
+            'Avaliação atualizada com sucesso para $successCount alunos!',
+          );
+        } else {
+          _showSuccess(
+            'Avaliação atualizada para $successCount alunos. '
+            '$errorCount alunos não puderam ser processados.',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Erro ao atualizar avaliação: $e');
+      }
+    } finally {
+      if (mounted) setState(() => carregandoNotas = false);
     }
   }
 
@@ -523,6 +604,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
         title: const Text('Confirmar Remoção'),
         content: Text('Deseja remover a avaliação "$nome" de todos os alunos?'),
         actions: [
@@ -543,29 +625,50 @@ class _AdministracaoPageState extends State<AdministracaoPage>
 
     if (confirm != true) return;
 
-    bool hasError = false;
-    String? errorMessage;
+    setState(() => carregandoNotas = true);
 
     try {
+      int successCount = 0;
+      int errorCount = 0;
+
       for (final nota in disciplina.notas) {
-        final updatedAvaliacoes = nota.avaliacoes
-            .where((a) => !(a.nome == nome && a.tipo == tipo))
-            .toList();
-        if (updatedAvaliacoes.length < nota.avaliacoes.length) {
-          final updatedNota = nota.copyWith(avaliacoes: updatedAvaliacoes);
-          await _atualizarNota(nota.id, updatedNota, silent: true);
+        try {
+          final updatedAvaliacoes = nota.avaliacoes
+              .where((a) => !(a.nome == nome && a.tipo == tipo))
+              .toList();
+          if (updatedAvaliacoes.length < nota.avaliacoes.length) {
+            final updatedNota = nota.copyWith(avaliacoes: updatedAvaliacoes);
+            await _atualizarNota(nota.id, updatedNota, silent: true);
+            successCount++;
+          }
+        } catch (e) {
+          errorCount++;
+          debugPrint(
+            'Erro ao remover avaliação do aluno ${nota.alunoNome}: $e',
+          );
         }
       }
 
       await _carregarDisciplinas(silent: true);
-      _showSuccess('Avaliação removida com sucesso!');
-    } catch (e) {
-      hasError = true;
-      errorMessage = e.toString();
-    }
 
-    if (hasError) {
-      _showError('Erro ao remover avaliação: $errorMessage');
+      if (mounted) {
+        if (errorCount == 0) {
+          _showSuccess(
+            'Avaliação removida com sucesso de $successCount alunos!',
+          );
+        } else {
+          _showSuccess(
+            'Avaliação removida de $successCount alunos. '
+            '$errorCount alunos não puderam ser processados.',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Erro ao remover avaliação: $e');
+      }
+    } finally {
+      if (mounted) setState(() => carregandoNotas = false);
     }
   }
 
@@ -596,21 +699,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         'Usuário criado, mas falha ao enviar senha: $e. Tente reenviar manualmente.',
       );
       rethrow;
-    }
-  }
-
-  void _showError(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: AppColors.vermelhoErro,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
     }
   }
 
@@ -828,27 +916,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     }
   }
 
-  void _showSuccess(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            message,
-            style: AppTextStyles.fonteUbuntu.copyWith(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          backgroundColor: AppColors.verdeConfirmacao,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-    }
-  }
-
   void _switchToUsuarios() {
     setState(() {
       mostrarNotas = false;
@@ -915,26 +982,93 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       );
     }
 
-    return Theme(
-      data: Theme.of(context).copyWith(
-        primaryColor: AppColors.cinzaClaro,
-        appBarTheme: AppBarTheme(
-          backgroundColor: AppColors.cinzaClaro,
-          foregroundColor: Colors.black,
-          elevation: 0,
-          systemOverlayStyle: SystemUiOverlayStyle(
-            statusBarColor: AppColors.cinzaClaro,
-            statusBarIconBrightness: Brightness.dark,
+    return Stack(
+      children: [
+        Theme(
+          data: Theme.of(context).copyWith(
+            primaryColor: AppColors.cinzaClaro,
+            appBarTheme: AppBarTheme(
+              backgroundColor: AppColors.cinzaClaro,
+              foregroundColor: Colors.black,
+              elevation: 0,
+              systemOverlayStyle: SystemUiOverlayStyle(
+                statusBarColor: AppColors.cinzaClaro,
+                statusBarIconBrightness: Brightness.dark,
+              ),
+            ),
+          ),
+          child: Scaffold(
+            backgroundColor: AppColors.cinzaClaro,
+            body: mostrarNotas
+                ? _buildNotasBody(primaryColor, isMobile, isTablet)
+                : _buildUsuariosBody(primaryColor, isMobile, isTablet),
           ),
         ),
-      ),
-      child: Scaffold(
-        backgroundColor: AppColors.cinzaClaro,
 
-        body: mostrarNotas
-            ? _buildNotasBody(primaryColor, isMobile, isTablet)
-            : _buildUsuariosBody(primaryColor, isMobile, isTablet),
-      ),
+        // SISTEMA DE ALERTAS NO CANTO SUPERIOR DIREITO
+        if (_mostrarAlerta)
+          Positioned(
+            top: 0,
+            right: 0,
+            left: 0,
+            child: SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Container(
+                  margin: EdgeInsets.all(isMobile ? 12 : 16),
+                  padding: EdgeInsets.all(isMobile ? 16 : 20),
+                  decoration: BoxDecoration(
+                    color: _alertaSucesso
+                        ? AppColors.verdeConfirmacao
+                        : AppColors.vermelhoErro,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 15,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _alertaSucesso ? Icons.check_circle : Icons.error,
+                        color: Colors.white,
+                        size: isMobile ? 20 : 24,
+                      ),
+                      SizedBox(width: isMobile ? 12 : 16),
+                      Expanded(
+                        child: Text(
+                          _mensagemAlerta,
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            color: Colors.white,
+                            fontSize: isMobile ? 14 : 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SizedBox(width: isMobile ? 8 : 12),
+                      GestureDetector(
+                        onTap: _esconderAlerta,
+                        child: Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: isMobile ? 18 : 20,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -1239,18 +1373,23 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         final nota = disciplina.notas.firstWhereOrNull(
           (n) => n.alunoId == aluno.id,
         );
+
         if (nota != null && nota.avaliacoes.isNotEmpty) {
           double mediaAluno = 0.0;
           double totalPeso = 0.0;
+          bool temAlgumaNota = false;
 
           for (final av in nota.avaliacoes) {
-            if (av.nota != null && av.nota! > 0) {
+            // CORREÇÃO: Considera notas zero também
+            if (av.nota != null) {
               mediaAluno += (av.nota! * (av.peso ?? 1.0));
               totalPeso += (av.peso ?? 1.0);
+              temAlgumaNota = true;
             }
           }
 
-          if (totalPeso > 0) {
+          // CORREÇÃO: Calcula a média mesmo se houver notas zero
+          if (totalPeso > 0 && temAlgumaNota) {
             mediaAluno = mediaAluno / totalPeso;
             somaMedias += mediaAluno;
             alunosComNota++;
