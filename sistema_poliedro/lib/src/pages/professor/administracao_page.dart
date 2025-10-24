@@ -88,12 +88,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           });
         }
 
-        // DEBUG detalhado
-        print('=== DEBUG ADMINISTRACAO ===');
-        print('Token: $authToken');
-        print('userType do SharedPreferences: $userType');
-        print('isUserAdmin: $isUserAdmin');
-
         // Debug do token
         if (authToken != null) {
           try {
@@ -886,12 +880,9 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   @override
   Widget build(BuildContext context) {
     final Color primaryColor = AppColors.azulClaro;
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
+    final bool isTablet = MediaQuery.of(context).size.width < 900;
 
-    debugPrint(
-      '=== DEBUG: userType = $userType, isUserAdmin = $isUserAdmin ===',
-    );
-
-    // Mostrar loading enquanto não carrega o tipo do usuário
     if (userType == null) {
       return Scaffold(
         backgroundColor: AppColors.cinzaClaro,
@@ -939,61 +930,215 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       ),
       child: Scaffold(
         backgroundColor: AppColors.cinzaClaro,
-        appBar: AppBar(
-          backgroundColor: AppColors.cinzaClaro,
-          title: Text(
-            "Painel de Administração - ${mostrarNotas ? 'Notas' : 'Usuários'}",
-            style: AppTextStyles.fonteUbuntu.copyWith(
-              fontWeight: FontWeight.w700,
-              fontSize: 20,
-              letterSpacing: 0.5,
-            ),
-          ),
-          centerTitle: true,
-          actions: [
-            IconButton(
-              icon: Icon(Icons.refresh, color: Colors.grey),
-              onPressed: mostrarNotas ? _carregarNotasData : _carregarUsuarios,
-            ),
-          ],
-        ),
 
         body: mostrarNotas
-            ? _buildNotasBody(primaryColor)
-            : _buildUsuariosBody(primaryColor),
+            ? _buildNotasBody(primaryColor, isMobile, isTablet)
+            : _buildUsuariosBody(primaryColor, isMobile, isTablet),
       ),
     );
   }
 
-  Widget _buildUsuariosBody(Color primaryColor) {
+  Widget _buildUsuariosBody(Color primaryColor, bool isMobile, bool isTablet) {
     final usuariosFiltrados = _getUsuariosFiltrados();
     return Column(
       children: [
-        _buildUsuariosHeader(primaryColor, usuariosFiltrados.length),
-        _buildSearchBar(),
+        _buildUsuariosHeader(primaryColor, usuariosFiltrados.length, isMobile),
+        _buildSearchBar(isMobile),
         Expanded(
           child: carregando
               ? _buildLoadingState()
               : usuariosFiltrados.isEmpty
-              ? _buildEmptyState()
-              : _buildDataTable(usuariosFiltrados, primaryColor),
+              ? _buildEmptyState(isMobile)
+              : isMobile
+              ? _buildMobileUserList(usuariosFiltrados, primaryColor)
+              : _buildDataTable(usuariosFiltrados, primaryColor, isTablet),
         ),
       ],
     );
   }
 
-  Widget _buildNotasBody(Color primaryColor) {
+  // LISTA MOBILE PARA USUÁRIOS
+  Widget _buildMobileUserList(List<Usuario> usuarios, Color primaryColor) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: usuarios.length,
+      itemBuilder: (context, index) {
+        final usuario = usuarios[index];
+        final bool isProfessorEditingProfessor =
+            !isUserAdmin && !mostrarAlunos && usuario.tipo == 'professor';
+
+        return Card(
+          color: AppColors.branco,
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    ClipOval(
+                      child: CachedNetworkImage(
+                        imageUrl: usuario.fotoUrl ?? '',
+                        httpHeaders: _getImageHeaders(),
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) =>
+                            CircularProgressIndicator(),
+                        errorWidget: (context, url, error) => CircleAvatar(
+                          backgroundColor: Colors.grey[200],
+                          child: Icon(Icons.person, color: Colors.grey[400]),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            usuario.nome,
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            usuario.tipo == 'aluno'
+                                ? 'Aluno'
+                                : (usuario.tipo == 'admin'
+                                      ? 'Administrador'
+                                      : 'Professor'),
+                            style: AppTextStyles.fonteUbuntuSans.copyWith(
+                              color: primaryColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (mostrarAlunos && usuario.ra != null) ...[
+                  _buildInfoRow('RA:', usuario.ra!),
+                  const SizedBox(height: 8),
+                ],
+                _buildInfoRow('Email:', usuario.email),
+                const SizedBox(height: 12),
+                if (usuario.tipo != 'admin' && !isProfessorEditingProfessor)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildMobileActionButton(
+                          icon: Icons.edit,
+                          text: 'Editar',
+                          color: AppColors.azulClaro,
+                          onTap: () => _showUserDialog(usuario: usuario),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildMobileActionButton(
+                          icon: Icons.delete,
+                          text: 'Excluir',
+                          color: AppColors.vermelho,
+                          onTap: () => _showDeleteDialog(usuario),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Text(
+                    'Protegido',
+                    style: AppTextStyles.fonteUbuntuSans.copyWith(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.fonteUbuntuSans.copyWith(
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              fontSize: 12,
+              color: Colors.grey[800],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileActionButton({
+    required IconData icon,
+    required String text,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return OutlinedButton.icon(
+      icon: Icon(icon, size: 16, color: color),
+      label: Text(
+        text,
+        style: AppTextStyles.fonteUbuntuSans.copyWith(
+          fontSize: 12,
+          color: color,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withOpacity(0.3)),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  Widget _buildNotasBody(Color primaryColor, bool isMobile, bool isTablet) {
     final disciplinasFiltradas = _getDisciplinasFiltradas();
     return Column(
       children: [
-        _buildNotasHeader(primaryColor, disciplinasFiltradas.length),
-        _buildSearchNotasBar(),
+        _buildNotasHeader(primaryColor, disciplinasFiltradas.length, isMobile),
+        _buildSearchNotasBar(isMobile),
         Expanded(
           child: carregandoNotas
               ? _buildLoadingState()
               : selectedDisciplineId == null
-              ? _buildDisciplinesSelector(disciplinasFiltradas, primaryColor)
-              : _buildSelectedDisciplineTable(primaryColor),
+              ? _buildDisciplinesSelector(
+                  disciplinasFiltradas,
+                  primaryColor,
+                  isMobile,
+                )
+              : _buildSelectedDisciplineTable(primaryColor, isMobile, isTablet),
         ),
       ],
     );
@@ -1002,6 +1147,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   Widget _buildDisciplinesSelector(
     List<Disciplina> disciplinas,
     Color primaryColor,
+    bool isMobile,
   ) {
     if (disciplinas.isEmpty) {
       return _buildNotasEmptyState();
@@ -1073,7 +1219,11 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
   }
 
-  Widget _buildSelectedDisciplineTable(Color primaryColor) {
+  Widget _buildSelectedDisciplineTable(
+    Color primaryColor,
+    bool isMobile,
+    bool isTablet,
+  ) {
     final selectedDiscipline = disciplinas.firstWhereOrNull(
       (d) => d.id == selectedDisciplineId,
     );
@@ -1222,10 +1372,10 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
   }
 
-  Widget _buildUsuariosHeader(Color primaryColor, int count) {
+  Widget _buildUsuariosHeader(Color primaryColor, int count, bool isMobile) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -1247,8 +1397,9 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildMainToggleButtons(primaryColor),
-          const SizedBox(height: 24),
+          _buildMainToggleButtons(primaryColor, isMobile),
+
+          SizedBox(height: isMobile ? 16 : 24),
           Row(
             children: [
               Container(
@@ -1260,10 +1411,10 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                 child: Icon(
                   mostrarAlunos ? Icons.school : Icons.school_outlined,
                   color: primaryColor,
-                  size: 28,
+                  size: isMobile ? 24 : 28,
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: isMobile ? 12 : 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1277,17 +1428,18 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                                 ? 'Gerenciar Alunos'
                                 : 'Visualizar Professores'),
                       style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: 28,
+                        fontSize: isMobile ? 22 : 28,
                         fontWeight: FontWeight.w800,
                         color: AppColors.preto,
                         height: 1.2,
                       ),
                     ),
+
                     const SizedBox(height: 4),
                     Text(
                       'Total: $count ${mostrarAlunos ? 'alunos' : 'professores'}',
                       style: AppTextStyles.fonteUbuntuSans.copyWith(
-                        fontSize: 16,
+                        fontSize: isMobile ? 14 : 16,
                         color: Colors.grey[600],
                         fontWeight: FontWeight.w500,
                       ),
@@ -1297,43 +1449,59 @@ class _AdministracaoPageState extends State<AdministracaoPage>
               ),
               if (!mostrarNotas &&
                   (isUserAdmin || (mostrarAlunos && !isUserAdmin)))
-                ElevatedButton.icon(
-                  onPressed: () => _showUserDialog(),
-                  icon: Icon(Icons.add, size: 20, color: AppColors.branco),
-                  label: Text(
-                    'Adicionar',
-                    style: AppTextStyles.fonteUbuntu.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.branco,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
+                if (isMobile)
+                  FloatingActionButton(
+                    onPressed: () => _showUserDialog(),
                     backgroundColor: primaryColor,
-                    foregroundColor: AppColors.branco,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
+                    child: Icon(Icons.add, color: AppColors.branco),
+                    mini: true,
+                  )
+                else
+                  ElevatedButton.icon(
+                    onPressed: () => _showUserDialog(),
+                    icon: Icon(Icons.add, size: 20, color: AppColors.branco),
+                    label: Text(
+                      'Adicionar',
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.branco,
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: AppColors.branco,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 6,
                     ),
-                    elevation: 6,
                   ),
-                ),
+              IconButton(
+                icon: Icon(Icons.refresh, color: Colors.grey),
+                onPressed: mostrarNotas
+                    ? _carregarNotasData
+                    : _carregarUsuarios,
+              ),
             ],
           ),
-          const SizedBox(height: 24),
-          if (!mostrarNotas) _buildToggleButtons(primaryColor),
+          if (!mostrarNotas) ...[
+            SizedBox(height: isMobile ? 16 : 24),
+            _buildToggleButtons(primaryColor, isMobile),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildNotasHeader(Color primaryColor, int count) {
+  Widget _buildNotasHeader(Color primaryColor, int count, bool isMobile) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -1355,8 +1523,8 @@ class _AdministracaoPageState extends State<AdministracaoPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildMainToggleButtons(primaryColor),
-          const SizedBox(height: 24),
+          _buildMainToggleButtons(primaryColor, isMobile),
+          SizedBox(height: isMobile ? 16 : 24),
           Row(
             children: [
               Container(
@@ -1365,9 +1533,13 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                   color: primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.grade, color: primaryColor, size: 28),
+                child: Icon(
+                  Icons.grade,
+                  color: primaryColor,
+                  size: isMobile ? 24 : 28,
+                ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: isMobile ? 12 : 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1375,7 +1547,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                     Text(
                       'Gerenciar Notas',
                       style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: 28,
+                        fontSize: isMobile ? 22 : 28,
                         fontWeight: FontWeight.w800,
                         color: AppColors.preto,
                         height: 1.2,
@@ -1385,13 +1557,19 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                     Text(
                       'Total: $count disciplinas',
                       style: AppTextStyles.fonteUbuntuSans.copyWith(
-                        fontSize: 16,
+                        fontSize: isMobile ? 14 : 16,
                         color: Colors.grey[600],
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                icon: Icon(Icons.refresh, color: Colors.grey),
+                onPressed: mostrarNotas
+                    ? _carregarNotasData
+                    : _carregarUsuarios,
               ),
             ],
           ),
@@ -1400,7 +1578,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
   }
 
-  Widget _buildMainToggleButtons(Color primaryColor) {
+  Widget _buildMainToggleButtons(Color primaryColor, bool isMobile) {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -1422,6 +1600,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             isActive: !mostrarNotas,
             primaryColor: primaryColor,
             onTap: _switchToUsuarios,
+            isMobile: isMobile,
           ),
           const SizedBox(width: 4),
           _buildToggleButton(
@@ -1429,14 +1608,14 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             isActive: mostrarNotas,
             primaryColor: primaryColor,
             onTap: _switchToNotas,
+            isMobile: isMobile,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildToggleButtons(Color primaryColor) {
-    // TOGGLE DISPONÍVEL PARA TODOS OS USUÁRIOS
+  Widget _buildToggleButtons(Color primaryColor, bool isMobile) {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -1461,6 +1640,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
               setState(() => mostrarAlunos = true);
               _carregarUsuarios();
             },
+            isMobile: isMobile,
           ),
           const SizedBox(width: 4),
           _buildToggleButton(
@@ -1471,6 +1651,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
               setState(() => mostrarAlunos = false);
               _carregarUsuarios();
             },
+            isMobile: isMobile,
           ),
         ],
       ),
@@ -1482,13 +1663,17 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     required bool isActive,
     required Color primaryColor,
     required VoidCallback onTap,
+    required bool isMobile,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 24,
+          vertical: isMobile ? 8 : 12,
+        ),
         decoration: BoxDecoration(
           color: isActive ? primaryColor : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
@@ -1507,7 +1692,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           style: AppTextStyles.fonteUbuntu.copyWith(
             color: isActive ? AppColors.branco : Colors.grey[600],
             fontWeight: FontWeight.w700,
-            fontSize: 14,
+            fontSize: isMobile ? 12 : 14,
             letterSpacing: 0.5,
           ),
         ),
@@ -1515,9 +1700,9 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(bool isMobile) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: isMobile ? const EdgeInsets.all(12) : const EdgeInsets.all(16),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -1535,17 +1720,20 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         child: TextField(
           controller: _searchController,
           onChanged: _onSearchChanged,
-          style: AppTextStyles.fonteUbuntuSans,
+          style: AppTextStyles.fonteUbuntuSans.copyWith(
+            fontSize: isMobile ? 14 : 16,
+          ),
           decoration: InputDecoration(
             hintText: 'Buscar por nome, email ou RA...',
             hintStyle: AppTextStyles.fonteUbuntuSans.copyWith(
               color: Colors.grey[400],
+              fontSize: isMobile ? 14 : 16,
             ),
             prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 20,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 20,
+              vertical: isMobile ? 16 : 20,
             ),
             suffixIcon: _searchQuery.isNotEmpty
                 ? IconButton(
@@ -1559,9 +1747,9 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
   }
 
-  Widget _buildSearchNotasBar() {
+  Widget _buildSearchNotasBar(bool isMobile) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: isMobile ? const EdgeInsets.all(12) : const EdgeInsets.all(16),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -1579,17 +1767,20 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         child: TextField(
           controller: _searchNotasController,
           onChanged: _onSearchNotasChanged,
-          style: AppTextStyles.fonteUbuntuSans,
+          style: AppTextStyles.fonteUbuntuSans.copyWith(
+            fontSize: isMobile ? 14 : 16,
+          ),
           decoration: InputDecoration(
             hintText: 'Buscar disciplinas por título...',
             hintStyle: AppTextStyles.fonteUbuntuSans.copyWith(
               color: Colors.grey[400],
+              fontSize: isMobile ? 14 : 16,
             ),
             prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 20,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 20,
+              vertical: isMobile ? 16 : 20,
             ),
             suffixIcon: _searchNotasQuery.isNotEmpty
                 ? IconButton(
@@ -1630,7 +1821,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isMobile) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1726,7 +1917,11 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
   }
 
-  Widget _buildDataTable(List<Usuario> usuarios, Color primaryColor) {
+  Widget _buildDataTable(
+    List<Usuario> usuarios,
+    Color primaryColor,
+    bool isTablet,
+  ) {
     final bool showRaColumn = mostrarAlunos;
     final Map<String, String> imageHeaders = _getImageHeaders();
 
@@ -1751,20 +1946,20 @@ class _AdministracaoPageState extends State<AdministracaoPage>
               child: DataTable(
                 headingRowColor: MaterialStateProperty.all(Colors.grey[50]),
                 dividerThickness: 1,
-                dataRowHeight: 80,
+                dataRowHeight: isTablet ? 70 : 80,
                 headingTextStyle: AppTextStyles.fonteUbuntu.copyWith(
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF424242),
-                  fontSize: 14,
+                  fontSize: isTablet ? 12 : 14,
                   letterSpacing: 0.5,
                 ),
                 dataTextStyle: AppTextStyles.fonteUbuntuSans.copyWith(
                   color: const Color(0xFF424242),
-                  fontSize: 14,
+                  fontSize: isTablet ? 12 : 14,
                   height: 1.3,
                 ),
                 columns: [
-                  const DataColumn(label: Text('Foto'), numeric: false),
+                  const DataColumn(label: Text('Foto')),
                   const DataColumn(label: Text('Nome')),
                   if (showRaColumn) const DataColumn(label: Text('RA')),
                   const DataColumn(label: Text('Email')),
@@ -1784,8 +1979,8 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                           child: CachedNetworkImage(
                             imageUrl: usuario.fotoUrl ?? '',
                             httpHeaders: imageHeaders,
-                            width: 50,
-                            height: 50,
+                            width: isTablet ? 40 : 50,
+                            height: isTablet ? 40 : 50,
                             fit: BoxFit.cover,
                             placeholder: (context, url) =>
                                 CircularProgressIndicator(),
@@ -1795,6 +1990,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                                 child: Icon(
                                   Icons.person,
                                   color: Colors.grey[400],
+                                  size: isTablet ? 20 : 24,
                                 ),
                               );
                             },
@@ -1810,7 +2006,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                               usuario.nome,
                               style: AppTextStyles.fonteUbuntu.copyWith(
                                 fontWeight: FontWeight.w600,
-                                fontSize: 15,
+                                fontSize: isTablet ? 13 : 15,
                               ),
                             ),
                             Text(
@@ -1821,7 +2017,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                                         : 'Professor'),
                               style: AppTextStyles.fonteUbuntuSans.copyWith(
                                 color: primaryColor,
-                                fontSize: 12,
+                                fontSize: isTablet ? 10 : 12,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -1832,8 +2028,8 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                         DataCell(
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
+                              horizontal: 12,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
                               color: primaryColor.withOpacity(0.1),
@@ -1847,7 +2043,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                               style: AppTextStyles.fonteUbuntu.copyWith(
                                 color: AppColors.azulEscuro,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 13,
+                                fontSize: isTablet ? 11 : 13,
                               ),
                             ),
                           ),
@@ -1855,7 +2051,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                       DataCell(
                         SelectableText(
                           usuario.email,
-                          style: const TextStyle(fontSize: 13),
+                          style: TextStyle(fontSize: isTablet ? 11 : 13),
                         ),
                       ),
                       DataCell(
@@ -1864,7 +2060,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                                 'Protegido',
                                 style: AppTextStyles.fonteUbuntuSans.copyWith(
                                   color: Colors.grey[600],
-                                  fontSize: 12,
+                                  fontSize: isTablet ? 10 : 12,
                                   fontWeight: FontWeight.w500,
                                 ),
                               )
@@ -1876,6 +2072,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                                     tooltip: 'Editar',
                                     onTap: () =>
                                         _showUserDialog(usuario: usuario),
+                                    isTablet: isTablet,
                                   ),
                                   const SizedBox(width: 8),
                                   _buildActionButton(
@@ -1883,6 +2080,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                                     color: AppColors.vermelho,
                                     tooltip: 'Excluir',
                                     onTap: () => _showDeleteDialog(usuario),
+                                    isTablet: isTablet,
                                   ),
                                 ],
                               ),
@@ -1903,6 +2101,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     required Color color,
     required String tooltip,
     required VoidCallback onTap,
+    required bool isTablet,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -1910,11 +2109,14 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         borderRadius: BorderRadius.circular(12),
       ),
       child: IconButton(
-        icon: Icon(icon, size: 20, color: color),
+        icon: Icon(icon, size: isTablet ? 18 : 20, color: color),
         onPressed: onTap,
         tooltip: tooltip,
         padding: const EdgeInsets.all(8),
-        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        constraints: BoxConstraints(
+          minWidth: isTablet ? 36 : 40,
+          minHeight: isTablet ? 36 : 40,
+        ),
       ),
     );
   }

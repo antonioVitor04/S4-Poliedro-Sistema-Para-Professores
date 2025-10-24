@@ -9,7 +9,7 @@ import '../models/modelo_nota.dart';
 import '../pages/professor/administracao_page.dart';
 import 'package:collection/collection.dart';
 
-// Diálogo para adicionar/editar usuário (modificado para retornar dados via Navigator)
+// Diálogo para adicionar/editar usuário - RESPONSIVO
 class UserDialog extends StatefulWidget {
   final Usuario? usuario;
   final bool isEdit;
@@ -33,7 +33,7 @@ class _UserDialogState extends State<UserDialog> {
   final _nomeController = TextEditingController();
   final _emailController = TextEditingController();
   final _raController = TextEditingController();
-  bool _isAdmin = false; // MUDANÇA: Campo para tipo admin (só para professores)
+  bool _isAdmin = false;
 
   @override
   void initState() {
@@ -43,7 +43,6 @@ class _UserDialogState extends State<UserDialog> {
       _emailController.text = widget.usuario!.email;
       _raController.text = widget.usuario!.ra ?? '';
       if (!widget.isAluno && widget.usuario!.tipo == 'admin') {
-        // MUDANÇA: Inicializar admin para edit
         _isAdmin = true;
       }
     }
@@ -70,7 +69,6 @@ class _UserDialogState extends State<UserDialog> {
         'ra': _raController.text,
       };
       if (!widget.isAluno) {
-        // MUDANÇA: Adicionar tipo para professores
         userData['tipo'] = _isAdmin ? 'admin' : 'professor';
       }
       Navigator.of(context).pop(userData);
@@ -80,17 +78,25 @@ class _UserDialogState extends State<UserDialog> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final dialogWidth = screenWidth > 600 ? 550.0 : screenWidth * 0.9;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth < 900;
+    final dialogWidth = isMobile
+        ? screenWidth * 0.95
+        : (isTablet ? 500.0 : 550.0);
     final primaryColor = AppColors.azulClaro;
     final Map<String, String> imageHeaders = _getImageHeaders();
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 24,
+      insetPadding: isMobile
+          ? const EdgeInsets.all(16)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
       child: Container(
         width: dialogWidth,
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.65,
+          maxHeight:
+              MediaQuery.of(context).size.height * (isMobile ? 0.85 : 0.8),
         ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
@@ -104,7 +110,12 @@ class _UserDialogState extends State<UserDialog> {
           children: [
             // Header do Dialog
             Container(
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+              padding: EdgeInsets.fromLTRB(
+                isMobile ? 20 : 24,
+                isMobile ? 24 : 32,
+                isMobile ? 20 : 24,
+                isMobile ? 20 : 24,
+              ),
               decoration: BoxDecoration(
                 color: primaryColor,
                 borderRadius: const BorderRadius.only(
@@ -123,10 +134,10 @@ class _UserDialogState extends State<UserDialog> {
                     child: Icon(
                       widget.isAluno ? Icons.school : Icons.school_outlined,
                       color: AppColors.branco,
-                      size: 28,
+                      size: isMobile ? 24 : 28,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  SizedBox(width: isMobile ? 12 : 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,7 +145,7 @@ class _UserDialogState extends State<UserDialog> {
                         Text(
                           '${widget.isEdit ? 'Editar' : 'Adicionar'} ${widget.isAluno ? 'Aluno' : 'Professor'}',
                           style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 22,
+                            fontSize: isMobile ? 18 : 22,
                             fontWeight: FontWeight.w700,
                             color: AppColors.branco,
                             letterSpacing: 0.5,
@@ -144,7 +155,7 @@ class _UserDialogState extends State<UserDialog> {
                           Text(
                             widget.usuario!.nome,
                             style: AppTextStyles.fonteUbuntuSans.copyWith(
-                              fontSize: 14,
+                              fontSize: isMobile ? 12 : 14,
                               color: AppColors.branco.withOpacity(0.9),
                             ),
                           ),
@@ -152,7 +163,11 @@ class _UserDialogState extends State<UserDialog> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
+                    icon: Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: isMobile ? 20 : 24,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -161,7 +176,7 @@ class _UserDialogState extends State<UserDialog> {
             // Body do Form
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(isMobile ? 16 : 24),
                 child: Form(
                   key: _formKey,
                   child: SingleChildScrollView(
@@ -170,47 +185,50 @@ class _UserDialogState extends State<UserDialog> {
                       children: [
                         if (widget.isEdit &&
                             widget.usuario!.fotoUrl != null) ...[
-                          // CORREÇÃO: Usar CachedNetworkImage para melhor handling de erros e cache
                           Center(
                             child: ClipOval(
                               child: CachedNetworkImage(
                                 imageUrl: widget.usuario!.fotoUrl!,
                                 httpHeaders: imageHeaders,
-                                width: 80,
-                                height: 80,
+                                width: isMobile ? 60 : 80,
+                                height: isMobile ? 60 : 80,
                                 fit: BoxFit.cover,
                                 placeholder: (context, url) =>
-                                    CircularProgressIndicator(),
+                                    CircularProgressIndicator(strokeWidth: 2),
                                 errorWidget: (context, url, error) {
                                   return CircleAvatar(
                                     backgroundColor: Colors.grey[200],
-                                    radius: 40,
+                                    radius: isMobile ? 30 : 40,
                                     child: Icon(
                                       Icons.person,
                                       color: Colors.grey[400],
+                                      size: isMobile ? 24 : 32,
                                     ),
                                   );
                                 },
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: isMobile ? 12 : 16),
                           Text(
                             'Foto atual',
                             style: AppTextStyles.fonteUbuntuSans.copyWith(
-                              fontSize: 14,
+                              fontSize: isMobile ? 12 : 14,
                               color: Colors.grey[600],
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          SizedBox(height: isMobile ? 16 : 24),
                         ],
                         TextFormField(
                           controller: _nomeController,
-                          style: AppTextStyles.fonteUbuntuSans,
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: isMobile ? 14 : 16,
+                          ),
                           decoration: InputDecoration(
                             labelText: 'Nome completo',
                             labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                               color: Colors.grey[600],
+                              fontSize: isMobile ? 14 : 16,
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -226,9 +244,14 @@ class _UserDialogState extends State<UserDialog> {
                             prefixIcon: Icon(
                               Icons.person,
                               color: Colors.grey[500],
+                              size: isMobile ? 20 : 24,
                             ),
                             filled: true,
                             fillColor: Colors.grey[50],
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 16 : 20,
+                              vertical: isMobile ? 14 : 16,
+                            ),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -237,14 +260,17 @@ class _UserDialogState extends State<UserDialog> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: isMobile ? 16 : 20),
                         TextFormField(
                           controller: _emailController,
-                          style: AppTextStyles.fonteUbuntuSans,
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: isMobile ? 14 : 16,
+                          ),
                           decoration: InputDecoration(
                             labelText: 'Email',
                             labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                               color: Colors.grey[600],
+                              fontSize: isMobile ? 14 : 16,
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -260,9 +286,14 @@ class _UserDialogState extends State<UserDialog> {
                             prefixIcon: Icon(
                               Icons.email,
                               color: Colors.grey[500],
+                              size: isMobile ? 20 : 24,
                             ),
                             filled: true,
                             fillColor: Colors.grey[50],
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 16 : 20,
+                              vertical: isMobile ? 14 : 16,
+                            ),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -275,14 +306,17 @@ class _UserDialogState extends State<UserDialog> {
                           },
                         ),
                         if (widget.isAluno) ...[
-                          const SizedBox(height: 20),
+                          SizedBox(height: isMobile ? 16 : 20),
                           TextFormField(
                             controller: _raController,
-                            style: AppTextStyles.fonteUbuntuSans,
+                            style: AppTextStyles.fonteUbuntuSans.copyWith(
+                              fontSize: isMobile ? 14 : 16,
+                            ),
                             decoration: InputDecoration(
                               labelText: 'RA',
                               labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                                 color: Colors.grey[600],
+                                fontSize: isMobile ? 14 : 16,
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -300,9 +334,14 @@ class _UserDialogState extends State<UserDialog> {
                               prefixIcon: Icon(
                                 Icons.badge,
                                 color: Colors.grey[500],
+                                size: isMobile ? 20 : 24,
                               ),
                               filled: true,
                               fillColor: Colors.grey[50],
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: isMobile ? 16 : 20,
+                                vertical: isMobile ? 14 : 16,
+                              ),
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -313,19 +352,19 @@ class _UserDialogState extends State<UserDialog> {
                           ),
                         ],
                         if (!widget.isAluno) ...[
-                          // MUDANÇA: Adicionar toggle para admin em professores
-                          const SizedBox(height: 20),
+                          SizedBox(height: isMobile ? 16 : 20),
                           SwitchListTile(
                             title: Text(
                               'É Administrador?',
                               style: AppTextStyles.fonteUbuntu.copyWith(
                                 fontWeight: FontWeight.w600,
+                                fontSize: isMobile ? 14 : 16,
                               ),
                             ),
                             subtitle: Text(
-                              'Administradores podem criar outros professores. (Administradores não podem ser editados ou excluídos.)',
+                              'Administradores podem criar outros professores.',
                               style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                fontSize: 14,
+                                fontSize: isMobile ? 12 : 14,
                                 color: Colors.grey[600],
                               ),
                             ),
@@ -347,7 +386,7 @@ class _UserDialogState extends State<UserDialog> {
             ),
             // Footer com botões
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(isMobile ? 16 : 24),
               decoration: BoxDecoration(
                 color: AppColors.branco,
                 borderRadius: const BorderRadius.only(
@@ -362,53 +401,98 @@ class _UserDialogState extends State<UserDialog> {
                   ),
                 ],
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+              child: isMobile
+                  ? Column(
+                      children: [
+                        ElevatedButton(
+                          onPressed: _save,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: AppColors.branco,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                          child: Text(
+                            widget.isEdit ? 'Salvar Alterações' : 'Adicionar',
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
-                        side: BorderSide(color: Colors.grey[300]!),
-                      ),
-                      child: Text(
-                        'Cancelar',
-                        style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[700],
+                        SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            side: BorderSide(color: Colors.grey[300]!),
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                          child: Text(
+                            'Cancelar',
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[700],
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              side: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            child: Text(
+                              'Cancelar',
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 16),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            onPressed: _save,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: AppColors.branco,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                            child: Text(
+                              widget.isEdit ? 'Salvar Alterações' : 'Adicionar',
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed: _save,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: AppColors.branco,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: Text(
-                        widget.isEdit ? 'Salvar Alterações' : 'Adicionar',
-                        style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -417,7 +501,7 @@ class _UserDialogState extends State<UserDialog> {
   }
 }
 
-// Diálogo de confirmação de exclusão (modificado para retornar bool via Navigator)
+// Diálogo de confirmação de exclusão - RESPONSIVO
 class DeleteDialog extends StatelessWidget {
   final Usuario usuario;
 
@@ -426,15 +510,19 @@ class DeleteDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final dialogWidth = screenWidth > 500 ? 400.0 : screenWidth * 0.85;
+    final isMobile = screenWidth < 600;
+    final dialogWidth = isMobile ? screenWidth * 0.9 : 400.0;
     final primaryColor = AppColors.azulClaro;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 24,
+      insetPadding: isMobile
+          ? const EdgeInsets.all(20)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
       child: Container(
         width: dialogWidth,
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(isMobile ? 24 : 32),
         decoration: BoxDecoration(
           color: AppColors.branco,
           borderRadius: BorderRadius.circular(20),
@@ -457,87 +545,132 @@ class DeleteDialog extends StatelessWidget {
               ),
               child: Icon(
                 Icons.warning_amber_rounded,
-                size: 56,
+                size: isMobile ? 48 : 56,
                 color: AppColors.vermelho,
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: isMobile ? 16 : 24),
             Text(
               'Confirmar Exclusão',
               style: AppTextStyles.fonteUbuntu.copyWith(
-                fontSize: 24,
+                fontSize: isMobile ? 20 : 24,
                 fontWeight: FontWeight.w700,
                 color: AppColors.preto,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: isMobile ? 12 : 16),
             Text(
               'Tem certeza que deseja excluir ${usuario.nome}?',
               textAlign: TextAlign.center,
               style: AppTextStyles.fonteUbuntuSans.copyWith(
-                fontSize: 18,
+                fontSize: isMobile ? 16 : 18,
                 color: Colors.grey[700],
                 fontWeight: FontWeight.w500,
                 height: 1.4,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: isMobile ? 8 : 8),
             Text(
               'Esta ação não pode ser desfeita.',
               textAlign: TextAlign.center,
               style: AppTextStyles.fonteUbuntu.copyWith(
-                fontSize: 14,
+                fontSize: isMobile ? 12 : 14,
                 color: AppColors.vermelhoErro,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+            SizedBox(height: isMobile ? 24 : 32),
+            isMobile
+                ? Column(
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.vermelhoErro,
+                          foregroundColor: AppColors.branco,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: Text(
+                          'Excluir',
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                      side: BorderSide(color: Colors.grey[300]!),
-                    ),
-                    child: Text(
-                      'Cancelar',
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[700],
+                      SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: Colors.grey[300]!),
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: Text(
+                          'Cancelar',
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            side: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          child: Text(
+                            'Cancelar',
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.vermelhoErro,
+                            foregroundColor: AppColors.branco,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                          ),
+                          child: Text(
+                            'Excluir',
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.vermelhoErro,
-                      foregroundColor: AppColors.branco,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 2,
-                    ),
-                    child: Text(
-                      'Excluir',
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -545,6 +678,7 @@ class DeleteDialog extends StatelessWidget {
   }
 }
 
+// Diálogo para adicionar avaliação global - RESPONSIVO
 class AddGlobalAvaliacaoDialog extends StatefulWidget {
   final Disciplina disciplina;
 
@@ -570,14 +704,20 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
     final primaryColor = AppColors.azulClaro;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       elevation: 20,
       backgroundColor: AppColors.branco,
+      insetPadding: isMobile
+          ? const EdgeInsets.all(16)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
-        padding: const EdgeInsets.all(32),
+        constraints: BoxConstraints(maxWidth: isMobile ? double.infinity : 500),
+        padding: EdgeInsets.all(isMobile ? 20 : 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -594,10 +734,10 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                   child: Icon(
                     Icons.assignment_add,
                     color: primaryColor,
-                    size: 28,
+                    size: isMobile ? 24 : 28,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: isMobile ? 12 : 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -605,7 +745,7 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                       Text(
                         'Nova Avaliação',
                         style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: 24,
+                          fontSize: isMobile ? 20 : 24,
                           fontWeight: FontWeight.w700,
                           color: AppColors.preto,
                         ),
@@ -613,7 +753,7 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                       Text(
                         'Disciplina: ${widget.disciplina.titulo}',
                         style: AppTextStyles.fonteUbuntuSans.copyWith(
-                          fontSize: 14,
+                          fontSize: isMobile ? 12 : 14,
                           color: Colors.grey[600],
                         ),
                       ),
@@ -622,17 +762,21 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: isMobile ? 24 : 32),
             Form(
               key: _formKey,
               child: Column(
                 children: [
                   TextFormField(
                     controller: _nomeController,
+                    style: AppTextStyles.fonteUbuntuSans.copyWith(
+                      fontSize: isMobile ? 14 : 16,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Nome da Avaliação',
                       labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                         fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -642,20 +786,32 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: primaryColor, width: 2),
                       ),
-                      prefixIcon: Icon(Icons.title, color: primaryColor),
+                      prefixIcon: Icon(
+                        Icons.title,
+                        color: primaryColor,
+                        size: isMobile ? 20 : 24,
+                      ),
                       filled: true,
                       fillColor: Colors.grey[50],
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 16 : 20,
+                        vertical: isMobile ? 14 : 16,
+                      ),
                     ),
                     validator: (value) =>
                         value?.isEmpty ?? true ? 'Nome obrigatório' : null,
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: isMobile ? 16 : 20),
                   DropdownButtonFormField<String>(
                     value: _tipo,
+                    style: AppTextStyles.fonteUbuntuSans.copyWith(
+                      fontSize: isMobile ? 14 : 16,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Tipo de Avaliação',
                       labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                         fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -665,18 +821,35 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: primaryColor, width: 2),
                       ),
-                      prefixIcon: Icon(Icons.category, color: primaryColor),
+                      prefixIcon: Icon(
+                        Icons.category,
+                        color: primaryColor,
+                        size: isMobile ? 20 : 24,
+                      ),
                       filled: true,
                       fillColor: Colors.grey[50],
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 16 : 20,
+                        vertical: isMobile ? 14 : 16,
+                      ),
                     ),
                     items: [
                       DropdownMenuItem(
                         value: 'prova',
                         child: Row(
                           children: [
-                            Icon(Icons.quiz, color: primaryColor),
-                            const SizedBox(width: 8),
-                            Text('Prova', style: AppTextStyles.fonteUbuntu),
+                            Icon(
+                              Icons.quiz,
+                              color: primaryColor,
+                              size: isMobile ? 18 : 20,
+                            ),
+                            SizedBox(width: isMobile ? 6 : 8),
+                            Text(
+                              'Prova',
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontSize: isMobile ? 14 : 16,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -684,9 +857,18 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                         value: 'atividade',
                         child: Row(
                           children: [
-                            Icon(Icons.assignment, color: Colors.green),
-                            const SizedBox(width: 8),
-                            Text('Atividade', style: AppTextStyles.fonteUbuntu),
+                            Icon(
+                              Icons.assignment,
+                              color: Colors.green,
+                              size: isMobile ? 18 : 20,
+                            ),
+                            SizedBox(width: isMobile ? 6 : 8),
+                            Text(
+                              'Atividade',
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontSize: isMobile ? 14 : 16,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -694,14 +876,18 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                     onChanged: (value) =>
                         setState(() => _tipo = value ?? 'prova'),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: isMobile ? 16 : 20),
                   TextFormField(
                     controller: _pesoController,
                     keyboardType: TextInputType.number,
+                    style: AppTextStyles.fonteUbuntuSans.copyWith(
+                      fontSize: isMobile ? 14 : 16,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Peso da Avaliação',
                       labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                         fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -711,10 +897,18 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: primaryColor, width: 2),
                       ),
-                      prefixIcon: Icon(Icons.balance, color: primaryColor),
+                      prefixIcon: Icon(
+                        Icons.balance,
+                        color: primaryColor,
+                        size: isMobile ? 20 : 24,
+                      ),
                       suffixText: 'pontos',
                       filled: true,
                       fillColor: Colors.grey[50],
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 16 : 20,
+                        vertical: isMobile ? 14 : 16,
+                      ),
                     ),
                     validator: (value) {
                       final num = double.tryParse(value ?? '');
@@ -726,70 +920,136 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                 ],
               ),
             ),
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+            SizedBox(height: isMobile ? 24 : 32),
+            isMobile
+                ? Column(
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          if (_formKey.currentState!.validate()) {
+                            final newAv = Avaliacao(
+                              id: '',
+                              nome: _nomeController.text,
+                              tipo: _tipo,
+                              peso: double.parse(_pesoController.text),
+                              data: DateTime.now(),
+                            );
+                            Navigator.pop(context, newAv);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: AppColors.branco,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 4,
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add_circle_outline,
+                              size: isMobile ? 18 : 20,
+                            ),
+                            SizedBox(width: isMobile ? 6 : 8),
+                            Text(
+                              'Criar para Todos',
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: isMobile ? 14 : 16,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      side: BorderSide(color: Colors.grey[400]!),
-                    ),
-                    child: Text(
-                      'Cancelar',
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        final newAv = Avaliacao(
-                          id: '',
-                          nome: _nomeController.text,
-                          tipo: _tipo,
-                          peso: double.parse(_pesoController.text),
-                          data: DateTime.now(),
-                        );
-                        Navigator.pop(context, newAv);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: AppColors.branco,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 4,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add_circle_outline, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Criar para Todos os Alunos',
+                      SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: Colors.grey[400]!),
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: Text(
+                          'Cancelar',
                           style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                            fontSize: isMobile ? 14 : 16,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            side: BorderSide(color: Colors.grey[400]!),
+                          ),
+                          child: Text(
+                            'Cancelar',
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (_formKey.currentState!.validate()) {
+                              final newAv = Avaliacao(
+                                id: '',
+                                nome: _nomeController.text,
+                                tipo: _tipo,
+                                peso: double.parse(_pesoController.text),
+                                data: DateTime.now(),
+                              );
+                              Navigator.pop(context, newAv);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: AppColors.branco,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 4,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_circle_outline, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Criar para Todos os Alunos',
+                                style: AppTextStyles.fonteUbuntu.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -797,7 +1057,7 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
   }
 }
 
-// Diálogo para editar avaliação global
+// Diálogo para editar avaliação global - RESPONSIVO
 class EditAvaliacaoGlobalDialog extends StatefulWidget {
   final Avaliacao initialAv;
 
@@ -833,15 +1093,20 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
     final primaryColor = AppColors.azulClaro;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 20,
-      backgroundColor: Colors.white, // FUNDO BRANCO
+      backgroundColor: Colors.white,
+      insetPadding: isMobile
+          ? const EdgeInsets.all(16)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
-        padding: const EdgeInsets.all(32),
+        constraints: BoxConstraints(maxWidth: isMobile ? double.infinity : 500),
+        padding: EdgeInsets.all(isMobile ? 20 : 32),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -866,9 +1131,13 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                     color: primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.edit, color: primaryColor, size: 28),
+                  child: Icon(
+                    Icons.edit,
+                    color: primaryColor,
+                    size: isMobile ? 24 : 28,
+                  ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: isMobile ? 12 : 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -876,7 +1145,7 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                       Text(
                         'Editar Avaliação',
                         style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: 22,
+                          fontSize: isMobile ? 20 : 22,
                           fontWeight: FontWeight.w700,
                           color: Colors.black87,
                         ),
@@ -884,7 +1153,7 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                       Text(
                         'Atualize os dados da avaliação',
                         style: AppTextStyles.fonteUbuntuSans.copyWith(
-                          fontSize: 14,
+                          fontSize: isMobile ? 12 : 14,
                           color: Colors.grey[600],
                         ),
                       ),
@@ -893,17 +1162,21 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: isMobile ? 20 : 24),
             Form(
               key: _formKey,
               child: Column(
                 children: [
                   TextFormField(
                     controller: _nomeController,
+                    style: AppTextStyles.fonteUbuntuSans.copyWith(
+                      fontSize: isMobile ? 14 : 16,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Nome da Avaliação',
                       labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                         fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -913,20 +1186,32 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: primaryColor, width: 2),
                       ),
-                      prefixIcon: Icon(Icons.title, color: primaryColor),
+                      prefixIcon: Icon(
+                        Icons.title,
+                        color: primaryColor,
+                        size: isMobile ? 20 : 24,
+                      ),
                       filled: true,
                       fillColor: Colors.grey[50],
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 16 : 20,
+                        vertical: isMobile ? 14 : 16,
+                      ),
                     ),
                     validator: (value) =>
                         value?.isEmpty ?? true ? 'Nome obrigatório' : null,
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: isMobile ? 16 : 20),
                   DropdownButtonFormField<String>(
                     value: _tipo,
+                    style: AppTextStyles.fonteUbuntuSans.copyWith(
+                      fontSize: isMobile ? 14 : 16,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Tipo de Avaliação',
                       labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                         fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -936,18 +1221,35 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: primaryColor, width: 2),
                       ),
-                      prefixIcon: Icon(Icons.category, color: primaryColor),
+                      prefixIcon: Icon(
+                        Icons.category,
+                        color: primaryColor,
+                        size: isMobile ? 20 : 24,
+                      ),
                       filled: true,
                       fillColor: Colors.grey[50],
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 16 : 20,
+                        vertical: isMobile ? 14 : 16,
+                      ),
                     ),
                     items: [
                       DropdownMenuItem(
                         value: 'prova',
                         child: Row(
                           children: [
-                            Icon(Icons.quiz, color: primaryColor),
-                            const SizedBox(width: 8),
-                            Text('Prova', style: AppTextStyles.fonteUbuntu),
+                            Icon(
+                              Icons.quiz,
+                              color: primaryColor,
+                              size: isMobile ? 18 : 20,
+                            ),
+                            SizedBox(width: isMobile ? 6 : 8),
+                            Text(
+                              'Prova',
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontSize: isMobile ? 14 : 16,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -955,9 +1257,18 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                         value: 'atividade',
                         child: Row(
                           children: [
-                            Icon(Icons.assignment, color: Colors.green),
-                            const SizedBox(width: 8),
-                            Text('Atividade', style: AppTextStyles.fonteUbuntu),
+                            Icon(
+                              Icons.assignment,
+                              color: Colors.green,
+                              size: isMobile ? 18 : 20,
+                            ),
+                            SizedBox(width: isMobile ? 6 : 8),
+                            Text(
+                              'Atividade',
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontSize: isMobile ? 14 : 16,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -965,14 +1276,18 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                     onChanged: (value) =>
                         setState(() => _tipo = value ?? 'prova'),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: isMobile ? 16 : 20),
                   TextFormField(
                     controller: _pesoController,
                     keyboardType: TextInputType.number,
+                    style: AppTextStyles.fonteUbuntuSans.copyWith(
+                      fontSize: isMobile ? 14 : 16,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Peso da Avaliação',
                       labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                         fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -982,10 +1297,18 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: primaryColor, width: 2),
                       ),
-                      prefixIcon: Icon(Icons.balance, color: primaryColor),
+                      prefixIcon: Icon(
+                        Icons.balance,
+                        color: primaryColor,
+                        size: isMobile ? 20 : 24,
+                      ),
                       suffixText: 'pontos',
                       filled: true,
                       fillColor: Colors.grey[50],
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 16 : 20,
+                        vertical: isMobile ? 14 : 16,
+                      ),
                     ),
                     validator: (value) {
                       final num = double.tryParse(value ?? '');
@@ -997,70 +1320,133 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                 ],
               ),
             ),
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+            SizedBox(height: isMobile ? 24 : 32),
+            isMobile
+                ? Column(
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          if (_formKey.currentState!.validate()) {
+                            final newAv = Avaliacao(
+                              id: '',
+                              nome: _nomeController.text,
+                              tipo: _tipo,
+                              peso: double.parse(_pesoController.text),
+                              data: widget.initialAv.data,
+                            );
+                            Navigator.pop(context, newAv);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 4,
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.save, size: isMobile ? 18 : 20),
+                            SizedBox(width: isMobile ? 6 : 8),
+                            Text(
+                              'Salvar Alterações',
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: isMobile ? 14 : 16,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      side: BorderSide(color: Colors.grey[400]!),
-                    ),
-                    child: Text(
-                      'Cancelar',
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        final newAv = Avaliacao(
-                          id: '',
-                          nome: _nomeController.text,
-                          tipo: _tipo,
-                          peso: double.parse(_pesoController.text),
-                          data: widget.initialAv.data,
-                        );
-                        Navigator.pop(context, newAv);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 4,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.save, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Salvar Alterações',
+                      SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: Colors.grey[400]!),
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: Text(
+                          'Cancelar',
                           style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                            fontSize: isMobile ? 14 : 16,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            side: BorderSide(color: Colors.grey[400]!),
+                          ),
+                          child: Text(
+                            'Cancelar',
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (_formKey.currentState!.validate()) {
+                              final newAv = Avaliacao(
+                                id: '',
+                                nome: _nomeController.text,
+                                tipo: _tipo,
+                                peso: double.parse(_pesoController.text),
+                                data: widget.initialAv.data,
+                              );
+                              Navigator.pop(context, newAv);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 4,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.save, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Salvar Alterações',
+                                style: AppTextStyles.fonteUbuntu.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -1068,7 +1454,7 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
   }
 }
 
-// Diálogo para adicionar/editar nota
+// Diálogo para adicionar/editar nota - RESPONSIVO
 class NotaDialog extends StatefulWidget {
   final Disciplina disciplina;
   final Nota? nota;
@@ -1120,7 +1506,7 @@ class _NotaDialogState extends State<NotaDialog> {
       _selectedAluno = widget.selectedAluno!;
       _avaliacoes = [];
     }
-    _tipoController.text = 'prova'; // Default
+    _tipoController.text = 'prova';
   }
 
   @override
@@ -1145,7 +1531,6 @@ class _NotaDialogState extends State<NotaDialog> {
       setState(() {
         _avaliacoes.add(novaAvaliacao);
       });
-      // Limpar campos
       _nomeController.clear();
       _notaController.clear();
       _pesoController.clear();
@@ -1172,17 +1557,25 @@ class _NotaDialogState extends State<NotaDialog> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.nota != null;
-    final primaryColor = AppColors.azulClaro;
     final screenWidth = MediaQuery.of(context).size.width;
-    final dialogWidth = screenWidth > 600 ? 600.0 : screenWidth * 0.95;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth < 900;
+    final dialogWidth = isMobile
+        ? screenWidth * 0.98
+        : (isTablet ? 550.0 : 600.0);
+    final primaryColor = AppColors.azulClaro;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 24,
+      insetPadding: isMobile
+          ? const EdgeInsets.all(8)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
       child: Container(
         width: dialogWidth,
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
+          maxHeight:
+              MediaQuery.of(context).size.height * (isMobile ? 0.9 : 0.8),
         ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
@@ -1196,7 +1589,12 @@ class _NotaDialogState extends State<NotaDialog> {
           children: [
             // Header
             Container(
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+              padding: EdgeInsets.fromLTRB(
+                isMobile ? 16 : 24,
+                isMobile ? 20 : 32,
+                isMobile ? 16 : 24,
+                isMobile ? 16 : 24,
+              ),
               decoration: BoxDecoration(
                 color: primaryColor,
                 borderRadius: const BorderRadius.only(
@@ -1212,9 +1610,13 @@ class _NotaDialogState extends State<NotaDialog> {
                       color: AppColors.branco.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Icons.grade, color: AppColors.branco, size: 28),
+                    child: Icon(
+                      Icons.grade,
+                      color: AppColors.branco,
+                      size: isMobile ? 24 : 28,
+                    ),
                   ),
-                  const SizedBox(width: 16),
+                  SizedBox(width: isMobile ? 12 : 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1222,7 +1624,7 @@ class _NotaDialogState extends State<NotaDialog> {
                         Text(
                           '${isEdit ? 'Editar' : 'Adicionar'} Nota',
                           style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 22,
+                            fontSize: isMobile ? 18 : 22,
                             fontWeight: FontWeight.w700,
                             color: AppColors.branco,
                             letterSpacing: 0.5,
@@ -1231,7 +1633,7 @@ class _NotaDialogState extends State<NotaDialog> {
                         Text(
                           '${widget.disciplina.titulo} - ${_selectedAluno.nome}',
                           style: AppTextStyles.fonteUbuntuSans.copyWith(
-                            fontSize: 14,
+                            fontSize: isMobile ? 12 : 14,
                             color: AppColors.branco.withOpacity(0.9),
                           ),
                         ),
@@ -1239,7 +1641,11 @@ class _NotaDialogState extends State<NotaDialog> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.branco),
+                    icon: Icon(
+                      Icons.close,
+                      color: AppColors.branco,
+                      size: isMobile ? 20 : 24,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -1248,7 +1654,7 @@ class _NotaDialogState extends State<NotaDialog> {
             // Body
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(isMobile ? 16 : 24),
                 child: Form(
                   key: _formKey,
                   child: SingleChildScrollView(
@@ -1259,18 +1665,21 @@ class _NotaDialogState extends State<NotaDialog> {
                         Text(
                           'Adicionar Nova Avaliação',
                           style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 18,
+                            fontSize: isMobile ? 16 : 18,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: isMobile ? 12 : 16),
                         TextFormField(
                           controller: _nomeController,
-                          style: AppTextStyles.fonteUbuntuSans,
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: isMobile ? 14 : 16,
+                          ),
                           decoration: InputDecoration(
                             labelText: 'Nome da Avaliação',
                             labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                               color: Colors.grey[600],
+                              fontSize: isMobile ? 14 : 16,
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -1286,9 +1695,14 @@ class _NotaDialogState extends State<NotaDialog> {
                             prefixIcon: Icon(
                               Icons.assignment,
                               color: Colors.grey[500],
+                              size: isMobile ? 20 : 24,
                             ),
                             filled: true,
                             fillColor: Colors.grey[50],
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 16 : 20,
+                              vertical: isMobile ? 14 : 16,
+                            ),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -1297,16 +1711,19 @@ class _NotaDialogState extends State<NotaDialog> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: isMobile ? 16 : 20),
                         DropdownButtonFormField<String>(
                           value: _tipoController.text.isEmpty
                               ? 'prova'
                               : _tipoController.text,
-                          style: AppTextStyles.fonteUbuntuSans,
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: isMobile ? 14 : 16,
+                          ),
                           decoration: InputDecoration(
                             labelText: 'Tipo',
                             labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                               color: Colors.grey[600],
+                              fontSize: isMobile ? 14 : 16,
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -1322,28 +1739,39 @@ class _NotaDialogState extends State<NotaDialog> {
                             prefixIcon: Icon(
                               Icons.category,
                               color: Colors.grey[500],
+                              size: isMobile ? 20 : 24,
                             ),
                             filled: true,
                             fillColor: Colors.grey[50],
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 16 : 20,
+                              vertical: isMobile ? 14 : 16,
+                            ),
                           ),
                           items: ['prova', 'atividade'].map((tipo) {
                             return DropdownMenuItem(
                               value: tipo,
-                              child: Text(tipo.toUpperCase()),
+                              child: Text(
+                                tipo.toUpperCase(),
+                                style: TextStyle(fontSize: isMobile ? 14 : 16),
+                              ),
                             );
                           }).toList(),
                           onChanged: (value) {
                             if (value != null) _tipoController.text = value;
                           },
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: isMobile ? 16 : 20),
                         TextFormField(
                           controller: _notaController,
-                          style: AppTextStyles.fonteUbuntuSans,
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: isMobile ? 14 : 16,
+                          ),
                           decoration: InputDecoration(
                             labelText: 'Nota (0-10)',
                             labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                               color: Colors.grey[600],
+                              fontSize: isMobile ? 14 : 16,
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -1359,9 +1787,14 @@ class _NotaDialogState extends State<NotaDialog> {
                             prefixIcon: Icon(
                               Icons.star,
                               color: Colors.grey[500],
+                              size: isMobile ? 20 : 24,
                             ),
                             filled: true,
                             fillColor: Colors.grey[50],
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 16 : 20,
+                              vertical: isMobile ? 14 : 16,
+                            ),
                           ),
                           keyboardType: TextInputType.number,
                           validator: (value) {
@@ -1371,14 +1804,17 @@ class _NotaDialogState extends State<NotaDialog> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: isMobile ? 16 : 20),
                         TextFormField(
                           controller: _pesoController,
-                          style: AppTextStyles.fonteUbuntuSans,
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: isMobile ? 14 : 16,
+                          ),
                           decoration: InputDecoration(
                             labelText: 'Peso (padrão 1)',
                             labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                               color: Colors.grey[600],
+                              fontSize: isMobile ? 14 : 16,
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -1394,9 +1830,14 @@ class _NotaDialogState extends State<NotaDialog> {
                             prefixIcon: Icon(
                               Icons.balance,
                               color: Colors.grey[500],
+                              size: isMobile ? 20 : 24,
                             ),
                             filled: true,
                             fillColor: Colors.grey[50],
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 16 : 20,
+                              vertical: isMobile ? 14 : 16,
+                            ),
                           ),
                           keyboardType: TextInputType.number,
                           validator: (value) {
@@ -1406,16 +1847,17 @@ class _NotaDialogState extends State<NotaDialog> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 24),
+                        SizedBox(height: isMobile ? 20 : 24),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: _addAvaliacao,
-                            icon: const Icon(Icons.add),
+                            icon: Icon(Icons.add, size: isMobile ? 18 : 20),
                             label: Text(
                               'Adicionar Avaliação',
                               style: AppTextStyles.fonteUbuntu.copyWith(
                                 fontWeight: FontWeight.w600,
+                                fontSize: isMobile ? 14 : 16,
                               ),
                             ),
                             style: ElevatedButton.styleFrom(
@@ -1428,19 +1870,19 @@ class _NotaDialogState extends State<NotaDialog> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        SizedBox(height: isMobile ? 24 : 32),
                         // Lista de avaliações atuais
                         Text(
                           'Avaliações Adicionadas (${_avaliacoes.length})',
                           style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 18,
+                            fontSize: isMobile ? 16 : 18,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: isMobile ? 12 : 16),
                         if (_avaliacoes.isEmpty)
                           Container(
-                            padding: const EdgeInsets.all(32),
+                            padding: EdgeInsets.all(isMobile ? 24 : 32),
                             decoration: BoxDecoration(
                               color: Colors.grey[50],
                               borderRadius: BorderRadius.circular(12),
@@ -1449,14 +1891,14 @@ class _NotaDialogState extends State<NotaDialog> {
                               children: [
                                 Icon(
                                   Icons.assignment_outlined,
-                                  size: 64,
+                                  size: isMobile ? 48 : 64,
                                   color: Colors.grey[400],
                                 ),
-                                const SizedBox(height: 16),
+                                SizedBox(height: isMobile ? 12 : 16),
                                 Text(
                                   'Nenhuma avaliação adicionada',
                                   style: AppTextStyles.fonteUbuntu.copyWith(
-                                    fontSize: 16,
+                                    fontSize: isMobile ? 14 : 16,
                                     color: Colors.grey[600],
                                   ),
                                 ),
@@ -1468,17 +1910,22 @@ class _NotaDialogState extends State<NotaDialog> {
                             final index = entry.key;
                             final av = entry.value;
                             return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
+                              margin: EdgeInsets.only(
+                                bottom: isMobile ? 8 : 12,
+                              ),
                               elevation: 2,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: ListTile(
-                                contentPadding: const EdgeInsets.all(16),
+                                contentPadding: EdgeInsets.all(
+                                  isMobile ? 12 : 16,
+                                ),
                                 title: Text(
                                   av.nome,
                                   style: AppTextStyles.fonteUbuntu.copyWith(
                                     fontWeight: FontWeight.w600,
+                                    fontSize: isMobile ? 14 : 16,
                                   ),
                                 ),
                                 subtitle: Column(
@@ -1486,14 +1933,23 @@ class _NotaDialogState extends State<NotaDialog> {
                                   children: [
                                     Text(
                                       '${av.tipo.toUpperCase()}: ${av.nota ?? 'Não definida'}',
+                                      style: TextStyle(
+                                        fontSize: isMobile ? 12 : 14,
+                                      ),
                                     ),
-                                    Text('Peso: ${av.peso ?? 1.0}'),
+                                    Text(
+                                      'Peso: ${av.peso ?? 1.0}',
+                                      style: TextStyle(
+                                        fontSize: isMobile ? 12 : 14,
+                                      ),
+                                    ),
                                   ],
                                 ),
                                 trailing: IconButton(
                                   icon: Icon(
                                     Icons.delete,
                                     color: AppColors.vermelho,
+                                    size: isMobile ? 20 : 24,
                                   ),
                                   onPressed: () => _removeAvaliacao(index),
                                 ),
@@ -1508,7 +1964,7 @@ class _NotaDialogState extends State<NotaDialog> {
             ),
             // Footer
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(isMobile ? 16 : 24),
               decoration: BoxDecoration(
                 color: AppColors.branco,
                 borderRadius: const BorderRadius.only(
@@ -1523,68 +1979,128 @@ class _NotaDialogState extends State<NotaDialog> {
                   ),
                 ],
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        side: BorderSide(color: Colors.grey[300]!),
-                      ),
-                      child: Text(
-                        'Cancelar',
-                        style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final novaNota = _buildNota();
-                        if (novaNota != null &&
-                            (_avaliacoes.isNotEmpty || isEdit)) {
-                          Navigator.pop(context, novaNota);
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Adicione pelo menos uma avaliação',
-                              ),
-                              backgroundColor: AppColors.vermelhoErro,
+              child: isMobile
+                  ? Column(
+                      children: [
+                        ElevatedButton(
+                          onPressed: () {
+                            final novaNota = _buildNota();
+                            if (novaNota != null &&
+                                (_avaliacoes.isNotEmpty || isEdit)) {
+                              Navigator.pop(context, novaNota);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Adicione pelo menos uma avaliação',
+                                  ),
+                                  backgroundColor: AppColors.vermelhoErro,
+                                ),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: AppColors.branco,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: AppColors.branco,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                            elevation: 2,
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                          child: Text(
+                            isEdit ? 'Salvar Alterações' : 'Criar Nota',
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
-                        elevation: 2,
-                      ),
-                      child: Text(
-                        isEdit ? 'Salvar Alterações' : 'Criar Nota',
-                        style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                        SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            side: BorderSide(color: Colors.grey[300]!),
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                          child: Text(
+                            'Cancelar',
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[700],
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              side: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            child: Text(
+                              'Cancelar',
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 16),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              final novaNota = _buildNota();
+                              if (novaNota != null &&
+                                  (_avaliacoes.isNotEmpty || isEdit)) {
+                                Navigator.pop(context, novaNota);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Adicione pelo menos uma avaliação',
+                                    ),
+                                    backgroundColor: AppColors.vermelhoErro,
+                                  ),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: AppColors.branco,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                            child: Text(
+                              isEdit ? 'Salvar Alterações' : 'Criar Nota',
+                              style: AppTextStyles.fonteUbuntu.copyWith(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -1593,7 +2109,7 @@ class _NotaDialogState extends State<NotaDialog> {
   }
 }
 
-// Diálogo para gerenciar avaliações
+// Diálogo para gerenciar avaliações - RESPONSIVO
 class ManageAvaliacoesDialog extends StatelessWidget {
   final Disciplina disciplina;
   final List<Avaliacao> uniqueAvaliacoes;
@@ -1610,203 +2126,235 @@ class ManageAvaliacoesDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          primaryColor: AppColors.azulClaro,
-          colorScheme: Theme.of(
-            context,
-          ).colorScheme.copyWith(primary: AppColors.azulClaro),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 20,
+      backgroundColor: Colors.white,
+      insetPadding: isMobile
+          ? const EdgeInsets.all(16)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: isMobile ? double.infinity : 600,
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
         ),
-        child: Center(
-          child: SingleChildScrollView(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 600),
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 30,
-                    offset: const Offset(0, 10),
+        padding: EdgeInsets.all(isMobile ? 20 : 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.settings,
+                      size: isMobile ? 28 : 32,
+                      color: AppColors.azulClaro,
+                    ),
+                  ),
+                  SizedBox(height: isMobile ? 12 : 16),
+                  Text(
+                    'Gerenciar Avaliações',
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: isMobile ? 20 : 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                  SizedBox(height: isMobile ? 4 : 8),
+                  Text(
+                    'Disciplina: ${disciplina.titulo}',
+                    style: TextStyle(
+                      fontSize: isMobile ? 12 : 14,
+                      color: Colors.grey.shade600,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
+            ),
+            SizedBox(height: isMobile ? 20 : 24),
+            if (uniqueAvaliacoes.isEmpty)
+              Container(
+                padding: EdgeInsets.all(isMobile ? 24 : 32),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              Icons.settings,
-                              size: 32,
-                              color: AppColors.azulClaro,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Gerenciar Avaliações',
-                            style: AppTextStyles.fonteUbuntu.copyWith(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade800,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Disciplina: ${disciplina.titulo}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
+                    Icon(
+                      Icons.assignment_outlined,
+                      size: isMobile ? 48 : 64,
+                      color: Colors.grey.shade400,
+                    ),
+                    SizedBox(height: isMobile ? 12 : 16),
+                    Text(
+                      'Nenhuma avaliação encontrada',
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontSize: isMobile ? 14 : 16,
+                        color: Colors.grey.shade600,
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    if (uniqueAvaliacoes.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(32),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.assignment_outlined,
-                              size: 64,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Nenhuma avaliação encontrada',
-                              style: AppTextStyles.fonteUbuntu.copyWith(
-                                fontSize: 16,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Adicione avaliações para gerenciá-las aqui',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      ...uniqueAvaliacoes.map((av) {
-                        final color = av.tipo == 'atividade'
-                            ? Colors.green
-                            : AppColors.azulClaro;
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    SizedBox(height: isMobile ? 8 : 8),
+                    Text(
+                      'Adicione avaliações para gerenciá-las aqui',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.grey.shade500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: uniqueAvaliacoes.length,
+                  itemBuilder: (context, index) {
+                    final av = uniqueAvaliacoes[index];
+                    final color = av.tipo == 'atividade'
+                        ? Colors.green
+                        : AppColors.azulClaro;
+                    return Card(
+                      margin: EdgeInsets.only(bottom: isMobile ? 8 : 12),
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      color: Colors.white,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.all(isMobile ? 12 : 16),
+                        leading: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          color: Colors.white,
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            leading: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: color.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                av.tipo == 'atividade'
-                                    ? Icons.assignment
-                                    : Icons.quiz,
-                                color: color,
-                                size: 24,
-                              ),
-                            ),
-                            title: Text(
-                              av.nome,
-                              style: AppTextStyles.fonteUbuntu.copyWith(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                              ),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Icon(
+                            av.tipo == 'atividade'
+                                ? Icons.assignment
+                                : Icons.quiz,
+                            color: color,
+                            size: isMobile ? 20 : 24,
+                          ),
+                        ),
+                        title: Text(
+                          av.nome,
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: isMobile ? 14 : 16,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(height: isMobile ? 2 : 4),
+                            Wrap(
+                              spacing: isMobile ? 4 : 8,
                               children: [
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: color.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                          color: color.withOpacity(0.3),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        av.tipo.toUpperCase(),
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: color,
-                                        ),
-                                      ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: color.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: color.withOpacity(0.3),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.orange.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                          color: Colors.orange.withOpacity(0.3),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        'Peso: ${av.peso?.toStringAsFixed(1) ?? '1.0'}',
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.orange,
-                                        ),
-                                      ),
+                                  ),
+                                  child: Text(
+                                    av.tipo.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: isMobile ? 9 : 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: color,
                                     ),
-                                  ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: Colors.orange.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Peso: ${av.peso?.toStringAsFixed(1) ?? '1.0'}',
+                                    style: TextStyle(
+                                      fontSize: isMobile ? 9 : 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.orange,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.edit,
-                                    color: AppColors.azulClaro,
+                          ],
+                        ),
+                        trailing: isMobile
+                            ? PopupMenuButton(
+                                icon: Icon(Icons.more_vert, size: 20),
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.edit,
+                                          color: AppColors.azulClaro,
+                                          size: 18,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Editar',
+                                          style: TextStyle(fontSize: 14),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  onPressed: () async {
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.delete,
+                                          color: AppColors.vermelho,
+                                          size: 18,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Excluir',
+                                          style: TextStyle(fontSize: 14),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                onSelected: (value) async {
+                                  if (value == 'edit') {
                                     final newAv = await showDialog<Avaliacao?>(
                                       context: context,
                                       builder: (c) => EditAvaliacaoGlobalDialog(
@@ -1818,14 +2366,7 @@ class ManageAvaliacoesDialog extends StatelessWidget {
                                       if (context.mounted)
                                         Navigator.pop(context);
                                     }
-                                  },
-                                ),
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.delete,
-                                    color: AppColors.vermelho,
-                                  ),
-                                  onPressed: () async {
+                                  } else if (value == 'delete') {
                                     final confirm = await showDialog<bool>(
                                       context: context,
                                       builder: (dialogContext) =>
@@ -1839,141 +2380,228 @@ class ManageAvaliacoesDialog extends StatelessWidget {
                                       if (context.mounted)
                                         Navigator.pop(context);
                                     }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.grey,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                          ),
-                          child: const Text(
-                            'Fechar',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                        ),
-                      ],
+                                  }
+                                },
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.edit,
+                                      color: AppColors.azulClaro,
+                                      size: isMobile ? 18 : 20,
+                                    ),
+                                    onPressed: () async {
+                                      final newAv =
+                                          await showDialog<Avaliacao?>(
+                                            context: context,
+                                            builder: (c) =>
+                                                EditAvaliacaoGlobalDialog(
+                                                  initialAv: av,
+                                                ),
+                                          );
+                                      if (newAv != null) {
+                                        await onEdit(av.nome, av.tipo, newAv);
+                                        if (context.mounted)
+                                          Navigator.pop(context);
+                                      }
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.delete,
+                                      color: AppColors.vermelho,
+                                      size: isMobile ? 18 : 20,
+                                    ),
+                                    onPressed: () async {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder: (dialogContext) =>
+                                            _buildConfirmDeleteDialog(
+                                              dialogContext,
+                                              av.nome,
+                                            ),
+                                      );
+                                      if (confirm == true) {
+                                        await onDelete(av.nome, av.tipo);
+                                        if (context.mounted)
+                                          Navigator.pop(context);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            SizedBox(height: isMobile ? 20 : 24),
+            Center(
+              child: SizedBox(
+                width: isMobile ? double.infinity : null,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.azulClaro,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 24 : 32,
+                      vertical: isMobile ? 12 : 16,
                     ),
-                  ],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    minimumSize: isMobile
+                        ? const Size(double.infinity, 50)
+                        : null,
+                  ),
+                  child: Text(
+                    'Fechar',
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: isMobile ? 14 : 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  // Diálogo de confirmação de exclusão interno (CORRIGIDO - recebe context como parâmetro)
+  // Diálogo de confirmação de exclusão interno - RESPONSIVO
   Widget _buildConfirmDeleteDialog(
     BuildContext dialogContext,
     String nomeAvaliacao,
   ) {
-    return Material(
-      color: Colors.transparent,
-      child: Theme(
-        data: Theme.of(dialogContext).copyWith(
-          primaryColor: AppColors.vermelho,
-          colorScheme: Theme.of(
-            dialogContext,
-          ).colorScheme.copyWith(primary: AppColors.vermelho),
+    final screenWidth = MediaQuery.of(dialogContext).size.width;
+    final isMobile = screenWidth < 600;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 20,
+      backgroundColor: Colors.white,
+      insetPadding: isMobile
+          ? const EdgeInsets.all(20)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+      child: Container(
+        constraints: BoxConstraints(maxWidth: isMobile ? double.infinity : 400),
+        padding: EdgeInsets.all(isMobile ? 20 : 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
         ),
-        child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 400),
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.warning_amber_rounded,
+                      size: isMobile ? 28 : 32,
+                      color: Colors.red,
+                    ),
+                  ),
+                  SizedBox(height: isMobile ? 12 : 16),
+                  Text(
+                    'Confirmar Remoção',
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: isMobile ? 18 : 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                  SizedBox(height: isMobile ? 8 : 8),
+                  Text(
+                    'Deseja remover a avaliação "$nomeAvaliacao" de TODOS os alunos?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: isMobile ? 12 : 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: isMobile ? 16 : 24),
+            Text(
+              'Esta ação não pode ser desfeita.',
+              style: TextStyle(
+                fontSize: isMobile ? 12 : 14,
+                color: Colors.red.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            SizedBox(height: isMobile ? 20 : 30),
+            isMobile
+                ? Column(
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(
-                            Icons.warning_amber_rounded,
-                            size: 32,
-                            color: Colors.red,
-                          ),
+                          minimumSize: const Size(double.infinity, 50),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Confirmar Remoção',
-                          style: AppTextStyles.fonteUbuntu.copyWith(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade800,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Deseja remover a avaliação "$nomeAvaliacao" de TODOS os alunos?',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Esta ação não pode ser desfeita.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.red.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
+                        child: Text('Remover', style: TextStyle(fontSize: 16)),
+                      ),
+                      SizedBox(height: 12),
+                      OutlinedButton(
                         onPressed: () => Navigator.pop(dialogContext, false),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.grey,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                          side: BorderSide(color: Colors.grey[400]!),
+                          minimumSize: const Size(double.infinity, 50),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Cancelar',
-                          style: TextStyle(fontSize: 14),
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[700],
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
+                          side: BorderSide(color: Colors.grey[400]!),
+                        ),
+                        child: Text(
+                          'Cancelar',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8),
                       ElevatedButton(
                         onPressed: () => Navigator.pop(dialogContext, true),
                         style: ElevatedButton.styleFrom(
@@ -1984,17 +2612,11 @@ class ManageAvaliacoesDialog extends StatelessWidget {
                             vertical: 10,
                           ),
                         ),
-                        child: const Text(
-                          'Remover',
-                          style: TextStyle(fontSize: 14),
-                        ),
+                        child: Text('Remover', style: TextStyle(fontSize: 14)),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ),
+          ],
         ),
       ),
     );
