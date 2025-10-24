@@ -121,8 +121,7 @@ class _AdministracaoPageState extends State<AdministracaoPage>
 
   Future<void> _initializeTokenAndUserType() async {
     try {
-      // DEBUG: Ver informações do usuário antes
-      await AuthService.debugUserInfo();
+   
 
       // Obter token do AuthService
       final authToken = await AuthService.getToken();
