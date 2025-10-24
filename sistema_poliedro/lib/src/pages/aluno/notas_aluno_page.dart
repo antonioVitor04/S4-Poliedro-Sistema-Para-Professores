@@ -81,6 +81,7 @@ class _NotasPageState extends State<NotasPage>
             detalhe,
           ) {
             return {
+              "nome": detalhe['nome'], // USA DIRETAMENTE O NOME DO BACKEND
               "tipo": detalhe['tipo'],
               "nota": detalhe['nota']?.toDouble(),
               "peso": detalhe['peso']?.toDouble(),
@@ -116,6 +117,57 @@ class _NotasPageState extends State<NotasPage>
         );
       }
     }
+  }
+
+  // Função alternativa que preserva os nomes das avaliações
+  List<Map<String, dynamic>> _processarDisciplinasComNomes(
+    List<Map<String, dynamic>> disciplinas,
+  ) {
+    return disciplinas.map((disciplina) {
+      // Preserva os detalhes originais (com nomes) e calcula as médias
+      final detalhes = disciplina["detalhes"] as List<Map<String, dynamic>>;
+
+      // Separa provas e atividades
+      final provas = detalhes
+          .where((d) => d["tipo"].toString().toLowerCase().contains("prova"))
+          .toList();
+      final atividades = detalhes
+          .where(
+            (d) => d["tipo"].toString().toLowerCase().contains("atividade"),
+          )
+          .toList();
+
+      // Calcula médias
+      final mediaProvas = _calcularMediaPonderada(provas);
+      final mediaAtividades = _calcularMediaPonderada(atividades);
+      final mediaFinal = (mediaProvas + mediaAtividades) / 2;
+
+      return {
+        "disciplina": disciplina["disciplina"],
+        "disciplinaId": disciplina["disciplinaId"],
+        "detalhes": detalhes, // MANTÉM OS DETALHES ORIGINAIS COM NOMES
+        "mediaProvas": mediaProvas,
+        "mediaAtividades": mediaAtividades,
+        "mediaFinal": mediaFinal,
+        "media": mediaFinal, // Para compatibilidade
+      };
+    }).toList();
+  }
+
+  double _calcularMediaPonderada(List<Map<String, dynamic>> avaliacoes) {
+    if (avaliacoes.isEmpty) return 0.0;
+
+    double somaPonderada = 0.0;
+    double somaPesos = 0.0;
+
+    for (final av in avaliacoes) {
+      final nota = (av["nota"] as double?) ?? 0.0;
+      final peso = (av["peso"] as double?) ?? 1.0;
+      somaPonderada += nota * peso;
+      somaPesos += peso;
+    }
+
+    return somaPesos > 0 ? somaPonderada / somaPesos : 0.0;
   }
 
   void _scrollToTop() {
