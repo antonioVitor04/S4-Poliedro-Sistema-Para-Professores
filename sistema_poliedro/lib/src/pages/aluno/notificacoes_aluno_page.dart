@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 
 // Modelo para representar uma mensagem
+import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../services/notificacoes_service.dart';
+import '../../services/auth_service.dart';
 class Mensagem {
   final String id;
   final String data;
   final String remetente;
   final String materia;
   final String conteudo;
+  final String disciplinaId;
   bool isUnread;
   bool isFavorita;
   bool isSelected;
@@ -17,12 +24,39 @@ class Mensagem {
     required this.remetente,
     required this.materia,
     required this.conteudo,
+    required this.disciplinaId,
     this.isUnread = true,
     this.isFavorita = false,
     this.isSelected = false,
   });
-}
 
+  factory Mensagem.fromJson(Map<String, dynamic> json) {
+    return Mensagem(
+      id: json['_id'] ?? '',
+      data: json['dataCriacao'] != null
+          ? DateTime.parse(json['dataCriacao']).toString().substring(0, 10)
+          : '',
+      remetente: json['professor'] != null ? json['professor']['nome'] : 'Desconhecido',
+      materia: json['disciplina'] != null ? json['disciplina']['titulo'] : '',
+      conteudo: json['mensagem'] ?? '',
+      disciplinaId: json['disciplina'] != null ? json['disciplina']['_id'] : '',
+      isUnread: json['isUnread'] ?? true,
+      isFavorita: json['isFavorita'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      '_id': id,
+      'dataCriacao': data,
+      'professor': {'nome': remetente},
+      'disciplina': {'_id': disciplinaId, 'titulo': materia},
+      'mensagem': conteudo,
+      'isUnread': isUnread,
+      'isFavorita': isFavorita,
+    };
+  }
+}
 // Um widget reutilizável para cada item da lista de notificações.
 class NotificacaoItem extends StatefulWidget {
   final Mensagem mensagem;
@@ -47,7 +81,6 @@ class NotificacaoItem extends StatefulWidget {
 class _NotificacaoItemState extends State<NotificacaoItem> {
   @override
   Widget build(BuildContext context) {
-    // Define a cor de fundo baseado no status e se está selecionado (desktop)
     Color backgroundColor;
     if (widget.isSelectedMessage) {
       backgroundColor = Colors.blue.shade100;
@@ -70,7 +103,6 @@ class _NotificacaoItemState extends State<NotificacaoItem> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Checkbox para seleção (oculto se o modo seleção não estiver ativo, mas mantido para o exemplo)
             Padding(
               padding: const EdgeInsets.only(top: 4.0),
               child: SizedBox(
@@ -83,8 +115,6 @@ class _NotificacaoItemState extends State<NotificacaoItem> {
               ),
             ),
             const SizedBox(width: 8),
-
-            // Conteúdo principal da Notificação
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,7 +122,6 @@ class _NotificacaoItemState extends State<NotificacaoItem> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Data
                       Text(
                         widget.mensagem.data,
                         style: TextStyle(
@@ -101,7 +130,6 @@ class _NotificacaoItemState extends State<NotificacaoItem> {
                           color: widget.mensagem.isUnread ? Colors.blue.shade800 : Colors.grey.shade600,
                         ),
                       ),
-                      // Bolinha Azul de 'Não lida'
                       if (widget.mensagem.isUnread && !widget.isSelectedMessage)
                         Container(
                           width: 8,
@@ -114,7 +142,6 @@ class _NotificacaoItemState extends State<NotificacaoItem> {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  // Remetente
                   Text(
                     widget.mensagem.remetente,
                     style: const TextStyle(
@@ -122,7 +149,6 @@ class _NotificacaoItemState extends State<NotificacaoItem> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  // Matéria
                   Text(
                     widget.mensagem.materia,
                     style: TextStyle(
@@ -131,10 +157,9 @@ class _NotificacaoItemState extends State<NotificacaoItem> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  // Preview da mensagem
                   Text(
-                    widget.mensagem.conteudo.length > 100 
-                        ? '${widget.mensagem.conteudo.substring(0, 100)}...' 
+                    widget.mensagem.conteudo.length > 100
+                        ? '${widget.mensagem.conteudo.substring(0, 100)}...'
                         : widget.mensagem.conteudo,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -146,8 +171,6 @@ class _NotificacaoItemState extends State<NotificacaoItem> {
                 ],
               ),
             ),
-
-            // Ícone de Estrela (Favoritar)
             Padding(
               padding: const EdgeInsets.only(top: 4.0, left: 8.0),
               child: IconButton(
@@ -210,7 +233,6 @@ class VisualizadorMensagem extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabeçalho da mensagem
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -244,7 +266,6 @@ class VisualizadorMensagem extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            // Conteúdo da mensagem
             Text(
               mensagem!.conteudo,
               style: const TextStyle(
@@ -268,72 +289,109 @@ class NotificacoesPage extends StatefulWidget {
 }
 
 class _NotificacoesPageState extends State<NotificacoesPage> {
-  // Lista de todas as mensagens
-  final List<Mensagem> _todasMensagens = [
-    Mensagem(
-      id: '1',
-      data: '24 de setembro de 2025',
-      remetente: 'Professor Luan Masael',
-      materia: 'Geografia',
-      conteudo: 'Prezado aluno, sua atividade sobre relevo brasileiro foi muito bem elaborada. Gostaria de marcar uma conversa para discutir possíveis melhorias e próximos passos. Aguardo seu retorno. Este é um texto de exemplo mais longo para testar a visualização completa e a rolagem no painel do visualizador de mensagens. O objetivo é simular um e-mail ou notificação real com detalhes importantes para o aluno.',
-    ),
-    Mensagem(
-      id: '2',
-      data: '24 de setembro de 2025',
-      remetente: 'Professor Luan Masael',
-      materia: 'Geografia',
-      conteudo: 'Lembrete: a prova sobre clima e vegetação será na próxima sexta-feira. Não se esqueça de revisar os materiais sobre biomas brasileiros.',
-    ),
-    Mensagem(
-      id: '3',
-      data: '23 de setembro de 2025',
-      remetente: 'Coordenador João',
-      materia: 'Avisos Gerais',
-      conteudo: 'Reunião de pais e mestres será realizada no próximo sábado, das 8h às 12h. Contamos com a presença de todos para discutirmos o planejamento do próximo semestre.',
-      isUnread: false,
-    ),
-    Mensagem(
-      id: '4',
-      data: '22 de setembro de 2025',
-      remetente: 'Professora Maria',
-      materia: 'Matemática',
-      conteudo: 'Parabéns pelo excelente desempenho na última avaliação de álgebra. Sua dedicação aos estudos está rendendo frutos! Continuar com esse ritmo trará resultados ainda melhores.',
-      isUnread: false,
-      isFavorita: true,
-    ),
-    Mensagem(
-      id: '5',
-      data: '21 de setembro de 2025',
-      remetente: 'Secretaria',
-      materia: 'Documentação',
-      conteudo: 'Prezado(a) aluno(a), a atualização do seu cadastro deve ser concluída até o final desta semana. Por favor, verifique o portal e anexe os documentos pendentes.',
-      isUnread: true,
-      isFavorita: false,
-    ),
-  ];
-
-  // Filtros ativos
+  List<Mensagem> _todasMensagens = [];
+  List<String> _materiasDisponiveis = ['Todas as matérias'];
+  List<String> _disciplinasIds = [];
   String _filtroMateria = 'Todas as matérias';
   String _filtroStatus = 'Mensagens não lidas';
   String _termoBusca = '';
-
-  // Mensagem selecionada para visualização (apenas no modo Desktop/Tablet)
   Mensagem? _mensagemSelecionada;
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // Lista de todas as matérias disponíveis, incluindo 'Todas as matérias'
-  late final List<String> _materiasDisponiveis = [
-    'Todas as matérias',
-    ..._todasMensagens.map((m) => m.materia).toSet().toList()
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
 
-  // Lista filtrada de mensagens
+  Future<void> _loadData() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) {
+        setState(() {
+          _errorMessage = 'Usuário não autenticado';
+          _isLoading = false;
+        });
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
+      ApiService.setToken(token);
+
+      final disciplinas = await ApiService.fetchDisciplinas();
+      setState(() {
+        _materiasDisponiveis = ['Todas as matérias', ...disciplinas.map((d) => d['titulo'] as String)];
+        _disciplinasIds = disciplinas.map((d) => d['_id'] as String).toList();
+      });
+
+      await _loadNotificacoes();
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadNotificacoes() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final disciplinaId = _filtroMateria != 'Todas as matérias'
+          ? _disciplinasIds[_materiasDisponiveis.indexOf(_filtroMateria) - 1]
+          : null;
+
+      final notificacoes = await ApiService.fetchNotificacoes(disciplinaId);
+      setState(() {
+        _todasMensagens = notificacoes;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _selecionarMensagem(Mensagem mensagem) async {
+    try {
+      await ApiService.markAsRead(mensagem.id);
+      setState(() {
+        _mensagemSelecionada = mensagem;
+        mensagem.isUnread = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erro ao marcar mensagem como lida: $e';
+      });
+    }
+  }
+
+  void _toggleFavorita(Mensagem mensagem) async {
+    try {
+      await ApiService.toggleFavorita(mensagem.id, !mensagem.isFavorita);
+      setState(() {
+        mensagem.isFavorita = !mensagem.isFavorita;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erro ao atualizar favorita: $e';
+      });
+    }
+  }
+
+  void _toggleSelecionar(Mensagem mensagem, bool? selecionado) {
+    setState(() {
+      mensagem.isSelected = selecionado ?? false;
+    });
+  }
+
   List<Mensagem> get _mensagensFiltradas {
     return _todasMensagens.where((mensagem) {
-      // Filtro por matéria
-      final bool passaFiltroMateria = _filtroMateria == 'Todas as matérias' || 
-          mensagem.materia == _filtroMateria;
-
-      // Filtro por status
+      final bool passaFiltroMateria = _filtroMateria == 'Todas as matérias' || mensagem.materia == _filtroMateria;
       bool passaFiltroStatus = true;
       switch (_filtroStatus) {
         case 'Mensagens não lidas':
@@ -346,8 +404,6 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
           passaFiltroStatus = true;
           break;
       }
-
-      // Filtro por busca
       final bool passaFiltroBusca = _termoBusca.isEmpty ||
           mensagem.remetente.toLowerCase().contains(_termoBusca.toLowerCase()) ||
           mensagem.materia.toLowerCase().contains(_termoBusca.toLowerCase()) ||
@@ -357,38 +413,11 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
     }).toList();
   }
 
-  void _selecionarMensagem(Mensagem mensagem) {
-    setState(() {
-      // Usado apenas no layout de tela larga
-      _mensagemSelecionada = mensagem;
-      // Marcar como lida
-      mensagem.isUnread = false;
-    });
-  }
-
-  void _toggleFavorita(Mensagem mensagem) {
-    setState(() {
-      mensagem.isFavorita = !mensagem.isFavorita;
-    });
-  }
-
-  void _toggleSelecionar(Mensagem mensagem, bool? selecionado) {
-    setState(() {
-      mensagem.isSelected = selecionado ?? false;
-    });
-  }
-
-  // --- Implementação do Layout Responsivo ---
-
-  // Método de build para layout de tela larga (Desktop/Tablet)
   Widget _buildWideScreenLayout(BuildContext context) {
-    // Largura fixa para a lista de notificações
     const double notificationListWidth = 380.0;
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // PAINEL ESQUERDO: Lista de Notificações
         SizedBox(
           width: notificationListWidth,
           child: _mensagensFiltradas.isEmpty
@@ -409,7 +438,6 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                     return NotificacaoItem(
                       mensagem: mensagem,
                       isSelectedMessage: mensagem.id == _mensagemSelecionada?.id,
-                      // Ação de toque: Atualiza o painel direito (VisualizadorMensagem)
                       onTap: () => _selecionarMensagem(mensagem),
                       onToggleFavorita: () => _toggleFavorita(mensagem),
                       onSelect: (selecionado) => _toggleSelecionar(mensagem, selecionado),
@@ -417,14 +445,10 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                   },
                 ),
         ),
-        
-        // Divisor vertical
         Container(
           width: 1,
           color: Colors.grey.shade300,
         ),
-
-        // PAINEL DIREITO: Visualização da Mensagem (Ocupa o resto do espaço)
         Expanded(
           child: VisualizadorMensagem(mensagem: _mensagemSelecionada),
         ),
@@ -432,9 +456,7 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
     );
   }
 
-  // Método de build para layout de tela estreita (Mobile)
   Widget _buildNarrowScreenLayout(BuildContext context) {
-    // A lista de mensagens ocupa a tela inteira.
     return _mensagensFiltradas.isEmpty
         ? const Center(
             child: Padding(
@@ -452,24 +474,29 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
               final mensagem = _mensagensFiltradas[index];
               return NotificacaoItem(
                 mensagem: mensagem,
-                isSelectedMessage: false, // Ignorado no mobile
-                // Ação de toque: Navegar para uma nova tela (VisualizadorMensagem em tela cheia)
-                onTap: () {
-                  // Marcar como lida e navegar
-                  setState(() {
-                    mensagem.isUnread = false;
-                  });
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => Scaffold( // Novo Scaffold para a tela de visualização
-                        appBar: AppBar(
-                          title: Text(mensagem.materia, overflow: TextOverflow.ellipsis),
+                isSelectedMessage: false,
+                onTap: () async {
+                  try {
+                    await ApiService.markAsRead(mensagem.id);
+                    setState(() {
+                      mensagem.isUnread = false;
+                    });
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => Scaffold(
+                          appBar: AppBar(
+                            title: Text(mensagem.materia, overflow: TextOverflow.ellipsis),
+                          ),
+                          body: VisualizadorMensagem(mensagem: mensagem),
                         ),
-                        body: VisualizadorMensagem(mensagem: mensagem),
                       ),
-                    ),
-                  );
+                    );
+                  } catch (e) {
+                    setState(() {
+                      _errorMessage = 'Erro ao marcar mensagem como lida: $e';
+                    });
+                  }
                 },
                 onToggleFavorita: () => _toggleFavorita(mensagem),
                 onSelect: (selecionado) => _toggleSelecionar(mensagem, selecionado),
@@ -478,13 +505,9 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
           );
   }
 
-  // Novo método para construir os controles de filtro (Dropdowns e Busca)
   PreferredSizeWidget _buildFilterControls(double screenWidth, bool isWideScreen) {
-    // Altura preferida: 60px para layout horizontal (wide), 100px para layout vertical (narrow/wrap)
     final double preferredHeight = isWideScreen ? 60.0 : 100.0;
-
     final filterWidgets = [
-      // Dropdown 'Todas as matérias'
       DropdownButtonFormField<String>(
         decoration: const InputDecoration(
           border: OutlineInputBorder(),
@@ -492,20 +515,18 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
         ),
         value: _filtroMateria,
         items: _materiasDisponiveis
-            .map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value, style: const TextStyle(fontSize: 14)),
-              );
-            }).toList(),
+            .map((String value) => DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value, style: const TextStyle(fontSize: 14)),
+                ))
+            .toList(),
         onChanged: (String? newValue) {
           setState(() {
             _filtroMateria = newValue!;
           });
+          _loadNotificacoes();
         },
       ),
-
-      // Dropdown 'Status'
       DropdownButtonFormField<String>(
         decoration: const InputDecoration(
           border: OutlineInputBorder(),
@@ -513,20 +534,17 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
         ),
         value: _filtroStatus,
         items: ['Mensagens não lidas', 'Todas as mensagens', 'Favoritas']
-            .map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value, style: const TextStyle(fontSize: 14)),
-              );
-            }).toList(),
+            .map((String value) => DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value, style: const TextStyle(fontSize: 14)),
+                ))
+            .toList(),
         onChanged: (String? newValue) {
           setState(() {
             _filtroStatus = newValue!;
           });
         },
       ),
-
-      // Campo de busca
       SizedBox(
         height: 48,
         child: TextFormField(
@@ -550,41 +568,34 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
         child: isWideScreen
-            ? Row( // Tela Larga: Layout horizontal com Expanded
+            ? Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  // Dropdown 1
                   Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4.0), child: filterWidgets[0])),
-                  // Dropdown 2
                   Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4.0), child: filterWidgets[1])),
-                  // Busca (flex 2)
                   Expanded(flex: 2, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4.0), child: filterWidgets[2])),
                 ],
               )
-            : Column( // Alteração: Usaremos Column e Row para melhor controle em telas estreitas
+            : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Linha 1: Dropdowns
                   Row(
                     children: [
-                      // Dropdown 1: Use Expanded para dividir o espaço
                       Expanded(
                         child: Padding(
-                          padding: const EdgeInsets.only(right: 4.0), // Espaçamento entre os Dropdowns
+                          padding: const EdgeInsets.only(right: 4.0),
                           child: filterWidgets[0],
                         ),
                       ),
-                      // Dropdown 2: Use Expanded para dividir o espaço
                       Expanded(
                         child: Padding(
-                          padding: const EdgeInsets.only(left: 4.0), // Espaçamento entre os Dropdowns
+                          padding: const EdgeInsets.only(left: 4.0),
                           child: filterWidgets[1],
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8.0),
-                  // Linha 2: Busca (ocupa toda a largura)
                   filterWidgets[2],
                 ],
               ),
@@ -592,30 +603,30 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
     );
   }
 
-
-  // Widget AppBar (Refatorado para usar o bottom)
   PreferredSizeWidget _buildAppBar(double screenWidth, bool isWideScreen) {
     return AppBar(
       automaticallyImplyLeading: false,
       toolbarHeight: 60,
-      title: const Text('Notificações'), // Título simples para economizar espaço
-      bottom: _buildFilterControls(screenWidth, isWideScreen), // Filtros responsivos no bottom
+      title: const Text('Notificações'),
+      bottom: _buildFilterControls(screenWidth, isWideScreen),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Breakpoint: Se a tela for maior que 800px, usa layout de 2 painéis (Desktop).
     const double breakpoint = 800.0;
     final screenWidth = MediaQuery.of(context).size.width;
     final isWideScreen = screenWidth >= breakpoint;
 
     return Scaffold(
       appBar: _buildAppBar(screenWidth, isWideScreen),
-      
-      body: isWideScreen
-          ? _buildWideScreenLayout(context)
-          : _buildNarrowScreenLayout(context),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(child: Text(_errorMessage!))
+              : isWideScreen
+                  ? _buildWideScreenLayout(context)
+                  : _buildNarrowScreenLayout(context),
     );
   }
 }
