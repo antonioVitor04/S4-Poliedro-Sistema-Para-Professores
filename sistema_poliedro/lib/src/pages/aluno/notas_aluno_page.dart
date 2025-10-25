@@ -148,7 +148,7 @@ class _NotasPageState extends State<NotasPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(),
+          CircularProgressIndicator(color: AppColors.azulClaro),
           SizedBox(height: 16),
           Text(
             'Carregando suas notas...',

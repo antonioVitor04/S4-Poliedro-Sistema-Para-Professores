@@ -1,25 +1,32 @@
 const mongoose = require("mongoose");
 
-const notificacoesSchema = new mongoose.Schema({
+const notificacaoSchema = new mongoose.Schema({
   mensagem: {
     type: String,
     required: true,
-    trim: true
   },
   disciplina: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Disciplina",
-    required: true
+    required: true,
   },
   professor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Professor",
-    required: true
+    required: true,
+  },
+  lida: {
+    type: Boolean,
+    default: false,
+  },
+  favorita: {
+    type: Boolean,
+    default: false,
   },
   dataCriacao: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
-module.exports = mongoose.model("Notificacoes", notificacoesSchema);
+module.exports = mongoose.model("Notificacao", notificacaoSchema);
