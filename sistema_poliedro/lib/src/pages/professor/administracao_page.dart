@@ -121,9 +121,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
 
   Future<void> _initializeTokenAndUserType() async {
     try {
-      // DEBUG: Ver informações do usuário antes
-      await AuthService.debugUserInfo();
-
       // Obter token do AuthService
       final authToken = await AuthService.getToken();
       if (authToken != null && mounted) {
@@ -1123,7 +1120,9 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                         height: 50,
                         fit: BoxFit.cover,
                         placeholder: (context, url) =>
-                            CircularProgressIndicator(),
+                            CircularProgressIndicator(
+                              color: AppColors.azulClaro,
+                            ),
                         errorWidget: (context, url, error) => CircleAvatar(
                           backgroundColor: Colors.grey[200],
                           child: Icon(Icons.person, color: Colors.grey[400]),
@@ -2122,7 +2121,9 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                             height: isTablet ? 40 : 50,
                             fit: BoxFit.cover,
                             placeholder: (context, url) =>
-                                CircularProgressIndicator(),
+                                CircularProgressIndicator(
+                                  color: AppColors.azulClaro,
+                                ),
                             errorWidget: (context, url, error) {
                               return CircleAvatar(
                                 backgroundColor: Colors.grey[200],

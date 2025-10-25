@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 
 // Modelo para representar uma mensagem
+import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:sistema_poliedro/src/styles/cores.dart';
+import '../../services/notificacoes_service.dart';
+import '../../services/auth_service.dart';
+
 class Mensagem {
   final String id;
   final String data;
   final String remetente;
   final String materia;
   final String conteudo;
+  final String disciplinaId;
   bool isUnread;
   bool isFavorita;
   bool isSelected;
@@ -17,13 +26,79 @@ class Mensagem {
     required this.remetente,
     required this.materia,
     required this.conteudo,
+    required this.disciplinaId,
     this.isUnread = true,
     this.isFavorita = false,
     this.isSelected = false,
   });
+
+  factory Mensagem.fromJson(Map<String, dynamic> json) {
+    // Tratamento seguro para disciplina
+    String materia = '';
+    String disciplinaId = '';
+
+    if (json['disciplina'] != null) {
+      if (json['disciplina'] is String) {
+        disciplinaId = json['disciplina'];
+        materia = 'Disciplina';
+      } else if (json['disciplina'] is Map) {
+        final disciplina = json['disciplina'] as Map<String, dynamic>;
+        disciplinaId = disciplina['_id']?.toString() ?? '';
+        materia =
+            disciplina['titulo']?.toString() ??
+            disciplina['nome']?.toString() ??
+            'Disciplina';
+      }
+    }
+
+    // Tratamento seguro para professor
+    String remetente = 'Professor';
+    if (json['professor'] != null) {
+      if (json['professor'] is String) {
+        remetente = 'Professor';
+      } else if (json['professor'] is Map) {
+        final professor = json['professor'] as Map<String, dynamic>;
+        remetente = professor['nome']?.toString() ?? 'Professor';
+      }
+    }
+
+    // Tratamento seguro para data
+    String data = '';
+    if (json['dataCriacao'] != null) {
+      try {
+        data = DateTime.parse(
+          json['dataCriacao'].toString(),
+        ).toString().substring(0, 10);
+      } catch (e) {
+        data = 'Data inválida';
+      }
+    }
+
+    return Mensagem(
+      id: json['_id']?.toString() ?? '',
+      data: data,
+      remetente: remetente,
+      materia: materia,
+      conteudo: json['mensagem']?.toString() ?? '',
+      disciplinaId: disciplinaId,
+      isUnread: json['lida'] == false,
+      isFavorita: json['favorita'] == true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      '_id': id,
+      'dataCriacao': data,
+      'professor': {'nome': remetente},
+      'disciplina': {'_id': disciplinaId, 'titulo': materia},
+      'mensagem': conteudo,
+      'lida': !isUnread,
+      'favorita': isFavorita,
+    };
+  }
 }
 
-// Um widget reutilizável para cada item da lista de notificações.
 class NotificacaoItem extends StatefulWidget {
   final Mensagem mensagem;
   final VoidCallback onTap;
@@ -47,128 +122,157 @@ class NotificacaoItem extends StatefulWidget {
 class _NotificacaoItemState extends State<NotificacaoItem> {
   @override
   Widget build(BuildContext context) {
-    // Define a cor de fundo baseado no status e se está selecionado (desktop)
-    Color backgroundColor;
-    if (widget.isSelectedMessage) {
-      backgroundColor = Colors.blue.shade100;
-    } else if (widget.mensagem.isUnread) {
-      backgroundColor = Colors.blue.shade50;
-    } else {
-      backgroundColor = Colors.white;
-    }
+    final bool isSelected = widget.isSelectedMessage;
+    final bool isUnread = widget.mensagem.isUnread;
 
-    return InkWell(
-      onTap: widget.onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          border: const Border(
-            bottom: BorderSide(color: Color(0xFFEEEEEE)),
-          ),
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      elevation: isSelected ? 2 : 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isSelected
+              ? Theme.of(context).colorScheme.primary
+              : Colors.grey.shade200,
+          width: isSelected ? 2 : 1,
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Checkbox para seleção (oculto se o modo seleção não estiver ativo, mas mantido para o exemplo)
-            Padding(
-              padding: const EdgeInsets.only(top: 4.0),
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: Checkbox(
-                  value: widget.mensagem.isSelected,
-                  onChanged: widget.onSelect,
+      ),
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Checkbox de seleção
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: widget.mensagem.isSelected,
+                    onChanged: widget.onSelect,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
 
-            // Conteúdo principal da Notificação
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Data
-                      Text(
-                        widget.mensagem.data,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: widget.mensagem.isUnread ? FontWeight.bold : FontWeight.normal,
-                          color: widget.mensagem.isUnread ? Colors.blue.shade800 : Colors.grey.shade600,
-                        ),
-                      ),
-                      // Bolinha Azul de 'Não lida'
-                      if (widget.mensagem.isUnread && !widget.isSelectedMessage)
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade400,
-                            shape: BoxShape.circle,
+              // Conteúdo da mensagem
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header com data e status
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          widget.mensagem.data,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isUnread
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                            color: isUnread
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey.shade600,
                           ),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  // Remetente
-                  Text(
-                    widget.mensagem.remetente,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                        if (isUnread && !isSelected)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'NOVA',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-                  // Matéria
-                  Text(
-                    widget.mensagem.materia,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  // Preview da mensagem
-                  Text(
-                    widget.mensagem.conteudo.length > 100 
-                        ? '${widget.mensagem.conteudo.substring(0, 100)}...' 
-                        : widget.mensagem.conteudo,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: widget.mensagem.isUnread ? Colors.black : Colors.grey.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
 
-            // Ícone de Estrela (Favoritar)
-            Padding(
-              padding: const EdgeInsets.only(top: 4.0, left: 8.0),
-              child: IconButton(
-                icon: Icon(
-                  widget.mensagem.isFavorita ? Icons.star : Icons.star_border,
-                  color: widget.mensagem.isFavorita ? Colors.amber : Colors.grey.shade400,
-                  size: 20,
+                    const SizedBox(height: 8),
+
+                    // Remetente
+                    Text(
+                      widget.mensagem.remetente,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+
+                    // Matéria
+                    Text(
+                      widget.mensagem.materia,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Conteúdo
+                    Text(
+                      widget.mensagem.conteudo.length > 120
+                          ? '${widget.mensagem.conteudo.substring(0, 120)}...'
+                          : widget.mensagem.conteudo,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade800,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ),
-                onPressed: widget.onToggleFavorita,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
               ),
-            ),
-          ],
+
+              // Botão favorito
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: IconButton(
+                  icon: Icon(
+                    widget.mensagem.isFavorita
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    color: widget.mensagem.isFavorita
+                        ? Colors.amber.shade600
+                        : Colors.grey.shade400,
+                    size: 24,
+                  ),
+                  onPressed: widget.onToggleFavorita,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// Widget para exibir o conteúdo da mensagem
 class VisualizadorMensagem extends StatelessWidget {
   final Mensagem? mensagem;
 
@@ -178,24 +282,25 @@ class VisualizadorMensagem extends StatelessWidget {
   Widget build(BuildContext context) {
     if (mensagem == null) {
       return Container(
-        color: const Color(0xFFFAFAFA),
+        color: Colors.white,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.mail_outline,
-                size: 100,
-                color: Colors.grey.shade400,
-              ),
+              Icon(Icons.email_outlined, size: 80, color: Colors.grey.shade300),
               const SizedBox(height: 16),
               Text(
-                'Nenhuma mensagem selecionada',
+                'Selecione uma mensagem',
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                   color: Colors.grey.shade600,
                 ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Escolha uma notificação para visualizar',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
               ),
             ],
           ),
@@ -205,51 +310,82 @@ class VisualizadorMensagem extends StatelessWidget {
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(24),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabeçalho da mensagem
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    mensagem!.remetente,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    child: Text(
+                      mensagem!.remetente.isNotEmpty
+                          ? mensagem!.remetente[0].toUpperCase()
+                          : 'P',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  mensagem!.data,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          mensagem!.remetente,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          mensagem!.materia,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              mensagem!.materia,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.blue.shade700,
-                fontWeight: FontWeight.w500,
+                  Text(
+                    mensagem!.data,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
               ),
             ),
+
             const SizedBox(height: 24),
-            // Conteúdo da mensagem
-            Text(
-              mensagem!.conteudo,
-              style: const TextStyle(
-                fontSize: 16,
-                height: 1.5,
+
+            // Conteúdo
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Text(
+                mensagem!.conteudo,
+                style: const TextStyle(
+                  fontSize: 15,
+                  height: 1.6,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ],
@@ -259,7 +395,6 @@ class VisualizadorMensagem extends StatelessWidget {
   }
 }
 
-// Widget principal da página
 class NotificacoesPage extends StatefulWidget {
   const NotificacoesPage({super.key});
 
@@ -268,72 +403,114 @@ class NotificacoesPage extends StatefulWidget {
 }
 
 class _NotificacoesPageState extends State<NotificacoesPage> {
-  // Lista de todas as mensagens
-  final List<Mensagem> _todasMensagens = [
-    Mensagem(
-      id: '1',
-      data: '24 de setembro de 2025',
-      remetente: 'Professor Luan Masael',
-      materia: 'Geografia',
-      conteudo: 'Prezado aluno, sua atividade sobre relevo brasileiro foi muito bem elaborada. Gostaria de marcar uma conversa para discutir possíveis melhorias e próximos passos. Aguardo seu retorno. Este é um texto de exemplo mais longo para testar a visualização completa e a rolagem no painel do visualizador de mensagens. O objetivo é simular um e-mail ou notificação real com detalhes importantes para o aluno.',
-    ),
-    Mensagem(
-      id: '2',
-      data: '24 de setembro de 2025',
-      remetente: 'Professor Luan Masael',
-      materia: 'Geografia',
-      conteudo: 'Lembrete: a prova sobre clima e vegetação será na próxima sexta-feira. Não se esqueça de revisar os materiais sobre biomas brasileiros.',
-    ),
-    Mensagem(
-      id: '3',
-      data: '23 de setembro de 2025',
-      remetente: 'Coordenador João',
-      materia: 'Avisos Gerais',
-      conteudo: 'Reunião de pais e mestres será realizada no próximo sábado, das 8h às 12h. Contamos com a presença de todos para discutirmos o planejamento do próximo semestre.',
-      isUnread: false,
-    ),
-    Mensagem(
-      id: '4',
-      data: '22 de setembro de 2025',
-      remetente: 'Professora Maria',
-      materia: 'Matemática',
-      conteudo: 'Parabéns pelo excelente desempenho na última avaliação de álgebra. Sua dedicação aos estudos está rendendo frutos! Continuar com esse ritmo trará resultados ainda melhores.',
-      isUnread: false,
-      isFavorita: true,
-    ),
-    Mensagem(
-      id: '5',
-      data: '21 de setembro de 2025',
-      remetente: 'Secretaria',
-      materia: 'Documentação',
-      conteudo: 'Prezado(a) aluno(a), a atualização do seu cadastro deve ser concluída até o final desta semana. Por favor, verifique o portal e anexe os documentos pendentes.',
-      isUnread: true,
-      isFavorita: false,
-    ),
-  ];
-
-  // Filtros ativos
+  List<Mensagem> _todasMensagens = [];
+  List<String> _materiasDisponiveis = ['Todas as matérias'];
+  List<String> _disciplinasIds = [];
   String _filtroMateria = 'Todas as matérias';
   String _filtroStatus = 'Mensagens não lidas';
   String _termoBusca = '';
-
-  // Mensagem selecionada para visualização (apenas no modo Desktop/Tablet)
   Mensagem? _mensagemSelecionada;
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // Lista de todas as matérias disponíveis, incluindo 'Todas as matérias'
-  late final List<String> _materiasDisponiveis = [
-    'Todas as matérias',
-    ..._todasMensagens.map((m) => m.materia).toSet().toList()
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
 
-  // Lista filtrada de mensagens
+  Future<void> _loadData() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) {
+        setState(() {
+          _errorMessage = 'Usuário não autenticado';
+          _isLoading = false;
+        });
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
+      ApiService.setToken(token);
+
+      final disciplinas = await ApiService.fetchDisciplinas();
+      setState(() {
+        _materiasDisponiveis = [
+          'Todas as matérias',
+          ...disciplinas.map((d) => d['titulo'] as String),
+        ];
+        _disciplinasIds = disciplinas.map((d) => d['_id'] as String).toList();
+      });
+
+      await _loadNotificacoes();
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadNotificacoes() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final disciplinaId = _filtroMateria != 'Todas as matérias'
+          ? _disciplinasIds[_materiasDisponiveis.indexOf(_filtroMateria) - 1]
+          : null;
+
+      final notificacoes = await ApiService.fetchNotificacoes(disciplinaId);
+      setState(() {
+        _todasMensagens = notificacoes;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _selecionarMensagem(Mensagem mensagem) async {
+    try {
+      await ApiService.markAsRead(mensagem.id);
+      setState(() {
+        _mensagemSelecionada = mensagem;
+        mensagem.isUnread = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erro ao marcar mensagem como lida: $e';
+      });
+    }
+  }
+
+  void _toggleFavorita(Mensagem mensagem) async {
+    try {
+      await ApiService.toggleFavorita(mensagem.id, !mensagem.isFavorita);
+      setState(() {
+        mensagem.isFavorita = !mensagem.isFavorita;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erro ao atualizar favorita: $e';
+      });
+    }
+  }
+
+  void _toggleSelecionar(Mensagem mensagem, bool? selecionado) {
+    setState(() {
+      mensagem.isSelected = selecionado ?? false;
+    });
+  }
+
   List<Mensagem> get _mensagensFiltradas {
     return _todasMensagens.where((mensagem) {
-      // Filtro por matéria
-      final bool passaFiltroMateria = _filtroMateria == 'Todas as matérias' || 
+      final bool passaFiltroMateria =
+          _filtroMateria == 'Todas as matérias' ||
           mensagem.materia == _filtroMateria;
-
-      // Filtro por status
       bool passaFiltroStatus = true;
       switch (_filtroStatus) {
         case 'Mensagens não lidas':
@@ -346,10 +523,11 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
           passaFiltroStatus = true;
           break;
       }
-
-      // Filtro por busca
-      final bool passaFiltroBusca = _termoBusca.isEmpty ||
-          mensagem.remetente.toLowerCase().contains(_termoBusca.toLowerCase()) ||
+      final bool passaFiltroBusca =
+          _termoBusca.isEmpty ||
+          mensagem.remetente.toLowerCase().contains(
+            _termoBusca.toLowerCase(),
+          ) ||
           mensagem.materia.toLowerCase().contains(_termoBusca.toLowerCase()) ||
           mensagem.conteudo.toLowerCase().contains(_termoBusca.toLowerCase());
 
@@ -357,265 +535,344 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
     }).toList();
   }
 
-  void _selecionarMensagem(Mensagem mensagem) {
-    setState(() {
-      // Usado apenas no layout de tela larga
-      _mensagemSelecionada = mensagem;
-      // Marcar como lida
-      mensagem.isUnread = false;
-    });
-  }
-
-  void _toggleFavorita(Mensagem mensagem) {
-    setState(() {
-      mensagem.isFavorita = !mensagem.isFavorita;
-    });
-  }
-
-  void _toggleSelecionar(Mensagem mensagem, bool? selecionado) {
-    setState(() {
-      mensagem.isSelected = selecionado ?? false;
-    });
-  }
-
-  // --- Implementação do Layout Responsivo ---
-
-  // Método de build para layout de tela larga (Desktop/Tablet)
   Widget _buildWideScreenLayout(BuildContext context) {
-    // Largura fixa para a lista de notificações
-    const double notificationListWidth = 380.0;
+    return Container(
+      color: Colors.white,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Lista de mensagens
+          Container(
+            width: 400,
+            decoration: BoxDecoration(
+              border: Border(right: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: _buildMessageList(),
+          ),
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // PAINEL ESQUERDO: Lista de Notificações
-        SizedBox(
-          width: notificationListWidth,
-          child: _mensagensFiltradas.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text(
-                      'Nenhuma mensagem encontrada',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: _mensagensFiltradas.length,
-                  itemBuilder: (context, index) {
-                    final mensagem = _mensagensFiltradas[index];
-                    return NotificacaoItem(
-                      mensagem: mensagem,
-                      isSelectedMessage: mensagem.id == _mensagemSelecionada?.id,
-                      // Ação de toque: Atualiza o painel direito (VisualizadorMensagem)
-                      onTap: () => _selecionarMensagem(mensagem),
-                      onToggleFavorita: () => _toggleFavorita(mensagem),
-                      onSelect: (selecionado) => _toggleSelecionar(mensagem, selecionado),
-                    );
-                  },
-                ),
-        ),
-        
-        // Divisor vertical
-        Container(
-          width: 1,
-          color: Colors.grey.shade300,
-        ),
-
-        // PAINEL DIREITO: Visualização da Mensagem (Ocupa o resto do espaço)
-        Expanded(
-          child: VisualizadorMensagem(mensagem: _mensagemSelecionada),
-        ),
-      ],
+          // Visualizador de mensagem
+          Expanded(child: VisualizadorMensagem(mensagem: _mensagemSelecionada)),
+        ],
+      ),
     );
   }
 
-  // Método de build para layout de tela estreita (Mobile)
   Widget _buildNarrowScreenLayout(BuildContext context) {
-    // A lista de mensagens ocupa a tela inteira.
-    return _mensagensFiltradas.isEmpty
-        ? const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
+    return _buildMessageList();
+  }
+
+  Widget _buildMessageList() {
+    if (_mensagensFiltradas.isEmpty) {
+      return Container(
+        color: Colors.white,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.search_off_rounded,
+                size: 64,
+                color: Colors.grey.shade300,
+              ),
+              const SizedBox(height: 16),
+              Text(
                 'Nenhuma mensagem encontrada',
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tente ajustar os filtros ou termos de busca',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      color: Colors.white,
+      child: ListView.builder(
+        itemCount: _mensagensFiltradas.length,
+        itemBuilder: (context, index) {
+          final mensagem = _mensagensFiltradas[index];
+          return NotificacaoItem(
+            mensagem: mensagem,
+            isSelectedMessage: mensagem.id == _mensagemSelecionada?.id,
+            onTap: () => _selecionarMensagem(mensagem),
+            onToggleFavorita: () => _toggleFavorita(mensagem),
+            onSelect: (selecionado) => _toggleSelecionar(mensagem, selecionado),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Container(
+      height: 50, // Altura fixa para melhor alinhamento
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: TextFormField(
+        cursorColor: AppColors.azulClaro,
+        decoration: InputDecoration(
+          hintText: 'Pesquisar mensagens...',
+          border: InputBorder.none,
+          prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade500),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 16, // Aumentado para centralizar verticalmente
+            horizontal: 16,
+          ),
+          alignLabelWithHint: true,
+        ),
+        onChanged: (value) {
+          setState(() {
+            _termoBusca = value;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildFilterDropdown({
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+    required String hint,
+  }) {
+    return Container(
+      height: 50, // Altura fixa igual ao search field
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade400, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: DropdownButtonFormField<String>(
+        value: value,
+        style: TextStyle(color: Colors.grey.shade800, fontSize: 14),
+        dropdownColor: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        icon: Icon(Icons.arrow_drop_down_rounded, color: Colors.grey.shade600),
+        items: items.map((String value) {
+          return DropdownMenuItem<String>(
+            value: value,
+            child: Text(
+              value,
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        }).toList(),
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12, // Ajustado para centralizar melhor
+          ),
+          hintText: hint,
+          hintStyle: TextStyle(color: Colors.grey.shade500),
+          alignLabelWithHint: true,
+        ),
+        isExpanded: true,
+      ),
+    );
+  }
+
+  Widget _buildHeaderSection(double screenWidth, bool isWideScreen) {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Título
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: Text(
+              'Notificações',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
             ),
-          )
-        : ListView.builder(
-            itemCount: _mensagensFiltradas.length,
-            itemBuilder: (context, index) {
-              final mensagem = _mensagensFiltradas[index];
-              return NotificacaoItem(
-                mensagem: mensagem,
-                isSelectedMessage: false, // Ignorado no mobile
-                // Ação de toque: Navegar para uma nova tela (VisualizadorMensagem em tela cheia)
-                onTap: () {
-                  // Marcar como lida e navegar
-                  setState(() {
-                    mensagem.isUnread = false;
-                  });
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => Scaffold( // Novo Scaffold para a tela de visualização
-                        appBar: AppBar(
-                          title: Text(mensagem.materia, overflow: TextOverflow.ellipsis),
-                        ),
-                        body: VisualizadorMensagem(mensagem: mensagem),
+          ),
+
+          // Filtros
+          isWideScreen
+              ? Row(
+                  children: [
+                    Expanded(flex: 2, child: _buildSearchField()),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildFilterDropdown(
+                        value: _filtroMateria,
+                        items: _materiasDisponiveis,
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _filtroMateria = newValue!;
+                          });
+                          _loadNotificacoes();
+                        },
+                        hint: 'Matéria',
                       ),
                     ),
-                  );
-                },
-                onToggleFavorita: () => _toggleFavorita(mensagem),
-                onSelect: (selecionado) => _toggleSelecionar(mensagem, selecionado),
-              );
-            },
-          );
-  }
-
-  // Novo método para construir os controles de filtro (Dropdowns e Busca)
-  PreferredSizeWidget _buildFilterControls(double screenWidth, bool isWideScreen) {
-    // Altura preferida: 60px para layout horizontal (wide), 100px para layout vertical (narrow/wrap)
-    final double preferredHeight = isWideScreen ? 60.0 : 100.0;
-
-    final filterWidgets = [
-      // Dropdown 'Todas as matérias'
-      DropdownButtonFormField<String>(
-        decoration: const InputDecoration(
-          border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-        value: _filtroMateria,
-        items: _materiasDisponiveis
-            .map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value, style: const TextStyle(fontSize: 14)),
-              );
-            }).toList(),
-        onChanged: (String? newValue) {
-          setState(() {
-            _filtroMateria = newValue!;
-          });
-        },
-      ),
-
-      // Dropdown 'Status'
-      DropdownButtonFormField<String>(
-        decoration: const InputDecoration(
-          border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-        value: _filtroStatus,
-        items: ['Mensagens não lidas', 'Todas as mensagens', 'Favoritas']
-            .map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value, style: const TextStyle(fontSize: 14)),
-              );
-            }).toList(),
-        onChanged: (String? newValue) {
-          setState(() {
-            _filtroStatus = newValue!;
-          });
-        },
-      ),
-
-      // Campo de busca
-      SizedBox(
-        height: 48,
-        child: TextFormField(
-          decoration: const InputDecoration(
-            hintText: 'Procurar mensagens',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.search, size: 20),
-            contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 10),
-          ),
-          onChanged: (value) {
-            setState(() {
-              _termoBusca = value;
-            });
-          },
-        ),
-      ),
-    ];
-
-    return PreferredSize(
-      preferredSize: Size.fromHeight(preferredHeight),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
-        child: isWideScreen
-            ? Row( // Tela Larga: Layout horizontal com Expanded
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  // Dropdown 1
-                  Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4.0), child: filterWidgets[0])),
-                  // Dropdown 2
-                  Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4.0), child: filterWidgets[1])),
-                  // Busca (flex 2)
-                  Expanded(flex: 2, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4.0), child: filterWidgets[2])),
-                ],
-              )
-            : Column( // Alteração: Usaremos Column e Row para melhor controle em telas estreitas
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Linha 1: Dropdowns
-                  Row(
-                    children: [
-                      // Dropdown 1: Use Expanded para dividir o espaço
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 4.0), // Espaçamento entre os Dropdowns
-                          child: filterWidgets[0],
-                        ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildFilterDropdown(
+                        value: _filtroStatus,
+                        items: [
+                          'Mensagens não lidas',
+                          'Todas as mensagens',
+                          'Favoritas',
+                        ],
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _filtroStatus = newValue!;
+                          });
+                        },
+                        hint: 'Status',
                       ),
-                      // Dropdown 2: Use Expanded para dividir o espaço
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 4.0), // Espaçamento entre os Dropdowns
-                          child: filterWidgets[1],
+                    ),
+                  ],
+                )
+              : Column(
+                  children: [
+                    _buildSearchField(),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildFilterDropdown(
+                            value: _filtroMateria,
+                            items: _materiasDisponiveis,
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                _filtroMateria = newValue!;
+                              });
+                              _loadNotificacoes();
+                            },
+                            hint: 'Matéria',
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8.0),
-                  // Linha 2: Busca (ocupa toda a largura)
-                  filterWidgets[2],
-                ],
-              ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildFilterDropdown(
+                            value: _filtroStatus,
+                            items: [
+                              'Mensagens não lidas',
+                              'Todas as mensagens',
+                              'Favoritas',
+                            ],
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                _filtroStatus = newValue!;
+                              });
+                            },
+                            hint: 'Status',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+        ],
       ),
-    );
-  }
-
-
-  // Widget AppBar (Refatorado para usar o bottom)
-  PreferredSizeWidget _buildAppBar(double screenWidth, bool isWideScreen) {
-    return AppBar(
-      automaticallyImplyLeading: false,
-      toolbarHeight: 60,
-      title: const Text('Notificações'), // Título simples para economizar espaço
-      bottom: _buildFilterControls(screenWidth, isWideScreen), // Filtros responsivos no bottom
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Breakpoint: Se a tela for maior que 800px, usa layout de 2 painéis (Desktop).
     const double breakpoint = 800.0;
     final screenWidth = MediaQuery.of(context).size.width;
     final isWideScreen = screenWidth >= breakpoint;
 
     return Scaffold(
-      appBar: _buildAppBar(screenWidth, isWideScreen),
-      
-      body: isWideScreen
-          ? _buildWideScreenLayout(context)
-          : _buildNarrowScreenLayout(context),
+      backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          // Header com filtros
+          _buildHeaderSection(screenWidth, isWideScreen),
+
+          // Conteúdo principal
+          Expanded(
+            child: _isLoading
+                ? Container(
+                    color: Colors.white,
+                    child: const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text(
+                            'Carregando notificações...',
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : _errorMessage != null
+                ? Container(
+                    color: Colors.white,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline_rounded,
+                            size: 64,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Erro ao carregar notificações',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                            child: Text(
+                              _errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadData,
+                            child: const Text('Tentar novamente'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : isWideScreen
+                ? _buildWideScreenLayout(context)
+                : _buildNarrowScreenLayout(context),
+          ),
+        ],
+      ),
     );
   }
 }

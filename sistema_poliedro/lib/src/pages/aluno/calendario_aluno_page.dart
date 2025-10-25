@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sistema_poliedro/src/styles/cores.dart';
 import '../../styles/fontes.dart';
 import '../../services/card_disciplina_service.dart';
 import '../../models/modelo_card_disciplina.dart';
@@ -20,8 +21,18 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
 
   List<String> diasSemana = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
   List<String> meses = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    'Janeiro',
+    'Fevereiro',
+    'Março',
+    'Abril',
+    'Maio',
+    'Junho',
+    'Julho',
+    'Agosto',
+    'Setembro',
+    'Outubro',
+    'Novembro',
+    'Dezembro',
   ];
 
   @override
@@ -48,34 +59,37 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
 
       // Buscar todas as disciplinas
       final cards = await CardDisciplinaService.getAllCards();
-      
+
       // Extrair atividades com prazo
       final List<EventoCalendario> eventosEncontrados = [];
-      
+
       for (final card in cards) {
         for (final topico in card.topicos) {
           for (final material in topico.materiais) {
             if (material.tipo == 'atividade' && material.prazo != null) {
-              eventosEncontrados.add(EventoCalendario(
-                material: material,
-                topicoTitulo: topico.titulo,
-                disciplinaTitulo: card.titulo,
-                disciplinaSlug: card.slug,
-                topicoId: topico.id,
-              ));
+              eventosEncontrados.add(
+                EventoCalendario(
+                  material: material,
+                  topicoTitulo: topico.titulo,
+                  disciplinaTitulo: card.titulo,
+                  disciplinaSlug: card.slug,
+                  topicoId: topico.id,
+                ),
+              );
             }
           }
         }
       }
 
       // Ordenar por data
-      eventosEncontrados.sort((a, b) => a.material.prazo!.compareTo(b.material.prazo!));
+      eventosEncontrados.sort(
+        (a, b) => a.material.prazo!.compareTo(b.material.prazo!),
+      );
 
       setState(() {
         eventos = eventosEncontrados;
         _isLoading = false;
       });
-
     } catch (e) {
       print('Erro ao carregar eventos: $e');
       setState(() {
@@ -134,9 +148,9 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
   Color _obterCorEvento(EventoCalendario evento) {
     final agora = DateTime.now();
     final prazo = evento.material.prazo!;
-    
+
     if (prazo.isBefore(agora)) return Colors.red;
-    
+
     final diferenca = prazo.difference(agora).inDays;
     if (diferenca < 7) return Colors.orange;
     if (diferenca < 14) return Colors.blue;
@@ -144,7 +158,20 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
   }
 
   String _formatarData(DateTime data) {
-    final mesesAbreviados = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    final mesesAbreviados = [
+      'Jan',
+      'Fev',
+      'Mar',
+      'Abr',
+      'Mai',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Set',
+      'Out',
+      'Nov',
+      'Dez',
+    ];
     final hora = data.hour.toString().padLeft(2, '0');
     final minuto = data.minute.toString().padLeft(2, '0');
     return '${data.day} ${mesesAbreviados[data.month - 1]} às $hora:$minuto';
@@ -177,7 +204,8 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          contentPadding: EdgeInsets.zero, // Remove default padding to control fully
+          contentPadding:
+              EdgeInsets.zero, // Remove default padding to control fully
           content: Container(
             width: isMobile ? screenWidth * 0.95 : screenWidth * 0.6,
             height: isMobile ? screenHeight * 0.7 : screenHeight * 0.6,
@@ -269,7 +297,8 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (evento.material.descricao != null && evento.material.descricao!.isNotEmpty) ...[
+                        if (evento.material.descricao != null &&
+                            evento.material.descricao!.isNotEmpty) ...[
                           const Text(
                             'Descrição:',
                             style: TextStyle(
@@ -289,7 +318,8 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                           ),
                           const SizedBox(height: 16),
                         ],
-                        if (evento.material.peso != null && evento.material.peso! > 0) ...[
+                        if (evento.material.peso != null &&
+                            evento.material.peso! > 0) ...[
                           Row(
                             children: [
                               Icon(
@@ -326,9 +356,7 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: Colors.grey[200]!),
-                    ),
+                    border: Border(top: BorderSide(color: Colors.grey[200]!)),
                   ),
                   child: Row(
                     children: [
@@ -556,7 +584,7 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
           if (_isLoading)
             Expanded(
               child: Center(
-                child: CircularProgressIndicator(),
+                child: CircularProgressIndicator(color: AppColors.azulClaro),
               ),
             )
           else if (isMobile)
@@ -662,7 +690,9 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                     children: diasSemana.map((dia) {
                       return Expanded(
                         child: Container(
-                          padding: EdgeInsets.symmetric(vertical: isMobile ? 8 : 12),
+                          padding: EdgeInsets.symmetric(
+                            vertical: isMobile ? 8 : 12,
+                          ),
                           alignment: Alignment.center,
                           child: Text(
                             dia,
@@ -682,7 +712,9 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                     child: GridView.builder(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 7,
-                        childAspectRatio: isMobile ? 1.1 : 1.0, // Slightly taller for mobile
+                        childAspectRatio: isMobile
+                            ? 1.1
+                            : 1.0, // Slightly taller for mobile
                       ),
                       itemCount: _obterDiasDoMes().length,
                       itemBuilder: (context, index) {
@@ -731,23 +763,34 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                                     final evento = eventosDoDiaGrid[idx];
                                     final cor = _obterCorEvento(evento);
                                     final hora = evento.material.prazo!.hour;
-                                    final minuto = evento.material.prazo!.minute;
-                                    
+                                    final minuto =
+                                        evento.material.prazo!.minute;
+
                                     return GestureDetector(
-                                      onTap: () => _mostrarDetalhesEvento(evento, context),
+                                      onTap: () => _mostrarDetalhesEvento(
+                                        evento,
+                                        context,
+                                      ),
                                       child: Container(
-                                        margin: EdgeInsets.only(bottom: isMobile ? 2 : 4),
-                                        padding: EdgeInsets.all(isMobile ? 6 : 8),
+                                        margin: EdgeInsets.only(
+                                          bottom: isMobile ? 2 : 4,
+                                        ),
+                                        padding: EdgeInsets.all(
+                                          isMobile ? 6 : 8,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: cor.withOpacity(0.2),
                                           border: Border.all(
                                             color: cor,
                                             width: 1,
                                           ),
-                                          borderRadius: BorderRadius.circular(6),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                         ),
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Row(
                                               children: [
@@ -756,11 +799,15 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                                                   color: cor,
                                                   size: isMobile ? 12 : 14,
                                                 ),
-                                                SizedBox(width: isMobile ? 4 : 6),
+                                                SizedBox(
+                                                  width: isMobile ? 4 : 6,
+                                                ),
                                                 Text(
                                                   '${hora.toString().padLeft(2, '0')}:${minuto.toString().padLeft(2, '0')}',
                                                   style: TextStyle(
-                                                    fontSize: isMobile ? 10 : 12,
+                                                    fontSize: isMobile
+                                                        ? 10
+                                                        : 12,
                                                     fontWeight: FontWeight.bold,
                                                     color: cor,
                                                   ),
@@ -814,10 +861,7 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
           ),
         ),
         SizedBox(width: isMobile ? 4 : 6),
-        Text(
-          texto,
-          style: TextStyle(fontSize: isMobile ? 9 : 10),
-        ),
+        Text(texto, style: TextStyle(fontSize: isMobile ? 9 : 10)),
       ],
     );
   }

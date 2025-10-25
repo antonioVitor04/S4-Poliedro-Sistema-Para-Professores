@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../styles/cores.dart';
 import '../styles/fontes.dart';
+// 👇 ajuste o caminho se seu AlertaWidget estiver em outra pasta
+import '../components/alerta.dart';
 
 class AdicionarMaterialDialog extends StatefulWidget {
   final Function(
@@ -42,6 +44,38 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
     'imagem': 'Imagem',
     'link': 'Link',
   };
+
+  // ======== OVERLAY DE ALERTA (top-right) ========
+  OverlayEntry? _alertEntry;
+  void _removeAlert() {
+    try {
+      _alertEntry?.remove();
+    } catch (_) {}
+    _alertEntry = null;
+  }
+
+  void _showAlertaOverlay(
+    String mensagem, {
+    bool sucesso = false,
+    Duration? dur,
+  }) {
+    _removeAlert();
+    final entry = OverlayEntry(
+      builder: (_) => Positioned.fill(
+        child: IgnorePointer(
+          ignoring: true,
+          child: AlertaWidget(mensagem: mensagem, sucesso: sucesso),
+        ),
+      ),
+    );
+    final overlay = Overlay.of(context, rootOverlay: true);
+    if (overlay != null) {
+      overlay.insert(entry);
+      _alertEntry = entry;
+      Future.delayed(dur ?? const Duration(seconds: 3), _removeAlert);
+    }
+  }
+  // ===============================================
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +144,7 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                     // Tipo
                     DropdownButtonFormField<String>(
                       value: _tipoSelecionado,
+                      dropdownColor: Colors.white, // 👈 remove o fundo roxo
                       decoration: InputDecoration(
                         labelText: 'Tipo de Material*',
                         labelStyle: AppTextStyles.fonteUbuntu.copyWith(
@@ -143,7 +178,12 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                       items: _tipos.map((tipo) {
                         return DropdownMenuItem(
                           value: tipo,
-                          child: Text(_nomesTipos[tipo]!),
+                          child: Text(
+                            _nomesTipos[tipo]!,
+                            style: const TextStyle(
+                              color: Colors.black, // 👈 garante texto preto
+                            ),
+                          ),
                         );
                       }).toList(),
                       onChanged: (value) {
@@ -161,6 +201,7 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                         return null;
                       },
                     ),
+
                     const SizedBox(height: 16),
                     // Título
                     TextFormField(
@@ -245,7 +286,7 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                     ),
                     const SizedBox(height: 16),
 
-                    // URL (apenas para tipo link)
+                    // URL (apenas link)
                     if (_tipoSelecionado == 'link')
                       TextFormField(
                         controller: _urlController,
@@ -292,7 +333,7 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                       ),
                     if (_tipoSelecionado == 'link') const SizedBox(height: 16),
 
-                    // Upload de arquivo (para PDF, Imagem e Atividade)
+                    // Upload de arquivo (pdf/imagem/atividade)
                     if (_tipoSelecionado == 'pdf' ||
                         _tipoSelecionado == 'imagem' ||
                         _tipoSelecionado == 'atividade')
@@ -425,7 +466,7 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                         ],
                       ),
 
-                    // Peso (apenas para atividade)
+                    // Peso (atividade)
                     if (_tipoSelecionado == 'atividade')
                       TextFormField(
                         controller: _pesoController,
@@ -479,7 +520,7 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                     if (_tipoSelecionado == 'atividade')
                       const SizedBox(height: 16),
 
-                    // Prazo (apenas para atividade)
+                    // Prazo (atividade)
                     if (_tipoSelecionado == 'atividade')
                       InkWell(
                         onTap: _selecionarPrazo,
@@ -537,35 +578,8 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
                     if (_tipoSelecionado == 'atividade')
                       const SizedBox(height: 30),
 
-                    // Validação de arquivo
-                    if ((_tipoSelecionado == 'pdf' ||
-                            _tipoSelecionado == 'imagem' ||
-                            _tipoSelecionado == 'atividade') &&
-                        _arquivoSelecionado == null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          '⚠️ Por favor, selecione um arquivo',
-                          style: TextStyle(
-                            color: Colors.orange[700],
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-
-                    // Validação de prazo para atividade
-                    if (_tipoSelecionado == 'atividade' &&
-                        _prazoSelecionado == null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          '⚠️ Por favor, selecione um prazo',
-                          style: TextStyle(
-                            color: Colors.orange[700],
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
+                    // Mensagens auxiliares (não usamos mais texto laranja aqui)
+                    // O alerta padronizado sai em overlay no topo.
 
                     // Botões
                     Row(
@@ -622,7 +636,7 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: const ColorScheme.light(
               primary: AppColors.azulClaro,
               onPrimary: Colors.white,
               surface: Colors.white,
@@ -643,13 +657,10 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
         initialTime: TimeOfDay.now(),
         builder: (context, child) {
           return MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              // FORÇAR FORMATO 24 HORAS
-              alwaysUse24HourFormat: true,
-            ),
+            data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
             child: Theme(
               data: Theme.of(context).copyWith(
-                colorScheme: ColorScheme.light(
+                colorScheme: const ColorScheme.light(
                   primary: AppColors.azulClaro,
                   onPrimary: Colors.white,
                   surface: Colors.white,
@@ -668,8 +679,6 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
       );
 
       if (hora != null) {
-        // CORREÇÃO: Criar DateTime com fuso horário local MAS enviar como se fosse UTC
-        // Isso evita a conversão automática do Flutter
         final localDateTime = DateTime(
           data.year,
           data.month,
@@ -677,19 +686,9 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
           hora.hour,
           hora.minute,
         );
-
-        // IMPORTANTE: Não converter para UTC, enviar como local mas marcar como UTC
-        // O backend vai tratar como UTC
         setState(() {
           _prazoSelecionado = localDateTime;
         });
-
-        print(
-          '=== DEBUG: Horário selecionado (local): ${localDateTime.toLocal()}',
-        );
-        print(
-          '=== DEBUG: Horário para enviar: ${localDateTime.toIso8601String()}',
-        );
       }
     }
   }
@@ -699,9 +698,7 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
       List<String>? allowedExtensions;
       FileType fileType = FileType.custom;
 
-      if (_tipoSelecionado == 'pdf') {
-        allowedExtensions = ['pdf'];
-      } else if (_tipoSelecionado == 'atividade') {
+      if (_tipoSelecionado == 'pdf' || _tipoSelecionado == 'atividade') {
         allowedExtensions = ['pdf'];
       } else if (_tipoSelecionado == 'imagem') {
         allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
@@ -718,18 +715,12 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
           _arquivoSelecionado = result.files.first;
         });
 
-        // Preencher automaticamente o título se estiver vazio
         if (_tituloController.text.isEmpty) {
           _tituloController.text = _arquivoSelecionado!.name;
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao selecionar arquivo: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showAlertaOverlay('Erro ao selecionar arquivo: $e', sucesso: false);
     }
   }
 
@@ -739,23 +730,13 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
             _tipoSelecionado == 'imagem' ||
             _tipoSelecionado == 'atividade') &&
         _arquivoSelecionado == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Por favor, selecione um arquivo'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      _showAlertaOverlay('Por favor, selecione um arquivo', sucesso: false);
       return;
     }
 
     // Validação especial para prazo em atividade
     if (_tipoSelecionado == 'atividade' && _prazoSelecionado == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Por favor, selecione um prazo para a atividade'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      _showAlertaOverlay('Por favor, selecione um prazo', sucesso: false);
       return;
     }
 
@@ -779,6 +760,7 @@ class _AdicionarMaterialDialogState extends State<AdicionarMaterialDialog> {
 
   @override
   void dispose() {
+    _removeAlert();
     _tituloController.dispose();
     _descricaoController.dispose();
     _urlController.dispose();

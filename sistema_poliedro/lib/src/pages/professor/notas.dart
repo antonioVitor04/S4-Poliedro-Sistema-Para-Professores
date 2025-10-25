@@ -470,7 +470,10 @@ class _NotasDataTableState extends State<NotasDataTable> {
               ? SizedBox(
                   width: 14,
                   height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.branco,
+                  ),
                 )
               : Icon(Icons.save, size: 16),
           label: Text(
