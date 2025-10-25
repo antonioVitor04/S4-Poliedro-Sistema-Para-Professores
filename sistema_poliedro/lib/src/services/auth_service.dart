@@ -12,7 +12,11 @@ class AuthService {
     return dotenv.env['BASE_URL_MOBILE']!;
   }
 
-  static Future<String?> login(String identifier, String senha, String tipo) async {
+  static Future<String?> login(
+    String identifier,
+    String senha,
+    String tipo,
+  ) async {
     final rota = tipo == "professor" ? "professores" : "alunos";
     final url = Uri.parse("$baseUrl/api/$rota/login");
     final body = tipo == "professor"
@@ -107,7 +111,11 @@ class AuthService {
     }
   }
 
-  static Future<bool> updatePassword(String email, String codigo, String novaSenha) async {
+  static Future<bool> updatePassword(
+    String email,
+    String codigo,
+    String novaSenha,
+  ) async {
     final url = Uri.parse("$baseUrl/api/recuperarSenha/atualizar-senha");
     try {
       final response = await http.post(
