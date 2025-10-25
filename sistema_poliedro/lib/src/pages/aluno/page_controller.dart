@@ -74,7 +74,7 @@ class _MainAlunoPageState extends State<MainAlunoPage>
     return {
       '/disciplinas': DisciplinasPage(onNavigateToDetail: _navigateToDetail),
       '/notas': NotasPage(token: _token ?? ''),
-      '/calendario': const CalendarioPage(),
+      '/calendario': const CalendarioPageAluno(),
       '/notificacoes': const NotificacoesPage(),
     };
   }
