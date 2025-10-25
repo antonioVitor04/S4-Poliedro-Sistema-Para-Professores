@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/auth_service.dart';
 import '../pages/aluno/notificacoes_aluno_page.dart';
+
 class ApiService {
   static String get baseUrl {
     if (kIsWeb) {
@@ -21,7 +22,7 @@ class ApiService {
   static Future<List<dynamic>> fetchDisciplinas() async {
     final headers = await AuthService.getAuthHeaders();
     final response = await http.get(
-      Uri.parse('$baseUrl/notificacoes/disciplinas-aluno'),
+      Uri.parse('$baseUrl/api/notificacoes/disciplinas-aluno'),
       headers: headers,
     );
 
@@ -42,13 +43,10 @@ class ApiService {
   static Future<List<Mensagem>> fetchNotificacoes(String? disciplinaId) async {
     final headers = await AuthService.getAuthHeaders();
     final url = disciplinaId != null
-        ? '$baseUrl/notificacoes/disciplina/$disciplinaId'
-        : '$baseUrl/notificacoes/todas';
+        ? '$baseUrl/api/notificacoes/disciplina/$disciplinaId'
+        : '$baseUrl/api/notificacoes/todas';
 
-    final response = await http.get(
-      Uri.parse(url),
-      headers: headers,
-    );
+    final response = await http.get(Uri.parse(url), headers: headers);
 
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body);
@@ -69,7 +67,7 @@ class ApiService {
   static Future<void> markAsRead(String notificacaoId) async {
     final headers = await AuthService.getAuthHeaders();
     final response = await http.patch(
-      Uri.parse('$baseUrl/notificacoes/$notificacaoId/lida'),
+      Uri.parse('$baseUrl/api/notificacoes/$notificacaoId/lida'),
       headers: headers,
     );
 
@@ -79,10 +77,13 @@ class ApiService {
     }
   }
 
-  static Future<void> toggleFavorita(String notificacaoId, bool isFavorita) async {
+  static Future<void> toggleFavorita(
+    String notificacaoId,
+    bool isFavorita,
+  ) async {
     final headers = await AuthService.getAuthHeaders();
     final response = await http.patch(
-      Uri.parse('$baseUrl/notificacoes/$notificacaoId/favorita'),
+      Uri.parse('$baseUrl/api/notificacoes/$notificacaoId/favorita'),
       headers: headers,
       body: jsonEncode({'isFavorita': isFavorita}),
     );
