@@ -639,6 +639,7 @@ class _CalendarioPageProfessorState extends State<CalendarioPageProfessor> {
                               final evento = eventosDoDia[index];
                               final cor = _obterCorEvento(evento);
                               return Card(
+                                color: AppColors.branco,
                                 margin: const EdgeInsets.only(bottom: 12),
                                 child: ListTile(
                                   leading: Container(

@@ -15,6 +15,8 @@ class NotificacoesProfessorPage extends StatefulWidget {
 class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
   final List<DisciplinaCheckbox> _disciplinas = [];
   final TextEditingController _mensagemController = TextEditingController();
+  final TextEditingController _editarMensagemController =
+      TextEditingController();
   final ScrollController _scrollController = ScrollController();
   List<MensagemEnviada> _mensagensEnviadas = [];
   bool _isLoading = true;
@@ -22,6 +24,15 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
   String? _errorMessage;
   String? _nomeProfessor;
   bool _expandidoDisciplinas = false;
+
+  // Novos estados para controle de seleção
+  final Set<String> _mensagensSelecionadas = {};
+  bool _modoSelecao = false;
+  String? _mensagemEditandoId;
+
+  // Paginação corrigida - 5 mensagens por página
+  final int _mensagensPorPagina = 5;
+  int _paginaAtual = 1;
 
   @override
   void initState() {
@@ -33,6 +44,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
   void dispose() {
     _scrollController.dispose();
     _mensagemController.dispose();
+    _editarMensagemController.dispose();
     super.dispose();
   }
 
@@ -120,6 +132,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
         _mensagensEnviadas = mensagensValidas;
         _mensagensEnviadas.sort((a, b) => b.data.compareTo(a.data));
         _isLoading = false;
+        _paginaAtual = 1; // Resetar para primeira página
       });
     } catch (e) {
       print('Erro ao carregar mensagens enviadas: $e');
@@ -128,6 +141,35 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
         _isLoading = false;
       });
     }
+  }
+
+  // Getter para mensagens da página atual
+  List<MensagemEnviada> get _mensagensPaginaAtual {
+    final startIndex = (_paginaAtual - 1) * _mensagensPorPagina;
+    final endIndex = startIndex + _mensagensPorPagina;
+
+    if (startIndex >= _mensagensEnviadas.length) {
+      return [];
+    }
+
+    return _mensagensEnviadas.sublist(
+      startIndex,
+      endIndex > _mensagensEnviadas.length
+          ? _mensagensEnviadas.length
+          : endIndex,
+    );
+  }
+
+  // Total de páginas
+  int get _totalPaginas {
+    return (_mensagensEnviadas.length / _mensagensPorPagina).ceil();
+  }
+
+  // Mudar página
+  void _mudarPagina(int novaPagina) {
+    setState(() {
+      _paginaAtual = novaPagina;
+    });
   }
 
   Future<void> _enviarMensagem() async {
@@ -237,33 +279,6 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
     });
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      title: const Text(
-        'Notificações',
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
-        ),
-      ),
-      backgroundColor: Colors.white,
-      elevation: 0.5,
-      iconTheme: const IconThemeData(color: Colors.black87),
-      actions: [
-        IconButton(
-          icon: Icon(
-            Icons.refresh_rounded,
-            color: _isLoading ? Colors.grey : AppColors.azulClaro,
-          ),
-          onPressed: _isLoading ? null : _loadData,
-          tooltip: 'Recarregar',
-        ),
-        const SizedBox(width: 8),
-      ],
-    );
-  }
-
   Widget _buildFormularioMensagem() {
     return FutureBuilder<bool>(
       future: AuthService.isAdmin(),
@@ -316,6 +331,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
                               color: Colors.black87,
                             ),
                           ),
+
                           if (isAdmin)
                             Text(
                               'Modo Administrador',
@@ -348,6 +364,12 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
                           ),
                         ),
                       ),
+                    IconButton(
+                      icon: Icon(Icons.refresh_rounded, color: Colors.grey),
+                      onPressed: _isLoading ? null : _loadData,
+                      tooltip: 'Recarregar',
+                    ),
+                    const SizedBox(width: 8),
                   ],
                 ),
               ),
@@ -360,6 +382,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
                   children: [
                     // Campo de mensagem
                     TextFormField(
+                      cursorColor: AppColors.azulClaro,
                       controller: _mensagemController,
                       maxLines: 4,
                       maxLength: 500,
@@ -382,7 +405,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Seção de disciplinas
+                    // Seção de disciplinas - CORRIGIDA
                     _buildSelecaoDisciplinas(),
                     const SizedBox(height: 24),
 
@@ -426,7 +449,11 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
                             : const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.send_rounded, size: 20),
+                                  Icon(
+                                    Icons.send_rounded,
+                                    size: 20,
+                                    color: AppColors.branco,
+                                  ),
                                   SizedBox(width: 8),
                                   Text(
                                     'Enviar Mensagem',
@@ -450,6 +477,8 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
     );
   }
 
+  // CORREÇÃO: Widget de seleção de disciplinas com tamanho fixo
+  // CORREÇÃO: Widget de seleção de disciplinas com botão "Ver todas" funcionando
   Widget _buildSelecaoDisciplinas() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -482,106 +511,195 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
         ),
         const SizedBox(height: 12),
 
-        // Lista de disciplinas responsiva
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 600;
-            final maxHeight = isMobile ? 150.0 : 200.0;
+        // CORREÇÃO: Container com altura fixa mas expansível
+        Container(
+          constraints: BoxConstraints(
+            maxHeight: _expandidoDisciplinas
+                ? 400
+                : 150, // Altura máxima quando expandido
+          ),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.white,
+          ),
+          child: _disciplinas.isEmpty
+              ? _buildEmptyState(
+                  icon: Icons.class_rounded,
+                  title: 'Nenhuma disciplina disponível',
+                  subtitle: 'Entre em contato com o administrador',
+                  height: 150,
+                )
+              : Column(
+                  children: [
+                    // Lista expansível
+                    Expanded(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: _disciplinas.length,
+                        itemBuilder: (context, index) {
+                          final disciplina = _disciplinas[index];
+                          return CheckboxListTile(
+                            title: Text(
+                              disciplina.nome,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            activeColor: AppColors.azulClaro,
+                            value: disciplina.selecionada,
+                            onChanged: (value) => _toggleDisciplina(index),
+                            dense: true,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            tileColor: disciplina.selecionada
+                                ? AppColors.azulClaro.withOpacity(0.1)
+                                : null,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
 
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              height: _expandidoDisciplinas ? null : maxHeight,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade200),
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.white,
-              ),
-              child: _disciplinas.isEmpty
-                  ? _buildEmptyState(
-                      icon: Icons.class_rounded,
-                      title: 'Nenhuma disciplina disponível',
-                      subtitle: 'Entre em contato com o administrador',
-                    )
-                  : Column(
-                      children: [
-                        Expanded(
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            itemCount: _disciplinas.length,
-                            itemBuilder: (context, index) {
-                              final disciplina = _disciplinas[index];
-                              return CheckboxListTile(
-                                title: Text(
-                                  disciplina.nome,
-                                  style: const TextStyle(fontSize: 14),
-                                ),
-                                value: disciplina.selecionada,
-                                onChanged: (value) => _toggleDisciplina(index),
-                                dense: true,
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 4,
-                                ),
-                                tileColor: disciplina.selecionada
-                                    ? AppColors.azulClaro.withOpacity(0.1)
-                                    : null,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              );
-                            },
+                    // Botão "Ver todas" apenas se houver mais de 3 disciplinas
+                    if (_disciplinas.length > 3)
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            top: BorderSide(color: Colors.grey.shade200),
                           ),
                         ),
-                        if (_disciplinas.length > 3)
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                top: BorderSide(color: Colors.grey.shade200),
+                        child: TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _expandidoDisciplinas = !_expandidoDisciplinas;
+                            });
+                          },
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _expandidoDisciplinas
+                                    ? 'Mostrar menos'
+                                    : 'Ver todas (${_disciplinas.length})',
+                                style: TextStyle(
+                                  color: AppColors.azulClaro,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                            child: TextButton(
-                              onPressed: () {
-                                setState(() {
-                                  _expandidoDisciplinas =
-                                      !_expandidoDisciplinas;
-                                });
-                              },
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    _expandidoDisciplinas
-                                        ? 'Mostrar menos'
-                                        : 'Mostrar todas',
-                                    style: TextStyle(
-                                      color: AppColors.azulClaro,
-                                    ),
-                                  ),
-                                  Icon(
-                                    _expandidoDisciplinas
-                                        ? Icons.expand_less
-                                        : Icons.expand_more,
-                                    color: AppColors.azulClaro,
-                                    size: 16,
-                                  ),
-                                ],
+                              Icon(
+                                _expandidoDisciplinas
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                color: AppColors.azulClaro,
+                                size: 16,
                               ),
-                            ),
+                            ],
                           ),
-                      ],
-                    ),
-            );
-          },
+                        ),
+                      ),
+                  ],
+                ),
         ),
       ],
     );
   }
 
+  Widget _buildHeaderHistorico() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.history_rounded,
+            color: _modoSelecao ? AppColors.azulClaro : Colors.green.shade600,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _modoSelecao
+                      ? '${_mensagensSelecionadas.length} selecionada(s)'
+                      : 'Histórico de Mensagens',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: _modoSelecao ? AppColors.azulClaro : Colors.black87,
+                  ),
+                ),
+                if (_modoSelecao)
+                  Text(
+                    'Toque nas mensagens para selecionar',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                if (!_modoSelecao)
+                  Text(
+                    'Página $_paginaAtual de $_totalPaginas • ${_mensagensEnviadas.length} mensagens no total',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+              ],
+            ),
+          ),
+
+          if (!_modoSelecao && _mensagensEnviadas.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.select_all_rounded, color: AppColors.azulClaro),
+              onPressed: _ativarModoSelecao,
+              tooltip: 'Selecionar mensagens',
+            ),
+
+          if (_modoSelecao) ...[
+            if (_mensagensSelecionadas.isNotEmpty)
+              IconButton(
+                icon: Icon(Icons.delete_rounded, color: Colors.red.shade600),
+                onPressed: _excluirMensagensSelecionadas,
+                tooltip: 'Excluir selecionadas',
+              ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, color: Colors.grey),
+              onPressed: _desativarModoSelecao,
+              tooltip: 'Cancelar seleção',
+            ),
+          ] else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.azulClaro.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.azulClaro),
+              ),
+              child: Text(
+                _mensagensEnviadas.length.toString(),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.azulClaro,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildListaMensagensEnviadas() {
+    final mensagensDaPagina = _mensagensPaginaAtual;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       padding: const EdgeInsets.all(0),
@@ -599,58 +717,8 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header do histórico
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.history_rounded,
-                  color: Colors.green.shade600,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Histórico de Mensagens',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.azulClaro.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.azulClaro),
-                  ),
-                  child: Text(
-                    _mensagensEnviadas.length.toString(),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.azulClaro,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildHeaderHistorico(),
 
-          // Lista de mensagens
           _mensagensEnviadas.isEmpty
               ? _buildEmptyState(
                   icon: Icons.history_toggle_off_rounded,
@@ -658,122 +726,431 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
                   subtitle: 'As mensagens que você enviar aparecerão aqui',
                   height: 200,
                 )
-              : Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _mensagensEnviadas.length,
-                    itemBuilder: (context, index) {
-                      final mensagem = _mensagensEnviadas[index];
-                      return _buildItemMensagemEnviada(mensagem, index);
-                    },
-                  ),
+              : Column(
+                  children: [
+                    // Lista de mensagens da página atual
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: mensagensDaPagina.length,
+                      itemBuilder: (context, index) {
+                        final mensagem = mensagensDaPagina[index];
+                        return _buildItemMensagemEnviada(mensagem, index);
+                      },
+                    ),
+
+                    // Paginação
+                    if (_totalPaginas > 1) _buildPaginacao(),
+                  ],
                 ),
         ],
       ),
     );
   }
 
+  // Widget de paginação
+  Widget _buildPaginacao() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        color: Colors.grey.shade50,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Botão página anterior
+          IconButton(
+            icon: const Icon(Icons.chevron_left_rounded),
+            onPressed: _paginaAtual > 1
+                ? () => _mudarPagina(_paginaAtual - 1)
+                : null,
+            tooltip: 'Página anterior',
+          ),
+
+          // Indicador de páginas
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              '$_paginaAtual / $_totalPaginas',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+
+          // Botão próxima página
+          IconButton(
+            icon: const Icon(Icons.chevron_right_rounded),
+            onPressed: _paginaAtual < _totalPaginas
+                ? () => _mudarPagina(_paginaAtual + 1)
+                : null,
+            tooltip: 'Próxima página',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBotoesAcoes(MensagemEnviada mensagem) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: Icon(Icons.edit_rounded, size: 18, color: Colors.blue.shade600),
+          onPressed: () => _iniciarEdicao(mensagem),
+          tooltip: 'Editar mensagem',
+          padding: const EdgeInsets.all(4),
+          constraints: const BoxConstraints(),
+        ),
+        IconButton(
+          icon: Icon(
+            Icons.delete_rounded,
+            size: 18,
+            color: Colors.red.shade600,
+          ),
+          onPressed: () => _confirmarExclusao(mensagem),
+          tooltip: 'Excluir mensagem',
+          padding: const EdgeInsets.all(4),
+          constraints: const BoxConstraints(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEditorMensagem(MensagemEnviada mensagem) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Editando mensagem',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.azulClaro,
+              ),
+            ),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: _cancelarEdicao,
+                  child: const Text(
+                    'Cancelar',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => _salvarEdicao(mensagem.id),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.azulClaro,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                  ),
+                  child: const Text(
+                    'Salvar',
+                    style: TextStyle(color: Colors.white, fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _editarMensagemController,
+          maxLines: 4,
+          maxLength: 500,
+          decoration: InputDecoration(
+            hintText: 'Digite a nova mensagem...',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: AppColors.azulClaro),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _iniciarEdicao(MensagemEnviada mensagem) {
+    setState(() {
+      _mensagemEditandoId = mensagem.id;
+      _editarMensagemController.text = mensagem.mensagem;
+    });
+  }
+
+  void _cancelarEdicao() {
+    setState(() {
+      _mensagemEditandoId = null;
+      _editarMensagemController.clear();
+    });
+  }
+
+  Future<void> _salvarEdicao(String mensagemId) async {
+    final novaMensagem = _editarMensagemController.text.trim();
+    if (novaMensagem.isEmpty) {
+      _mostrarSnackBar('Digite uma mensagem', tipo: SnackBarTipo.erro);
+      return;
+    }
+
+    try {
+      await MensagensProfessorService.editarMensagem(
+        mensagemId: mensagemId,
+        novaMensagem: novaMensagem,
+      );
+      _mostrarSnackBar(
+        'Mensagem editada com sucesso!',
+        tipo: SnackBarTipo.sucesso,
+      );
+      setState(() {
+        _mensagemEditandoId = null;
+        _editarMensagemController.clear();
+      });
+      await _carregarMensagensEnviadas();
+    } catch (e) {
+      _mostrarSnackBar('Erro ao editar mensagem: $e', tipo: SnackBarTipo.erro);
+    }
+  }
+
+  void _confirmarExclusao(MensagemEnviada mensagem) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir Mensagem'),
+        content: Text(
+          'Tem certeza que deseja excluir esta mensagem?\n\n"${mensagem.mensagem}"',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _excluirMensagem(mensagem.id);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // CORREÇÃO: Excluir mensagem única - agora exclui todas as ocorrências
+  Future<void> _excluirMensagem(String mensagemId) async {
+    try {
+      await MensagensProfessorService.excluirMensagemCompleta(mensagemId);
+      _mostrarSnackBar(
+        'Mensagem excluída com sucesso de todas as disciplinas!',
+        tipo: SnackBarTipo.sucesso,
+      );
+      await _carregarMensagensEnviadas();
+    } catch (e) {
+      _mostrarSnackBar('Erro ao excluir mensagem: $e', tipo: SnackBarTipo.erro);
+    }
+  }
+
+  // CORREÇÃO: Exclusão múltipla - agora exclui grupos completos de mensagens
+  Future<void> _executarExclusaoMultipla() async {
+    try {
+      await MensagensProfessorService.excluirMultiplasMensagensCompletas(
+        _mensagensSelecionadas.toList(),
+      );
+
+      _mostrarSnackBar(
+        '${_mensagensSelecionadas.length} mensagem(ns) excluída(s) com sucesso de todas as disciplinas!',
+        tipo: SnackBarTipo.sucesso,
+      );
+
+      _desativarModoSelecao();
+      await _carregarMensagensEnviadas();
+    } catch (e) {
+      _mostrarSnackBar(
+        'Erro ao excluir mensagens: $e',
+        tipo: SnackBarTipo.erro,
+      );
+    }
+  }
+
+  // Helper para encontrar mensagem por ID
+  MensagemEnviada? _encontrarMensagemPorId(String id) {
+    try {
+      return _mensagensEnviadas.firstWhere((mensagem) => mensagem.id == id);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  void _toggleSelecaoMensagem(String mensagemId) {
+    setState(() {
+      if (_mensagensSelecionadas.contains(mensagemId)) {
+        _mensagensSelecionadas.remove(mensagemId);
+      } else {
+        _mensagensSelecionadas.add(mensagemId);
+      }
+      if (_mensagensSelecionadas.isEmpty) {
+        _modoSelecao = false;
+      }
+    });
+  }
+
+  void _ativarModoSelecao() {
+    setState(() {
+      _modoSelecao = true;
+      _mensagensSelecionadas.clear();
+    });
+  }
+
+  void _desativarModoSelecao() {
+    setState(() {
+      _modoSelecao = false;
+      _mensagensSelecionadas.clear();
+    });
+  }
+
+  Future<void> _excluirMensagensSelecionadas() async {
+    if (_mensagensSelecionadas.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir Mensagens'),
+        content: Text(
+          'Tem certeza que deseja excluir ${_mensagensSelecionadas.length} mensagem(ns) selecionada(s)?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _executarExclusaoMultipla();
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildItemMensagemEnviada(MensagemEnviada mensagem, int index) {
+    final bool isSelecionada = _mensagensSelecionadas.contains(mensagem.id);
+    final bool isEditando = _mensagemEditandoId == mensagem.id;
+
     return Container(
       margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: index.isEven ? Colors.grey.shade50 : Colors.white,
+        color: isSelecionada
+            ? AppColors.azulClaro.withOpacity(0.2)
+            : index.isEven
+            ? Colors.grey.shade50
+            : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(
+          color: isSelecionada ? AppColors.azulClaro : Colors.grey.shade100,
+          width: isSelecionada ? 2 : 1,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header com data e informações
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.calendar_today_rounded,
-                    size: 14,
-                    color: Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    mensagem.data,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              FutureBuilder<bool>(
-                future: AuthService.isAdmin(),
-                builder: (context, snapshot) {
-                  if (snapshot.data == true && mensagem.professorNome != null) {
-                    return Row(
+      child: isEditando
+          ? _buildEditorMensagem(mensagem)
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
                       children: [
+                        if (_modoSelecao)
+                          Checkbox(
+                            activeColor: AppColors.azulClaro,
+
+                            value: isSelecionada,
+                            onChanged: (value) =>
+                                _toggleSelecaoMensagem(mensagem.id),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
                         Icon(
-                          Icons.person_rounded,
+                          Icons.calendar_today_rounded,
                           size: 14,
                           color: Colors.grey.shade600,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          mensagem.professorNome!,
+                          mensagem.data,
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,
-                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
-                    );
-                  }
-                  return const SizedBox();
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Mensagem
-          Text(
-            mensagem.mensagem,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.5,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Disciplinas
-          if (mensagem.disciplinas.isNotEmpty) ...[
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: mensagem.disciplinas.map((disciplina) {
-                return Chip(
-                  label: Text(disciplina, style: const TextStyle(fontSize: 11)),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  backgroundColor: AppColors.azulClaro.withOpacity(0.1),
-                  side: BorderSide(color: AppColors.azulClaro.withOpacity(0.3)),
-                  labelPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 0,
+                    ),
+                    if (!_modoSelecao) _buildBotoesAcoes(mensagem),
+                    if (_modoSelecao && isSelecionada)
+                      Icon(
+                        Icons.check_circle_rounded,
+                        color: AppColors.azulClaro,
+                        size: 16,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  mensagem.mensagem,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: Colors.black87,
                   ),
-                  visualDensity: VisualDensity.compact,
-                );
-              }).toList(),
+                ),
+                const SizedBox(height: 12),
+                if (mensagem.disciplinas.isNotEmpty) ...[
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: mensagem.disciplinas
+                        .map(
+                          (disciplina) => Chip(
+                            label: Text(
+                              disciplina,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            backgroundColor: AppColors.azulClaro.withOpacity(
+                              0.1,
+                            ),
+                            side: BorderSide(
+                              color: AppColors.azulClaro.withOpacity(0.3),
+                            ),
+                            labelPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 0,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ],
-      ),
     );
   }
 
@@ -890,14 +1267,13 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: _buildAppBar(),
+      backgroundColor: Colors.grey.shade50, // Fundo da tela permanece cinza
+
       body: _isLoading
           ? _buildLoadingState()
           : _errorMessage != null
           ? _buildErrorState()
           : RefreshIndicator(
-              color: AppColors.azulClaro,
               onRefresh: _loadData,
               child: SingleChildScrollView(
                 controller: _scrollController,
@@ -915,7 +1291,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
   }
 }
 
-// Modelos auxiliares
+// Modelos auxiliares (permanecem iguais)
 class DisciplinaCheckbox {
   final String id;
   final String nome;
@@ -943,7 +1319,6 @@ class MensagemEnviada {
     required this.disciplinas,
   });
 
-  // CORREÇÃO: Mover a função auxiliar para o topo
   static List<String> _parseDisciplinasSimplificado(
     dynamic disciplinasDynamic,
   ) {
@@ -974,20 +1349,13 @@ class MensagemEnviada {
         'msg',
         'content',
       ];
-
       for (final campo in camposMensagem) {
         final valor = json[campo]?.toString();
-        if (valor != null && valor.isNotEmpty) {
-          return valor;
-        }
+        if (valor != null && valor.isNotEmpty) return valor;
       }
-
-      // CORREÇÃO: Agora a função já está declarada
       final disciplinas = _parseDisciplinasSimplificado(json['disciplinas']);
-      if (disciplinas.isNotEmpty) {
+      if (disciplinas.isNotEmpty)
         return 'Mensagem para ${disciplinas.join(', ')}';
-      }
-
       return 'Mensagem sem conteúdo';
     }
 
@@ -995,7 +1363,6 @@ class MensagemEnviada {
       try {
         if (dataDynamic == null) return 'Data inválida';
         final dataString = dataDynamic.toString();
-
         if (dataString.contains('T') || dataString.contains('-')) {
           final date = DateTime.parse(dataString);
           return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';

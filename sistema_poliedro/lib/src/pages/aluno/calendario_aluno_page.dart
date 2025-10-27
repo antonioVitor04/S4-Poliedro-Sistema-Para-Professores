@@ -411,7 +411,13 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
     );
   }
 
-  Widget _buildDayItem(DateTime dia, bool isSelected, bool isHoje, bool hasEvents, Color? eventColor) {
+  Widget _buildDayItem(
+    DateTime dia,
+    bool isSelected,
+    bool isHoje,
+    bool hasEvents,
+    Color? eventColor,
+  ) {
     final diaSemanaAbrev = diasSemana[dia.weekday % 7];
 
     return GestureDetector(
@@ -481,11 +487,7 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.weekend,
-            size: 64,
-            color: Colors.green,
-          ),
+          Icon(Icons.weekend, size: 64, color: Colors.green),
           const SizedBox(height: 16),
           const Text(
             'Nenhuma tarefa hoje',
@@ -516,7 +518,8 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
     final diasValidos = _obterDiasValidosDoMes();
     final selectedDate = _selectedDate ?? DateTime.now();
     final eventosDoDia = _obterEventosDoDia(selectedDate);
-    final isHoje = selectedDate.year == DateTime.now().year &&
+    final isHoje =
+        selectedDate.year == DateTime.now().year &&
         selectedDate.month == DateTime.now().month &&
         selectedDate.day == DateTime.now().day;
 
@@ -600,16 +603,26 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
                         children: diasValidos.map((dia) {
-                          final isSelected = selectedDate.year == dia.year &&
+                          final isSelected =
+                              selectedDate.year == dia.year &&
                               selectedDate.month == dia.month &&
                               selectedDate.day == dia.day;
-                          final isHojeDia = dia.year == DateTime.now().year &&
+                          final isHojeDia =
+                              dia.year == DateTime.now().year &&
                               dia.month == DateTime.now().month &&
                               dia.day == DateTime.now().day;
                           final eventosDia = _obterEventosDoDia(dia);
                           final hasEvents = eventosDia.isNotEmpty;
-                          final eventColor = hasEvents ? _obterCorEvento(eventosDia.first) : Colors.transparent;
-                          return _buildDayItem(dia, isSelected, isHojeDia, hasEvents, eventColor);
+                          final eventColor = hasEvents
+                              ? _obterCorEvento(eventosDia.first)
+                              : Colors.transparent;
+                          return _buildDayItem(
+                            dia,
+                            isSelected,
+                            isHojeDia,
+                            hasEvents,
+                            eventColor,
+                          );
                         }).toList(),
                       ),
                     ),
@@ -626,6 +639,7 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                               final evento = eventosDoDia[index];
                               final cor = _obterCorEvento(evento);
                               return Card(
+                                color: AppColors.branco,
                                 margin: const EdgeInsets.only(bottom: 12),
                                 child: ListTile(
                                   leading: Container(
@@ -649,7 +663,8 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         evento.disciplinaTitulo,
@@ -670,8 +685,13 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                                       ),
                                     ],
                                   ),
-                                  trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                                  onTap: () => _navegarParaAtividade(evento, context),
+                                  trailing: const Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 16,
+                                    color: Colors.grey,
+                                  ),
+                                  onTap: () =>
+                                      _navegarParaAtividade(evento, context),
                                 ),
                               );
                             },
@@ -724,7 +744,8 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                         }
 
                         final eventosDoDiaGrid = _obterEventosDoDia(dia);
-                        final isHojeGrid = dia.year == DateTime.now().year &&
+                        final isHojeGrid =
+                            dia.year == DateTime.now().year &&
                             dia.month == DateTime.now().month &&
                             dia.day == DateTime.now().day;
 
@@ -749,7 +770,9 @@ class _CalendarioPageAlunoState extends State<CalendarioPageAluno> {
                                     fontWeight: isHojeGrid
                                         ? FontWeight.bold
                                         : FontWeight.normal,
-                                    color: isHojeGrid ? Colors.blue : Colors.black,
+                                    color: isHojeGrid
+                                        ? Colors.blue
+                                        : Colors.black,
                                   ),
                                 ),
                               ),
