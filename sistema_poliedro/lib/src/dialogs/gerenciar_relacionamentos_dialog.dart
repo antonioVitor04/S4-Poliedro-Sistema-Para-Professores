@@ -45,7 +45,9 @@ class _GerenciarRelacionamentosDialogState
       });
 
       // Buscar dados completos da disciplina
-      final disciplinaCompleta = await CardDisciplinaService.getCardBySlug(widget.card.slug);
+      final disciplinaCompleta = await CardDisciplinaService.getCardBySlug(
+        widget.card.slug,
+      );
 
       // Carregar professores com dados reais
       if (disciplinaCompleta.professores.isNotEmpty) {
@@ -54,7 +56,7 @@ class _GerenciarRelacionamentosDialogState
             _professoresSelecionados.add({
               '_id': prof['_id'] ?? prof['id'],
               'nome': prof['nome'] ?? 'Professor',
-              'email': prof['email'] ?? ''
+              'email': prof['email'] ?? '',
             });
           } else if (prof is String) {
             // Se for apenas ID, buscar dados completos
@@ -73,7 +75,7 @@ class _GerenciarRelacionamentosDialogState
             _alunosSelecionados.add({
               '_id': aluno['_id'] ?? aluno['id'],
               'nome': aluno['nome'] ?? 'Aluno',
-              'ra': aluno['ra'] ?? ''
+              'ra': aluno['ra'] ?? '',
             });
           } else if (aluno is String) {
             // Se for apenas ID, buscar dados completos
@@ -84,7 +86,6 @@ class _GerenciarRelacionamentosDialogState
           }
         }
       }
-
     } catch (e) {
       print('Erro ao carregar dados iniciais: $e');
       // Fallback: usar dados básicos se a busca falhar
@@ -105,7 +106,7 @@ class _GerenciarRelacionamentosDialogState
             return {
               '_id': prof['_id'] ?? prof['id'],
               'nome': prof['nome'] ?? 'Professor',
-              'email': prof['email'] ?? ''
+              'email': prof['email'] ?? '',
             };
           }
           return {'_id': prof.toString(), 'nome': 'Professor', 'email': ''};
@@ -120,7 +121,7 @@ class _GerenciarRelacionamentosDialogState
             return {
               '_id': aluno['_id'] ?? aluno['id'],
               'nome': aluno['nome'] ?? 'Aluno',
-              'ra': aluno['ra'] ?? ''
+              'ra': aluno['ra'] ?? '',
             };
           }
           return {'_id': aluno.toString(), 'nome': 'Aluno', 'ra': ''};
@@ -169,11 +170,14 @@ class _GerenciarRelacionamentosDialogState
       final professores = await CardDisciplinaService.buscarProfessoresPorEmail(
         email,
       );
-      
+
       // FILTRAR: Remover professores já selecionados
-      final professoresFiltrados = professores.where((prof) =>
-        !_professoresSelecionados.any((p) => p['_id'] == prof['_id'])
-      ).toList();
+      final professoresFiltrados = professores
+          .where(
+            (prof) =>
+                !_professoresSelecionados.any((p) => p['_id'] == prof['_id']),
+          )
+          .toList();
 
       setState(() {
         _sugestoesProfessores = professoresFiltrados;
@@ -204,11 +208,14 @@ class _GerenciarRelacionamentosDialogState
 
     try {
       final alunos = await CardDisciplinaService.buscarAlunosPorRA(ra);
-      
+
       // FILTRAR: Remover alunos já selecionados
-      final alunosFiltrados = alunos.where((aluno) =>
-        !_alunosSelecionados.any((a) => a['_id'] == aluno['_id'])
-      ).toList();
+      final alunosFiltrados = alunos
+          .where(
+            (aluno) =>
+                !_alunosSelecionados.any((a) => a['_id'] == aluno['_id']),
+          )
+          .toList();
 
       setState(() {
         _sugestoesAlunos = alunosFiltrados;
@@ -258,52 +265,52 @@ class _GerenciarRelacionamentosDialogState
   }
 
   Future<void> _salvarAlteracoes() async {
-  setState(() => _isLoading = true);
+    setState(() => _isLoading = true);
 
-  try {
-    final professoresIds = _professoresSelecionados
-        .map((p) => p['_id'].toString())
-        .toList();
-    final alunosIds = _alunosSelecionados
-        .map((a) => a['_id'].toString())
-        .toList();
+    try {
+      final professoresIds = _professoresSelecionados
+          .map((p) => p['_id'].toString())
+          .toList();
+      final alunosIds = _alunosSelecionados
+          .map((a) => a['_id'].toString())
+          .toList();
 
-    // CORREÇÃO: Passar os argumentos obrigatórios corretamente
-    await CardDisciplinaService.atualizarCard(
-      widget.card.id,           // id (String)
-      widget.card.titulo,       // titulo (String)
-      null,                     // imagemFile (PlatformFile?) - opcional
-      null,                     // iconeFile (PlatformFile?) - opcional
-      professores: professoresIds, // professores (List<String>?) - opcional
-      alunos: alunosIds,        // alunos (List<String>?) - opcional
-    );
-
-    widget.onUpdated();
-
-    if (mounted) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Acessos atualizados com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
+      // CORREÇÃO: Passar os argumentos obrigatórios corretamente
+      await CardDisciplinaService.atualizarCard(
+        widget.card.id, // id (String)
+        widget.card.titulo, // titulo (String)
+        null, // imagemFile (PlatformFile?) - opcional
+        null, // iconeFile (PlatformFile?) - opcional
+        professores: professoresIds, // professores (List<String>?) - opcional
+        alunos: alunosIds, // alunos (List<String>?) - opcional
       );
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao atualizar acessos: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  } finally {
-    if (mounted) {
-      setState(() => _isLoading = false);
+
+      widget.onUpdated();
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Acessos atualizados com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar acessos: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -421,9 +428,10 @@ class _GerenciarRelacionamentosDialogState
                                       height: 16,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
                                       ),
                                     )
                                   : const Text('Salvar'),
@@ -451,9 +459,7 @@ class _GerenciarRelacionamentosDialogState
           const SizedBox(height: 16),
           Text(
             'Carregando dados...',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(color: Colors.grey.shade600),
           ),
         ],
       ),
@@ -473,11 +479,7 @@ class _GerenciarRelacionamentosDialogState
         children: [
           Row(
             children: [
-              Icon(
-                Icons.person,
-                size: 20,
-                color: AppColors.azulClaro,
-              ),
+              Icon(Icons.person, size: 20, color: AppColors.azulClaro),
               const SizedBox(width: 8),
               Text(
                 'Criador da Disciplina',
@@ -496,18 +498,12 @@ class _GerenciarRelacionamentosDialogState
               children: [
                 Text(
                   'Nome: ${widget.card.nomeCriador}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade800,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
                 ),
                 if (widget.card.emailCriador.isNotEmpty)
                   Text(
                     'Email: ${widget.card.emailCriador}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                   ),
               ],
             )
@@ -567,17 +563,33 @@ class _GerenciarRelacionamentosDialogState
           child: Column(
             children: [
               // Campo de busca de professores
-              TextField(
+              // Campo Professor
+              TextFormField(
                 controller: _professorController,
+                cursorColor: AppColors.azulClaro,
+                style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
                 decoration: InputDecoration(
-                  hintText: 'Digite o email do professor...',
+                  labelText: 'Digite o email do professor...',
+                  labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                    color: Colors.black,
+                  ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: AppColors.preto.withOpacity(0.1),
+                    ),
+                    borderRadius: BorderRadius.circular(16),
                   ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: AppColors.azulClaro,
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  prefixIcon: Icon(Icons.email, color: AppColors.azulClaro),
                   suffixIcon: _buscandoProfessores
                       ? const Padding(
                           padding: EdgeInsets.all(8.0),
@@ -588,6 +600,10 @@ class _GerenciarRelacionamentosDialogState
                           ),
                         )
                       : null,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 16,
+                  ),
                 ),
                 onChanged: _buscarProfessores,
               ),
@@ -659,17 +675,13 @@ class _GerenciarRelacionamentosDialogState
                           ),
                           title: Text(
                             professor['nome'] ?? 'Professor',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.w500),
                           ),
                           subtitle: Text(
                             professor['email']?.isNotEmpty == true
                                 ? professor['email']!
                                 : 'Email não disponível',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                            ),
+                            style: TextStyle(color: Colors.grey.shade600),
                           ),
                           trailing: IconButton(
                             onPressed: () =>
@@ -745,17 +757,33 @@ class _GerenciarRelacionamentosDialogState
           child: Column(
             children: [
               // Campo de busca de alunos
-              TextField(
+              // Campo Aluno
+              TextFormField(
                 controller: _alunoController,
+                cursorColor: AppColors.azulClaro,
+                style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
                 decoration: InputDecoration(
-                  hintText: 'Digite o RA do aluno...',
+                  labelText: 'Digite o RA do aluno...',
+                  labelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                    color: Colors.black,
+                  ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: AppColors.preto.withOpacity(0.1),
+                    ),
+                    borderRadius: BorderRadius.circular(16),
                   ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: AppColors.azulClaro,
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  prefixIcon: Icon(Icons.person, color: AppColors.azulClaro),
                   suffixIcon: _buscandoAlunos
                       ? const Padding(
                           padding: EdgeInsets.all(8.0),
@@ -766,6 +794,10 @@ class _GerenciarRelacionamentosDialogState
                           ),
                         )
                       : null,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 16,
+                  ),
                 ),
                 onChanged: _buscarAlunos,
               ),
@@ -834,17 +866,13 @@ class _GerenciarRelacionamentosDialogState
                           ),
                           title: Text(
                             aluno['nome'] ?? 'Aluno',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.w500),
                           ),
                           subtitle: Text(
                             aluno['ra']?.isNotEmpty == true
                                 ? 'RA: ${aluno['ra']!}'
                                 : 'RA não disponível',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                            ),
+                            style: TextStyle(color: Colors.grey.shade600),
                           ),
                           trailing: IconButton(
                             onPressed: () => _removerAluno(aluno['_id']),
