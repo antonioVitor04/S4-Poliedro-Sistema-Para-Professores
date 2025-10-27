@@ -220,6 +220,7 @@ class _UserDialogState extends State<UserDialog> {
                           SizedBox(height: isMobile ? 16 : 24),
                         ],
                         TextFormField(
+                          cursorColor: AppColors.azulClaro,
                           controller: _nomeController,
                           style: AppTextStyles.fonteUbuntuSans.copyWith(
                             fontSize: isMobile ? 14 : 16,
@@ -262,6 +263,7 @@ class _UserDialogState extends State<UserDialog> {
                         ),
                         SizedBox(height: isMobile ? 16 : 20),
                         TextFormField(
+                          cursorColor: AppColors.azulClaro,
                           controller: _emailController,
                           style: AppTextStyles.fonteUbuntuSans.copyWith(
                             fontSize: isMobile ? 14 : 16,
@@ -308,6 +310,7 @@ class _UserDialogState extends State<UserDialog> {
                         if (widget.isAluno) ...[
                           SizedBox(height: isMobile ? 16 : 20),
                           TextFormField(
+                            cursorColor: AppColors.azulClaro,
                             controller: _raController,
                             style: AppTextStyles.fonteUbuntuSans.copyWith(
                               fontSize: isMobile ? 14 : 16,
@@ -768,6 +771,7 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
               child: Column(
                 children: [
                   TextFormField(
+                    cursorColor: AppColors.azulClaro,
                     controller: _nomeController,
                     style: AppTextStyles.fonteUbuntuSans.copyWith(
                       fontSize: isMobile ? 14 : 16,
@@ -878,6 +882,7 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                   ),
                   SizedBox(height: isMobile ? 16 : 20),
                   TextFormField(
+                    cursorColor: AppColors.azulClaro,
                     controller: _pesoController,
                     keyboardType: TextInputType.number,
                     style: AppTextStyles.fonteUbuntuSans.copyWith(
@@ -1168,6 +1173,7 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
               child: Column(
                 children: [
                   TextFormField(
+                    cursorColor: AppColors.azulClaro,
                     controller: _nomeController,
                     style: AppTextStyles.fonteUbuntuSans.copyWith(
                       fontSize: isMobile ? 14 : 16,
@@ -1278,6 +1284,7 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                   ),
                   SizedBox(height: isMobile ? 16 : 20),
                   TextFormField(
+                    cursorColor: AppColors.azulClaro,
                     controller: _pesoController,
                     keyboardType: TextInputType.number,
                     style: AppTextStyles.fonteUbuntuSans.copyWith(
@@ -1671,6 +1678,7 @@ class _NotaDialogState extends State<NotaDialog> {
                         ),
                         SizedBox(height: isMobile ? 12 : 16),
                         TextFormField(
+                          cursorColor: AppColors.azulClaro,
                           controller: _nomeController,
                           style: AppTextStyles.fonteUbuntuSans.copyWith(
                             fontSize: isMobile ? 14 : 16,
@@ -1763,6 +1771,7 @@ class _NotaDialogState extends State<NotaDialog> {
                         ),
                         SizedBox(height: isMobile ? 16 : 20),
                         TextFormField(
+                          cursorColor: AppColors.azulClaro,
                           controller: _notaController,
                           style: AppTextStyles.fonteUbuntuSans.copyWith(
                             fontSize: isMobile ? 14 : 16,
@@ -1806,6 +1815,7 @@ class _NotaDialogState extends State<NotaDialog> {
                         ),
                         SizedBox(height: isMobile ? 16 : 20),
                         TextFormField(
+                          cursorColor: AppColors.azulClaro,
                           controller: _pesoController,
                           style: AppTextStyles.fonteUbuntuSans.copyWith(
                             fontSize: isMobile ? 14 : 16,

@@ -7,7 +7,7 @@ const notificacaoSchema = new mongoose.Schema({
   },
   disciplina: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Disciplina",
+    ref: "CardDisciplina",
     required: true,
   },
   professor: {

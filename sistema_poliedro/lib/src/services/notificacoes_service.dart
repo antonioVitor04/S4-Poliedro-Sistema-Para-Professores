@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/auth_service.dart';
-import '../pages/aluno/notificacoes_aluno_page.dart';
+import '../models/mensagem_model.dart'; // ← NOVA IMPORT
 
 class ApiService {
   static String get baseUrl {
