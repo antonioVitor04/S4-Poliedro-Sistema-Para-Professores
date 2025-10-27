@@ -2316,6 +2316,7 @@ class ManageAvaliacoesDialog extends StatelessWidget {
                         ),
                         trailing: isMobile
                             ? PopupMenuButton(
+                                color: AppColors.branco,
                                 icon: Icon(Icons.more_vert, size: 20),
                                 itemBuilder: (context) => [
                                   PopupMenuItem(

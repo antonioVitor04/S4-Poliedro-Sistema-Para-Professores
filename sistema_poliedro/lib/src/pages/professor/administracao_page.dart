@@ -607,7 +607,10 @@ class _AdministracaoPageState extends State<AdministracaoPage>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: AppColors.azulClaro),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),

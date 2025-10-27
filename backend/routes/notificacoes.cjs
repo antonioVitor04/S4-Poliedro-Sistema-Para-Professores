@@ -562,4 +562,350 @@ router.get("/professores/:id", auth(), async (req, res) => {
   }
 });
 
+// Editar notificação
+router.put("/:id", auth(), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { mensagem } = req.body;
+    const professorId = req.user.id;
+    const userType = req.user.role;
+
+    // Validar entrada
+    if (!mensagem) {
+      return res.status(400).json({
+        success: false,
+        message: "Mensagem é obrigatória",
+      });
+    }
+
+    // Buscar a notificação
+    const notificacao = await Notificacoes.findById(id);
+
+    if (!notificacao) {
+      return res.status(404).json({
+        success: false,
+        message: "Notificação não encontrada",
+      });
+    }
+
+    // Verificar permissões (apenas o professor que criou ou admin pode editar)
+    if (
+      userType === "professor" &&
+      notificacao.professor.toString() !== professorId
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Você não tem permissão para editar esta notificação",
+      });
+    }
+
+    // Atualizar a notificação
+    const notificacaoAtualizada = await Notificacoes.findByIdAndUpdate(
+      id,
+      {
+        mensagem,
+        dataEdicao: new Date(), // Adiciona data de edição
+      },
+      { new: true, runValidators: true }
+    );
+
+    res.json({
+      success: true,
+      message: "Notificação atualizada com sucesso",
+      notificacao: notificacaoAtualizada,
+    });
+  } catch (error) {
+    console.error("Erro ao editar notificação:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao editar notificação",
+      error: error.message,
+    });
+  }
+});
+
+// Excluir notificação individual
+router.delete("/:id", auth(), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const professorId = req.user.id;
+    const userType = req.user.role;
+
+    // Buscar a notificação
+    const notificacao = await Notificacoes.findById(id);
+
+    if (!notificacao) {
+      return res.status(404).json({
+        success: false,
+        message: "Notificação não encontrada",
+      });
+    }
+
+    // Verificar permissões (apenas o professor que criou ou admin pode excluir)
+    if (
+      userType === "professor" &&
+      notificacao.professor.toString() !== professorId
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Você não tem permissão para excluir esta notificação",
+      });
+    }
+
+    // Excluir a notificação
+    await Notificacoes.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: "Notificação excluída com sucesso",
+    });
+  } catch (error) {
+    console.error("Erro ao excluir notificação:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao excluir notificação",
+      error: error.message,
+    });
+  }
+});
+
+// CORREÇÃO: Excluir múltiplas notificações - Versão corrigida
+router.delete("/", auth(), async (req, res) => {
+  try {
+    const { ids } = req.body; // Array de IDs
+    const professorId = req.user.id;
+    const userType = req.user.role;
+
+    console.log("🗑️ Excluindo múltiplas notificações:", {
+      ids,
+      professorId,
+      userType,
+    });
+
+    // Validar entrada
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Lista de IDs é obrigatória",
+      });
+    }
+
+    // Buscar todas as notificações base para obter as mensagens
+    const notificacoesBase = await Notificacoes.find({
+      _id: { $in: ids },
+    });
+
+    if (notificacoesBase.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Nenhuma notificação encontrada para exclusão",
+      });
+    }
+
+    // Verificar permissões para professores
+    if (userType === "professor") {
+      const notificacoesNaoAutorizadas = notificacoesBase.filter(
+        (notificacao) => notificacao.professor.toString() !== professorId
+      );
+
+      if (notificacoesNaoAutorizadas.length > 0) {
+        return res.status(403).json({
+          success: false,
+          message: "Você não tem permissão para excluir algumas notificações",
+        });
+      }
+    }
+
+    // Coletar todos os grupos únicos de mensagem+professor
+    const gruposParaExcluir = new Set();
+    notificacoesBase.forEach((notificacao) => {
+      const chave = `${notificacao.mensagem}_${notificacao.professor}`;
+      gruposParaExcluir.add(chave);
+    });
+
+    console.log(`🎯 Grupos para exclusão: ${Array.from(gruposParaExcluir)}`);
+
+    let totalExcluidas = 0;
+
+    // Para cada grupo único, excluir todas as notificações
+    for (const grupo of gruposParaExcluir) {
+      const [mensagem, professorIdGrupo] = grupo.split("_");
+
+      let query = {
+        mensagem: mensagem,
+        professor: professorIdGrupo,
+      };
+
+      // Para professores, garantir que só exclui as próprias mensagens
+      if (userType === "professor") {
+        query.professor = professorId;
+      }
+
+      const resultado = await Notificacoes.deleteMany(query);
+      totalExcluidas += resultado.deletedCount;
+      console.log(
+        `✅ Grupo excluído: ${mensagem} - ${resultado.deletedCount} notificações`
+      );
+    }
+
+    console.log(`📊 Total de notificações excluídas: ${totalExcluidas}`);
+
+    res.json({
+      success: true,
+      message: `${notificacoesBase.length} mensagem(ns) excluída(s) com sucesso de ${totalExcluidas} disciplina(s)`,
+      excluidas: totalExcluidas,
+      mensagensExcluidas: notificacoesBase.length,
+    });
+  } catch (error) {
+    console.error("❌ Erro ao excluir múltiplas notificações:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao excluir notificações",
+      error: error.message,
+    });
+  }
+});
+
+// NOVA ROTA: Excluir notificações por mensagem (todas as disciplinas de uma vez)
+router.delete("/mensagem/:mensagemId", auth(), async (req, res) => {
+  try {
+    const { mensagemId } = req.params;
+    const professorId = req.user.id;
+    const userType = req.user.role;
+
+    console.log("🗑️ Excluindo notificações por mensagem ID:", mensagemId);
+
+    // Primeiro buscar a notificação para obter a mensagem e professor
+    const notificacaoBase = await Notificacoes.findById(mensagemId);
+
+    if (!notificacaoBase) {
+      return res.status(404).json({
+        success: false,
+        message: "Notificação não encontrada",
+      });
+    }
+
+    // Verificar permissões
+    if (
+      userType === "professor" &&
+      notificacaoBase.professor.toString() !== professorId
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Você não tem permissão para excluir esta mensagem",
+      });
+    }
+
+    // Buscar TODAS as notificações com esta mesma mensagem e do mesmo professor
+    // Usar apenas mensagem e professor como critério, ignorando data
+    let query = {
+      mensagem: notificacaoBase.mensagem,
+      professor: notificacaoBase.professor,
+    };
+
+    console.log("🔍 Query para exclusão:", query);
+
+    // Verificar quantas notificações serão excluídas
+    const notificacoesParaExcluir = await Notificacoes.find(query);
+
+    console.log(
+      `📋 Notificações encontradas para exclusão: ${notificacoesParaExcluir.length}`
+    );
+
+    if (notificacoesParaExcluir.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Nenhuma notificação encontrada para exclusão",
+      });
+    }
+
+    // Excluir TODAS as notificações com esta mensagem
+    const resultado = await Notificacoes.deleteMany(query);
+
+    console.log(`✅ Notificações excluídas: ${resultado.deletedCount}`);
+
+    res.json({
+      success: true,
+      message: `Mensagem excluída com sucesso de ${resultado.deletedCount} disciplina(s)`,
+      excluidas: resultado.deletedCount,
+    });
+  } catch (error) {
+    console.error("❌ Erro ao excluir notificações por mensagem:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao excluir mensagem",
+      error: error.message,
+    });
+  }
+});
+// Excluir notificação individual - VERSÃO CORRIGIDA
+router.delete("/:id", auth(), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const professorId = req.user.id;
+    const userType = req.user.role;
+
+    console.log("🗑️ Excluindo notificação individual:", id);
+
+    // Buscar a notificação
+    const notificacao = await Notificacoes.findById(id);
+
+    if (!notificacao) {
+      return res.status(404).json({
+        success: false,
+        message: "Notificação não encontrada",
+      });
+    }
+
+    // Verificar permissões (apenas o professor que criou ou admin pode excluir)
+    if (
+      userType === "professor" &&
+      notificacao.professor.toString() !== professorId
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Você não tem permissão para excluir esta notificação",
+      });
+    }
+
+    // Buscar TODAS as notificações com esta mesma mensagem
+    let query = {
+      mensagem: notificacao.mensagem,
+      professor: notificacao.professor,
+    };
+
+    // Para professores, garantir que só exclui as próprias mensagens
+    if (userType === "professor") {
+      query.professor = professorId;
+    }
+
+    console.log("🔍 Query para exclusão individual:", query);
+
+    // Verificar quantas notificações serão excluídas
+    const notificacoesParaExcluir = await Notificacoes.find(query);
+
+    console.log(
+      `📋 Notificações encontradas para exclusão: ${notificacoesParaExcluir.length}`
+    );
+
+    // Excluir TODAS as notificações com esta mensagem
+    const resultado = await Notificacoes.deleteMany(query);
+
+    console.log(`✅ Notificações excluídas: ${resultado.deletedCount}`);
+
+    res.json({
+      success: true,
+      message: `Mensagem excluída com sucesso de ${resultado.deletedCount} disciplina(s)`,
+      excluidas: resultado.deletedCount,
+    });
+  } catch (error) {
+    console.error("❌ Erro ao excluir notificação:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao excluir notificação",
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;

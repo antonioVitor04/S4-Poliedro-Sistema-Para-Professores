@@ -190,4 +190,126 @@ class MensagensProfessorService {
     }
     return null;
   }
+
+  // services/mensagens_prof_service.dart - Adicione estas funções:
+
+  static Future<void> editarMensagem({
+    required String mensagemId,
+    required String novaMensagem,
+  }) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) throw Exception('Token não disponível');
+
+      print('=== ✏️ EDITANDO MENSAGEM ===');
+      print('🔗 URL: $baseUrl/api/notificacoes/$mensagemId');
+      print('📝 Nova mensagem: $novaMensagem');
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/api/notificacoes/$mensagemId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'mensagem': novaMensagem}),
+      );
+
+      print('📡 Status: ${response.statusCode}');
+      print('📦 Response: ${response.body}');
+
+      if (response.statusCode == 200) {
+        print('✅ Mensagem editada com sucesso!');
+        return;
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(
+          'Erro ${response.statusCode}: ${errorData['message'] ?? response.body}',
+        );
+      }
+    } catch (e) {
+      print('❌ Erro ao editar mensagem: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> excluirMensagemCompleta(String mensagemId) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) throw Exception('Token não disponível');
+
+      print('=== 🗑️ EXCLUINDO MENSAGEM COMPLETA ===');
+      print('🔗 URL: $baseUrl/api/notificacoes/mensagem/$mensagemId');
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/notificacoes/mensagem/$mensagemId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      print('📡 Status: ${response.statusCode}');
+      print('📦 Response: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final excluidas = data['excluidas'] ?? 0;
+        print('✅ Mensagem excluída com sucesso de $excluidas disciplina(s)!');
+        return;
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(
+          'Erro ${response.statusCode}: ${errorData['message'] ?? response.body}',
+        );
+      }
+    } catch (e) {
+      print('❌ Erro ao excluir mensagem completa: $e');
+      rethrow;
+    }
+  }
+
+  // Excluir múltiplas mensagens completas
+  static Future<void> excluirMultiplasMensagensCompletas(
+    List<String> mensagensIds,
+  ) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) throw Exception('Token não disponível');
+
+      print('=== 🗑️ EXCLUINDO MÚLTIPLAS MENSAGENS COMPLETAS ===');
+      print('🔗 URL: $baseUrl/api/notificacoes');
+      print('🎯 IDs: $mensagensIds');
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/notificacoes'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'ids': mensagensIds}),
+      );
+
+      print('📡 Status: ${response.statusCode}');
+      print('📦 Response: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final excluidas = data['excluidas'] ?? 0;
+        final mensagensExcluidas =
+            data['mensagensExcluidas'] ?? mensagensIds.length;
+        print(
+          '✅ $mensagensExcluidas mensagem(ns) excluída(s) de $excluidas disciplina(s)!',
+        );
+        return;
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(
+          'Erro ${response.statusCode}: ${errorData['message'] ?? response.body}',
+        );
+      }
+    } catch (e) {
+      print('❌ Erro ao excluir múltiplas mensagens: $e');
+      rethrow;
+    }
+  }
 }
