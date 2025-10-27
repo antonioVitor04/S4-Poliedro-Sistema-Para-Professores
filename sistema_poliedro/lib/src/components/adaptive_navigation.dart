@@ -28,35 +28,32 @@ class _AdaptiveNavigationState extends State<AdaptiveNavigation> {
   Widget build(BuildContext context) {
     if (!widget.isWeb) {
       // Filtra itens para mobile, excluindo o perfil
-      List<NavigationItem> filteredItems = widget.items
-          .where((item) => item.route != '/perfil')
-          .toList();
+      List<NavigationItem> filteredItems =
+          widget.items.where((item) => item.route != '/perfil').toList();
 
       // Calcula o índice atual apenas entre os itens filtrados
-      int currentIndex = filteredItems.indexWhere(
-        (i) => i.route == widget.currentRoute,
-      );
+      int currentIndex =
+          filteredItems.indexWhere((i) => i.route == widget.currentRoute);
 
       return BottomNavigationBar(
-        currentIndex: currentIndex == -1
-            ? 0
-            : currentIndex, // Default para 0 se não encontrar
+        currentIndex: currentIndex == -1 ? 0 : currentIndex,
         onTap: (index) => widget.onTap?.call(filteredItems[index].route),
         backgroundColor: AppColors.azulEscuro,
         selectedItemColor: AppColors.preto,
         unselectedItemColor: AppColors.branco,
         type: BottomNavigationBarType.fixed,
-        items: filteredItems
-            .map(
-              (item) => BottomNavigationBarItem(
-                icon: Icon(item.icon),
-                label: item.label,
-              ),
-            )
-            .toList(),
+        items: filteredItems.map((item) {
+          return BottomNavigationBarItem(
+            icon: item.iconWidget ?? Icon(item.icon),
+            // quando selecionado, se tiver activeIconWidget usa ele
+            activeIcon: item.activeIconWidget ?? Icon(item.icon),
+            label: item.label,
+          );
+        }).toList(),
       );
     }
 
+    // WEB (sidebar)
     return Container(
       width: 110,
       color: AppColors.azulEscuro,
@@ -85,7 +82,7 @@ class _AdaptiveNavigationState extends State<AdaptiveNavigation> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          // Fundo animado - alterado para branco no selecionado
+                          // Fundo animado - branco quando selecionado
                           Positioned.fill(
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 250),
@@ -94,8 +91,8 @@ class _AdaptiveNavigationState extends State<AdaptiveNavigation> {
                                 color: selected
                                     ? Colors.white
                                     : (_hoveredItem == item.route
-                                          ? Colors.white.withOpacity(0.1)
-                                          : Colors.transparent),
+                                        ? Colors.white.withOpacity(0.1)
+                                        : Colors.transparent),
                               ),
                             ),
                           ),
@@ -103,13 +100,22 @@ class _AdaptiveNavigationState extends State<AdaptiveNavigation> {
                           Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                item.icon,
-                                size: 32,
-                                color: selected
-                                    ? AppColors.preto
-                                    : AppColors.branco,
-                              ),
+                              // se houver widget customizado, usamos:
+                              if (item.iconWidget != null ||
+                                  item.activeIconWidget != null)
+                                (selected
+                                        ? (item.activeIconWidget ??
+                                            item.iconWidget!)
+                                        : (item.iconWidget ??
+                                            item.activeIconWidget!))
+                              else
+                                Icon(
+                                  item.icon,
+                                  size: 32,
+                                  color: selected
+                                      ? AppColors.preto
+                                      : AppColors.branco,
+                                ),
                               const SizedBox(height: 6),
                               Text(
                                 item.label,
@@ -142,9 +148,15 @@ class NavigationItem {
   final IconData icon;
   final String route;
 
+  // NOVO: widgets opcionais para ícone normal e selecionado
+  final Widget? iconWidget;
+  final Widget? activeIconWidget;
+
   NavigationItem({
     required this.label,
     required this.icon,
     required this.route,
+    this.iconWidget,
+    this.activeIconWidget,
   });
 }

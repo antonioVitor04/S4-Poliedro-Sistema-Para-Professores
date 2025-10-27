@@ -2,12 +2,21 @@ import 'package:flutter/material.dart';
 
 // Modelo para representar uma mensagem
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:sistema_poliedro/src/styles/cores.dart';
 import '../../services/notificacoes_service.dart';
 import '../../services/auth_service.dart';
+
+/// ====== NOVO: contador global reativo para a Navbar exibir o badge ======
+/// Em sua Navbar, use:
+/// ValueListenableBuilder<int>(
+///   valueListenable: notificationsUnreadCount,
+///   builder: (_, count, __) => IconWithBadge(count: count),
+/// )
+final ValueNotifier<int> notificationsUnreadCount = ValueNotifier<int>(0);
 
 class Mensagem {
   final String id;
@@ -413,10 +422,21 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  // ====== NOVO: para comparar e disparar popup quando chegarem novas ======
+  int _lastUnread = 0;
+  OverlayEntry? _overlayEntry;
+
   @override
   void initState() {
     super.initState();
+    _lastUnread = notificationsUnreadCount.value;
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _removeOverlay();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -461,10 +481,22 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
           : null;
 
       final notificacoes = await ApiService.fetchNotificacoes(disciplinaId);
+
+      // ====== NOVO: calcula não lidas, atualiza global e dispara popup se aumentou
+      final int newUnread = notificacoes.where((m) => m.isUnread).length;
+
       setState(() {
         _todasMensagens = notificacoes;
         _isLoading = false;
       });
+
+      if (newUnread > notificationsUnreadCount.value) {
+        _showNewNotificationPopup(newUnread);
+        // SnackBar removido
+      }
+
+      notificationsUnreadCount.value = newUnread;
+      _lastUnread = newUnread;
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -478,7 +510,13 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
       await ApiService.markAsRead(mensagem.id);
       setState(() {
         _mensagemSelecionada = mensagem;
-        mensagem.isUnread = false;
+        if (mensagem.isUnread) {
+          mensagem.isUnread = false;
+          // ====== NOVO: decrementa contador global
+          notificationsUnreadCount.value =
+              (notificationsUnreadCount.value - 1).clamp(0, 999);
+          _lastUnread = notificationsUnreadCount.value;
+        }
       });
     } catch (e) {
       setState(() {
@@ -505,6 +543,75 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
       mensagem.isSelected = selecionado ?? false;
     });
   }
+
+  // ====== Popup leve (Overlay) no canto superior direito ======
+  void _showNewNotificationPopup(int unread) {
+    _removeOverlay();
+
+    final overlay = Overlay.of(context);
+    if (overlay == null) return;
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) {
+        final media = MediaQuery.of(context);
+        final padding = media.padding;
+        return Positioned(
+          right: 16,
+          top: padding.top + 12,
+          child: Material(
+            color: Colors.transparent,
+            child: AnimatedOpacity(
+              opacity: 1,
+              duration: const Duration(milliseconds: 150),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    )
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.notifications_active_rounded, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Text(
+                      unread == 1
+                          ? '1 nova notificação'
+                          : '$unread novas notificações',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    overlay.insert(_overlayEntry!);
+
+    // some depois de 1.8s
+    Future.delayed(const Duration(milliseconds: 1800), _removeOverlay);
+  }
+
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  // SnackBar removido 👇
+  // void _showSnack(String msg) { ... }
 
   List<Mensagem> get _mensagensFiltradas {
     return _todasMensagens.where((mensagem) {
@@ -827,49 +934,49 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                     ),
                   )
                 : _errorMessage != null
-                ? Container(
-                    color: Colors.white,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline_rounded,
-                            size: 64,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Erro ao carregar notificações',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 32),
-                            child: Text(
-                              _errorMessage!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade500,
+                    ? Container(
+                        color: Colors.white,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline_rounded,
+                                size: 64,
+                                color: Colors.grey.shade400,
                               ),
-                            ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Erro ao carregar notificações',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 32),
+                                child: Text(
+                                  _errorMessage!,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _loadData,
+                                child: const Text('Tentar novamente'),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: _loadData,
-                            child: const Text('Tentar novamente'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : isWideScreen
-                ? _buildWideScreenLayout(context)
-                : _buildNarrowScreenLayout(context),
+                        ),
+                      )
+                    : isWideScreen
+                        ? _buildWideScreenLayout(context)
+                        : _buildNarrowScreenLayout(context),
           ),
         ],
       ),
