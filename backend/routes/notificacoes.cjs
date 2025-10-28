@@ -60,7 +60,7 @@ router.post("/criar", auth(), async (req, res) => {
   }
 });
 
-// Listar notificações por disciplina (com verificação de matrícula)
+// Listar notificações por disciplina
 router.get("/disciplina/:disciplinaId", auth(), async (req, res) => {
   try {
     const { disciplinaId } = req.params;
@@ -74,25 +74,96 @@ router.get("/disciplina/:disciplinaId", auth(), async (req, res) => {
     });
 
     if (!disciplina) {
-      console.log("❌ Disciplina não encontrada ou aluno não matriculado");
+      console.log(" Disciplina não encontrada ou aluno não matriculado");
       return res.status(404).json({
         success: false,
         message: "Disciplina não encontrada ou você não está matriculado",
       });
     }
 
-    // Buscar notificações SEM populate por enquanto
-    const notificacoes = await Notificacoes.find({ disciplina: disciplinaId })
-      // .populate("professor", "nome") // ⚠️ REMOVIDO TEMPORARIAMENTE
-      .sort({ dataCriacao: -1 });
+    // Buscar notificações e fazer populate MANUAL para a estrutura complexa
+    const notificacoes = await Notificacoes.find({
+      disciplina: disciplinaId,
+    }).sort({ dataCriacao: -1 });
+
+    // Populate manual para acessar a estrutura complexa da imagem
+    const notificacoesPopuladas = await Promise.all(
+      notificacoes.map(async (notificacao) => {
+        const notifObj = notificacao.toObject();
+
+        try {
+          // Popular professor com a estrutura complexa de imagem
+          const professor = await Professor.findById(
+            notificacao.professor
+          ).select("nome imagem");
+
+          if (professor) {
+            notifObj.professor = {
+              _id: professor._id,
+              nome: professor.nome,
+              // Montar a string Base64 corretamente
+              foto:
+                professor.imagem && professor.imagem.data
+                  ? `data:${professor.imagem.contentType};base64,${professor.imagem.data}`
+                  : "",
+            };
+          } else {
+            notifObj.professor = {
+              nome: "Professor",
+              foto: "",
+            };
+          }
+        } catch (error) {
+          console.error("Erro ao popular professor:", error);
+          notifObj.professor = {
+            nome: "Professor",
+            foto: "",
+          };
+        }
+
+
+        try {
+          // Popular disciplina
+          const disciplina = await Disciplina.findById(
+            notificacao.disciplina
+          ).select("titulo nome");
+
+          if (disciplina) {
+            notifObj.disciplina = {
+              _id: disciplina._id,
+              titulo: disciplina.titulo,
+              nome: disciplina.nome,
+            };
+          } else {
+            notifObj.disciplina = {
+              titulo: "Disciplina",
+              nome: "Disciplina",
+            };
+          }
+        } catch (error) {
+          console.error("Erro ao popular disciplina:", error);
+          notifObj.disciplina = {
+            titulo: "Disciplina",
+            nome: "Disciplina",
+          };
+        }
+
+        return notifObj;
+      })
+    );
+
+    console.log(
+      "✅ Notificações encontradas para disciplina:",
+      notificacoesPopuladas.length
+    );
 
 
     res.json({
       success: true,
-      notificacoes,
+      notificacoes: notificacoesPopuladas,
     });
   } catch (error) {
-    console.error("❌ Erro ao listar notificações:", error);
+    console.error(" Erro ao listar notificações:", error);
     res.status(500).json({
       success: false,
       message: "Erro ao listar notificações",
@@ -100,48 +171,100 @@ router.get("/disciplina/:disciplinaId", auth(), async (req, res) => {
     });
   }
 });
-// Listar notificações do aluno - SEM POPULATE TEMPORARIAMENTE
+// Listar notificações do aluno
 router.get("/todas", auth(), async (req, res) => {
   try {
-    console.log("🔍 Buscando notificações para aluno:", req.user.id);
-
-    // Buscar disciplinas onde o aluno está matriculado
     const disciplinasAluno = await Disciplina.find({
       alunos: req.user.id,
     }).select("_id");
 
-    const disciplinasIds = disciplinasAluno.map((disciplina) => disciplina._id);
-
-    console.log("📚 Disciplinas do aluno:", disciplinasIds);
+    const disciplinasIds = disciplinasAluno.map((d) => d._id);
 
     if (disciplinasIds.length === 0) {
       return res.json({
         success: true,
         notificacoes: [],
-        message: "Aluno não está matriculado em nenhuma disciplina",
       });
     }
 
-    // Buscar notificações SEM populate por enquanto
+    // Populate manual para acessar a estrutura complexa da imagem
     const notificacoes = await Notificacoes.find({
       disciplina: { $in: disciplinasIds },
-    })
-      // .populate("professor", "nome") // ⚠️ COMENTADO TEMPORARIAMENTE
-      // .populate("disciplina", "nome") // ⚠️ COMENTADO TEMPORARIAMENTE
-      .sort({ dataCriacao: -1 });
+    }).sort({ dataCriacao: -1 });
 
-    console.log("✅ Notificações encontradas:", notificacoes.length);
+    const notificacoesPopuladas = await Promise.all(
+      notificacoes.map(async (notificacao) => {
+        const notifObj = notificacao.toObject();
+
+        try {
+          // Popular professor com a estrutura complexa de imagem
+          const professor = await Professor.findById(
+            notificacao.professor
+          ).select("nome imagem");
+
+          if (professor) {
+            notifObj.professor = {
+              _id: professor._id,
+              nome: professor.nome,
+              // Montar a string Base64 corretamente
+              foto:
+                professor.imagem && professor.imagem.data
+                  ? `data:${professor.imagem.contentType};base64,${professor.imagem.data}`
+                  : "",
+            };
+          } else {
+            notifObj.professor = {
+              nome: "Professor",
+              foto: "",
+            };
+          }
+        } catch (error) {
+          console.error("Erro ao popular professor:", error);
+          notifObj.professor = {
+            nome: "Professor",
+            foto: "",
+          };
+        }
+
+        try {
+          // Popular disciplina
+          const disciplina = await Disciplina.findById(
+            notificacao.disciplina
+          ).select("titulo nome");
+
+          if (disciplina) {
+            notifObj.disciplina = {
+              _id: disciplina._id,
+              titulo: disciplina.titulo,
+              nome: disciplina.nome,
+            };
+          } else {
+            notifObj.disciplina = {
+              titulo: "Disciplina",
+              nome: "Disciplina",
+            };
+          }
+        } catch (error) {
+          console.error("Erro ao popular disciplina:", error);
+          notifObj.disciplina = {
+            titulo: "Disciplina",
+            nome: "Disciplina",
+          };
+        }
+
+        return notifObj;
+      })
+    );
 
     res.json({
       success: true,
-      notificacoes,
+      notificacoes: notificacoesPopuladas,
     });
   } catch (error) {
-    console.error("❌ Erro ao listar notificações do aluno:", error);
+    console.error("Erro:", error);
     res.status(500).json({
       success: false,
-      message: "Erro ao listar notificações",
-      error: error.message,
+      message: "Erro interno",
     });
   }
 });
@@ -155,7 +278,7 @@ router.get("/disciplinas-aluno", auth(), async (req, res) => {
       "titulo _id slug"
     );
 
-    console.log("📚 Disciplinas do aluno:", disciplinas.length);
+    console.log(" Disciplinas do aluno:", disciplinas.length);
 
     res.json({
       success: true,
