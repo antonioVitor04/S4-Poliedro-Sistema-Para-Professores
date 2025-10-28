@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:open_file/open_file.dart';
 import 'package:universal_html/html.dart' as html;
-import '../../../services/permission_service.dart'; 
+import '../../../services/permission_service.dart';
 import '../../../services/material_service.dart';
 import '../../../models/modelo_card_disciplina.dart';
 import '../../../styles/cores.dart';
@@ -44,15 +44,14 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     );
 
     if (widget.material.hasArquivo) {
-      _fileBytesFuture =
-          MaterialService.getFileBytes(
-            slug: widget.slug,
-            topicoId: widget.topicoId,
-            materialId: widget.material.id,
-          ).catchError((error) {
-            print('=== DEBUG ERROR in getFileBytes: $error ===');
-            return Future.value(null);
-          });
+      _fileBytesFuture = MaterialService.getFileBytes(
+        slug: widget.slug,
+        topicoId: widget.topicoId,
+        materialId: widget.material.id,
+      ).catchError((error) {
+        print('=== DEBUG ERROR in getFileBytes: $error ===');
+        return Future.value(null);
+      });
     } else {
       _fileBytesFuture = Future.value(null);
     }
@@ -816,10 +815,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                           children: [
                             Icon(
                               Icons.access_time,
-                              color:
-                                  widget.material.prazo!.isBefore(
-                                    DateTime.now(),
-                                  )
+                              color: widget.material.prazo!.isBefore(
+                                      DateTime.now(),
+                                    )
                                   ? AppColors.vermelhoErro
                                   : AppColors.vermelho,
                               size: isMobile ? 16 : 18,
@@ -831,10 +829,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                                     ? 'Prazo Expirado: ${_formatarData(widget.material.prazo!)}'
                                     : 'Prazo: ${_formatarData(widget.material.prazo!)}',
                                 style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                  color:
-                                      widget.material.prazo!.isBefore(
-                                        DateTime.now(),
-                                      )
+                                  color: widget.material.prazo!.isBefore(
+                                          DateTime.now(),
+                                        )
                                       ? AppColors.vermelhoErro
                                       : AppColors.vermelho,
                                   fontWeight: FontWeight.bold,
@@ -889,89 +886,77 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                 ),
               ),
               SizedBox(height: isMobile ? 12 : 16),
+
+              // ========== NOVO LAYOUT COM COMENTÁRIOS ==========
               Expanded(
-                child: FutureBuilder<Uint8List?>(
-                  future: _fileBytesFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                AppColors.azulClaro,
-                              ),
+                child: LayoutBuilder(
+                  builder: (context, cts) {
+                    final isWide = cts.maxWidth >= 960;
+                    if (!isWide) {
+                      // Empilha
+                      return Column(
+                        children: [
+                          Expanded(
+                            flex: 6,
+                            child: FutureBuilder<Uint8List?>(
+                              future: _fileBytesFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return _loadingCenter(isMobile);
+                                }
+                                if (snapshot.hasError) {
+                                  return _errorCenter(snapshot, isMobile);
+                                }
+                                final bytes = snapshot.data;
+                                return _buildConteudoMaterial(context, bytes);
+                              },
                             ),
-                            SizedBox(height: isMobile ? 12 : 16),
-                            Text(
-                              'Carregando material...',
-                              style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                fontSize: isMobile ? 14 : 16,
-                                color: AppColors.azulClaro,
-                              ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 420,
+                            child: CommentsPanel(
+                              entityId: widget.material.id,
+                              title: 'Comentários',
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       );
                     }
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.error,
-                              size: isMobile ? 48 : 64,
-                              color: AppColors.vermelhoErro,
-                            ),
-                            SizedBox(height: isMobile ? 12 : 16),
-                            Text(
-                              'Erro ao carregar arquivo',
-                              style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                fontSize: isMobile ? 16 : 18,
-                                color: AppColors.vermelhoErro,
-                              ),
-                            ),
-                            SizedBox(height: isMobile ? 8 : 12),
-                            Text(
-                              '${snapshot.error}',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: isMobile ? 12 : 14,
-                              ),
-                            ),
-                            SizedBox(height: isMobile ? 16 : 20),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.azulClaro,
-                                foregroundColor: AppColors.branco,
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isMobile ? 16 : 20,
-                                  vertical: isMobile ? 12 : 16,
-                                ),
-                              ),
-                              onPressed: () => setState(() {
-                                _fileBytesFuture = MaterialService.getFileBytes(
-                                  slug: widget.slug,
-                                  topicoId: widget.topicoId,
-                                  materialId: widget.material.id,
-                                );
-                              }),
-                              child: Text(
-                                'Tentar Novamente',
-                                style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                  fontSize: isMobile ? 14 : 16,
-                                ),
-                              ),
-                            ),
-                          ],
+
+                    // Duas colunas
+                    return Row(
+                      children: [
+                        // PDF / Material
+                        Expanded(
+                          flex: 7,
+                          child: FutureBuilder<Uint8List?>(
+                            future: _fileBytesFuture,
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return _loadingCenter(isMobile);
+                              }
+                              if (snapshot.hasError) {
+                                return _errorCenter(snapshot, isMobile);
+                              }
+                              final bytes = snapshot.data;
+                              return _buildConteudoMaterial(context, bytes);
+                            },
+                          ),
                         ),
-                      );
-                    }
-                    final bytes = snapshot.data;
-                    return _buildConteudoMaterial(context, bytes);
+                        const SizedBox(width: 16),
+                        // Comments à direita
+                        SizedBox(
+                          width: 360,
+                          child: CommentsPanel(
+                            entityId: widget.material.id,
+                            title: 'Comentários',
+                          ),
+                        ),
+                      ],
+                    );
                   },
                 ),
               ),
@@ -1013,6 +998,76 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         ),
       );
     }
+  }
+
+  Widget _loadingCenter(bool isMobile) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.azulClaro),
+          ),
+          SizedBox(height: isMobile ? 12 : 16),
+          Text(
+            'Carregando material...',
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              fontSize: isMobile ? 14 : 16,
+              color: AppColors.azulClaro,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _errorCenter(AsyncSnapshot snapshot, bool isMobile) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error, size: isMobile ? 48 : 64, color: AppColors.vermelhoErro),
+          SizedBox(height: isMobile ? 12 : 16),
+          Text(
+            'Erro ao carregar arquivo',
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              fontSize: isMobile ? 16 : 18,
+              color: AppColors.vermelhoErro,
+            ),
+          ),
+          SizedBox(height: isMobile ? 8 : 12),
+          Text(
+            '${snapshot.error}',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey, fontSize: isMobile ? 12 : 14),
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.azulClaro,
+              foregroundColor: AppColors.branco,
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 16 : 20,
+                vertical: isMobile ? 12 : 16,
+              ),
+            ),
+            onPressed: () => setState(() {
+              _fileBytesFuture = MaterialService.getFileBytes(
+                slug: widget.slug,
+                topicoId: widget.topicoId,
+                materialId: widget.material.id,
+              );
+            }),
+            child: Text(
+              'Tentar Novamente',
+              style: AppTextStyles.fonteUbuntuSans.copyWith(
+                fontSize: isMobile ? 14 : 16,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatarData(DateTime data) {
@@ -1437,7 +1492,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     final isMobile = MediaQuery.of(context).size.width < 600;
     bool isPastDue =
         widget.material.prazo != null &&
-        widget.material.prazo!.isBefore(DateTime.now());
+            widget.material.prazo!.isBefore(DateTime.now());
 
     return Container(
       decoration: BoxDecoration(
@@ -1634,6 +1689,431 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ===================================================================
+// ==================== COMMENTS PANEL (FRONT MOCK) ===================
+class CommentsPanel extends StatefulWidget {
+  final String entityId; // id do material
+  final String title;
+
+  const CommentsPanel({
+    super.key,
+    required this.entityId,
+    this.title = 'Comentários',
+  });
+
+  @override
+  State<CommentsPanel> createState() => _CommentsPanelState();
+}
+
+class _CommentsPanelState extends State<CommentsPanel> {
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _listController = ScrollController();
+  final ValueNotifier<bool> _isSending = ValueNotifier(false);
+
+  // Mock local — substitua por chamadas reais depois
+  List<_Comment> _comments = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchComments();
+  }
+
+  Future<void> fetchComments() async {
+    setState(() => _loading = true);
+    // Simula chamada à API
+    await Future.delayed(const Duration(milliseconds: 500));
+    _comments = [
+      _Comment(
+        id: 'c1',
+        author: 'Instrutor',
+        message: 'Bem-vindos à discussão desta matéria!',
+        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+        reactions: {'👍': 2, '👏': 1},
+      ),
+      _Comment(
+        id: 'c2',
+        author: 'Você',
+        message: 'Dúvida: haverá lista de exercícios?',
+        createdAt: DateTime.now().subtract(const Duration(minutes: 45)),
+        reactions: {'👍': 1},
+      ),
+    ];
+    setState(() => _loading = false);
+    _jumpToEnd();
+  }
+
+  Future<void> postComment(String text) async {
+    _isSending.value = true;
+    await Future.delayed(const Duration(milliseconds: 300)); // mock
+    final newComment = _Comment(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      author: 'Você',
+      message: text.trim(),
+      createdAt: DateTime.now(),
+      reactions: {},
+    );
+    setState(() => _comments.add(newComment));
+    _controller.clear();
+    _isSending.value = false;
+    _jumpToEnd();
+  }
+
+  Future<void> toggleReaction(String commentId, String emoji) async {
+    setState(() {
+      final c = _comments.firstWhere((e) => e.id == commentId);
+      final current = c.reactions[emoji] ?? 0;
+      // simples: alterna +1 / 0
+      c.reactions[emoji] = current == 0 ? 1 : 0;
+      if (c.reactions[emoji] == 0) c.reactions.remove(emoji);
+    });
+  }
+
+  void _jumpToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_listController.hasClients) {
+        _listController.animateTo(
+          _listController.position.maxScrollExtent + 80,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          // Header - CORRIGIDO: fundo branco
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            color: AppColors.branco, // CORREÇÃO: Fundo branco
+            child: Row(
+              children: [
+                const Icon(Icons.chat_bubble_outline, size: 18, color: Colors.grey),
+                const SizedBox(width: 8),
+                Text(
+                  widget.title,
+                  style: AppTextStyles.fonteUbuntu.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87, // CORREÇÃO: Texto preto
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Recarregar',
+                  onPressed: _loading ? null : fetchComments,
+                  icon: const Icon(Icons.refresh, size: 18, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+
+          // Lista - CORRIGIDO: fundo branco
+          Expanded(
+            child: Container(
+              color: AppColors.branco, // CORREÇÃO: Fundo branco
+              child: _loading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(AppColors.azulClaro),
+                      ),
+                    )
+                  : _comments.isEmpty
+                      ? _EmptyComments()
+                      : ListView.builder(
+                          controller: _listController,
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          itemCount: _comments.length,
+                          itemBuilder: (context, i) {
+                            final c = _comments[i];
+                            return _CommentBubble(
+                              comment: c,
+                              onReact: (emoji) => toggleReaction(c.id, emoji),
+                            );
+                          },
+                        ),
+            ),
+          ),
+
+          // Composer - CORRIGIDO: fundo branco
+          Container(
+            color: AppColors.branco, // CORREÇÃO: Fundo branco
+            child: Column(
+              children: [
+                const Divider(height: 1, color: Colors.grey),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          minLines: 1,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            hintText: 'Enviar um comentário',
+                            isDense: true,
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: AppColors.azulClaro),
+                            ),
+                          ),
+                          onSubmitted: (_) => _trySend(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: _isSending,
+                        builder: (_, sending, __) => ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.azulClaro,
+                            foregroundColor: AppColors.branco,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          ),
+                          onPressed: sending ? null : _trySend,
+                          child: sending
+                              ? const SizedBox(
+                                  height: 16,
+                                  width: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Text('Enviar comentário',
+                                  style: AppTextStyles.fonteUbuntuSans),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _trySend() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    postComment(text);
+  }
+}
+
+class _EmptyComments extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.branco, // CORREÇÃO: Fundo branco
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.forum_outlined, size: 48, color: Colors.grey),
+              const SizedBox(height: 8),
+              Text(
+                'É aqui que você pode deixar um comentário\n'
+                'e ver o feedback do seu instrutor.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.fonteUbuntuSans.copyWith(color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Comment {
+  final String id;
+  final String author;
+  final String message;
+  final DateTime createdAt;
+  final Map<String, int> reactions;
+
+  _Comment({
+    required this.id,
+    required this.author,
+    required this.message,
+    required this.createdAt,
+    required this.reactions,
+  });
+}
+
+class _CommentBubble extends StatelessWidget {
+  final _Comment comment;
+  final void Function(String emoji) onReact;
+
+  const _CommentBubble({
+    required this.comment,
+    required this.onReact,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = comment.author.isNotEmpty
+        ? comment.author.trim().split(' ').map((e) => e[0]).take(2).join()
+        : '?';
+    return Container(
+      color: AppColors.branco, // CORREÇÃO: Fundo branco
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.grey[200], // CORREÇÃO: Cinza claro
+              child: Text(
+                initials.toUpperCase(),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50], // CORREÇÃO: Cinza muito claro
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // header
+                    Row(
+                      children: [
+                        Text(
+                          comment.author,
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.black87, // CORREÇÃO: Texto preto
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _formatTimestamp(comment.createdAt),
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            color: Colors.grey[600],
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // mensagem
+                    Text(
+                      comment.message,
+                      style: AppTextStyles.fonteUbuntuSans.copyWith(
+                        fontSize: 14,
+                        color: Colors.black87, // CORREÇÃO: Texto preto
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // reações
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final emoji in const ['👍', '👏', '😊'])
+                          _ReactionChip(
+                            emoji: emoji,
+                            count: comment.reactions[emoji] ?? 0,
+                            onTap: () => onReact(emoji),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatTimestamp(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 1) return 'agora';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min';
+    if (diff.inHours < 24) return '${diff.inHours} h';
+    return '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _ReactionChip extends StatelessWidget {
+  final String emoji;
+  final int count;
+  final VoidCallback onTap;
+
+  const _ReactionChip({
+    required this.emoji,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = count > 0;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.blue[50] : Colors.grey[100], // CORREÇÃO: Cores neutras
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isActive ? AppColors.azulClaro : Colors.grey[300]!,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 14)),
+            if (count > 0) ...[
+              const SizedBox(width: 4),
+              Text(
+                '$count',
+                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                  fontSize: 12,
+                  color: Colors.black87, // CORREÇÃO: Texto preto
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
