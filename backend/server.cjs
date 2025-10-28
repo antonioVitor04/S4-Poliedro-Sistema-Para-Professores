@@ -69,7 +69,9 @@ app.post("/api/criar-admin-temp", async (req, res) => {
         senhaTestada: testMatch,
       });
     }
-
+    // Rota de Comentarios
+    const comentariosRoutes = require("./routes/comentarios.gs");
+    app.use("/api/comentarios", comentariosRoutes);
     // Criar novo admin
     console.log("🆕 Criando novo admin...");
     const senhaHash = await bcrypt.hash("Admin123!", 10);

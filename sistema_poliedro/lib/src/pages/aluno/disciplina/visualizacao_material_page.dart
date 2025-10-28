@@ -13,6 +13,8 @@ import '../../../services/material_service.dart';
 import '../../../models/modelo_card_disciplina.dart';
 import '../../../styles/cores.dart';
 import '../../../styles/fontes.dart';
+import '../../../services/comentario_service.dart';
+import '../../../models/modelo_comentario.dart';
 
 class VisualizacaoMaterialPage extends StatefulWidget {
   final MaterialDisciplina material;
@@ -953,7 +955,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                           SizedBox(
                             height: 420,
                             child: CommentsPanel(
-                              entityId: widget.material.id,
+                              materialId: widget.material.id,
+                              topicoId: widget.topicoId,
+                              disciplinaId: widget.slug,
                               title: 'Comentários',
                               controller:
                                   _chatController, // <- controller plugado
@@ -1012,7 +1016,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         SizedBox(
                           width: 360,
                           child: CommentsPanel(
-                            entityId: widget.material.id,
+                            materialId: widget.material.id,
+                            topicoId: widget.topicoId,
+                            disciplinaId: widget.slug,
                             title: 'Comentários',
                             controller: _chatController,
                           ),
@@ -1731,17 +1737,22 @@ class CommentsController {
 }
 
 /// =======================
-/// COMMENTS PANEL (UI do chat)
+/// COMMENTS PANEL WIDGET
 /// =======================
+
 class CommentsPanel extends StatefulWidget {
-  final String entityId; // id do material/discussão
+  final String materialId;
+  final String topicoId;
+  final String disciplinaId;
   final String title;
   final CommentsController? controller;
   final bool showHeaderBadge;
 
   const CommentsPanel({
     super.key,
-    required this.entityId,
+    required this.materialId,
+    required this.topicoId,
+    required this.disciplinaId,
     this.title = 'Comentários',
     this.controller,
     this.showHeaderBadge = true,
@@ -1756,7 +1767,7 @@ class _CommentsPanelState extends State<CommentsPanel> {
   final ScrollController _listController = ScrollController();
   final ValueNotifier<bool> _isSending = ValueNotifier(false);
 
-  List<_Comment> _comments = [];
+  List<Comentario> _comments = [];
   bool _loading = true;
 
   @override
@@ -1764,7 +1775,7 @@ class _CommentsPanelState extends State<CommentsPanel> {
     super.initState();
     widget.controller?._attach(_insertIncomingFromController);
     widget.controller?.setActive(true);
-    fetchComments();
+    _fetchComments();
   }
 
   @override
@@ -1776,57 +1787,110 @@ class _CommentsPanelState extends State<CommentsPanel> {
     super.dispose();
   }
 
-  Future<void> fetchComments() async {
-    setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 400));
-    _comments = [
-      _Comment(
-        id: 'c1',
-        author: 'Instrutor',
-        message: 'Bem-vindos à discussão desta matéria!',
-        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-        reactions: {'👍': 2, '👏': 1},
-      ),
-      _Comment(
-        id: 'c2',
-        author: 'Você',
-        message: 'Dúvida: haverá lista de exercícios?',
-        createdAt: DateTime.now().subtract(const Duration(minutes: 45)),
-        reactions: {'👍': 1},
-      ),
-    ];
-    setState(() => _loading = false);
-    _jumpToEnd();
+  Future<void> _fetchComments() async {
+    try {
+      setState(() => _loading = true);
+      
+      final response = await ComentarioService.buscarComentariosPorMaterial(
+        widget.materialId,
+      );
+
+      if (response.success) {
+        setState(() {
+          _comments = response.data ?? [];
+          _loading = false;
+        });
+        _jumpToEnd();
+      } else {
+        if (response.message != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro: ${response.message}'),
+              backgroundColor: AppColors.vermelhoErro,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        setState(() => _loading = false);
+      }
+    } catch (error) {
+      print('Erro inesperado: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar comentários: $error'),
+            backgroundColor: AppColors.vermelhoErro,
+          ),
+        );
+      }
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _postComment(String text) async {
+    if (text.trim().isEmpty) return;
+    
+    try {
+      _isSending.value = true;
+      
+      final response = await ComentarioService.criarComentario(
+        materialId: widget.materialId,
+        topicoId: widget.topicoId,
+        disciplinaId: widget.disciplinaId,
+        texto: text.trim(),
+      );
+
+      if (response.success && response.data != null) {
+        setState(() => _comments.insert(0, response.data!));
+        _controllerText.clear();
+        _jumpToEnd();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Comentário enviado com sucesso!'),
+            backgroundColor: AppColors.verdeConfirmacao,
+          ),
+        );
+      } else {
+        if (response.message != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro: ${response.message}'),
+              backgroundColor: AppColors.vermelhoErro,
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      print('Erro ao enviar comentário: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao enviar comentário: $error'),
+            backgroundColor: AppColors.vermelhoErro,
+          ),
+        );
+      }
+    } finally {
+      _isSending.value = false;
+    }
   }
 
   void _insertIncomingFromController(_Comment c) {
-    setState(() => _comments.add(c));
-    _jumpToEnd();
-  }
-
-  Future<void> postComment(String text) async {
-    _isSending.value = true;
-    await Future.delayed(const Duration(milliseconds: 250)); // mock
-    final newComment = _Comment(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      author: 'Você',
-      message: text.trim(),
-      createdAt: DateTime.now(),
-      reactions: {},
+    final newComment = Comentario(
+      id: c.id,
+      materialId: widget.materialId,
+      topicoId: widget.topicoId,
+      disciplinaId: widget.disciplinaId,
+      autor: {'nome': c.author},
+      autorModel: 'Usuario',
+      texto: c.message,
+      respostas: [],
+      dataCriacao: c.createdAt,
+      editado: false,
     );
     setState(() => _comments.add(newComment));
-    _controllerText.clear();
-    _isSending.value = false;
     _jumpToEnd();
-  }
-
-  Future<void> toggleReaction(String commentId, String emoji) async {
-    setState(() {
-      final c = _comments.firstWhere((e) => e.id == commentId);
-      final current = c.reactions[emoji] ?? 0;
-      c.reactions[emoji] = current == 0 ? 1 : 0;
-      if (c.reactions[emoji] == 0) c.reactions.remove(emoji);
-    });
   }
 
   void _jumpToEnd() {
@@ -1844,8 +1908,8 @@ class _CommentsPanelState extends State<CommentsPanel> {
   void _trySend() {
     final text = _controllerText.text.trim();
     if (text.isEmpty) return;
-    postComment(text);
-    widget.controller?.markAllRead(); // usuário está ativo
+    _postComment(text);
+    widget.controller?.markAllRead();
   }
 
   @override
@@ -1862,75 +1926,51 @@ class _CommentsPanelState extends State<CommentsPanel> {
             color: AppColors.branco,
             child: Row(
               children: [
-                const Icon(
-                  Icons.chat_bubble_outline,
-                  size: 18,
-                  color: Colors.grey,
-                ),
+                const Icon(Icons.chat_bubble_outline, size: 18, color: Colors.grey),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Row(
-                    children: [
-                      Text(
-                        widget.title,
-                        style: AppTextStyles.fonteUbuntu.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      if (widget.showHeaderBadge &&
-                          widget.controller != null) ...[
-                        const SizedBox(width: 6),
-                        ValueListenableBuilder<int>(
-                          valueListenable: widget.controller!.unreadCount,
-                          builder: (_, count, __) => count <= 0
-                              ? const SizedBox()
-                              : _UnreadPill(count: count),
-                        ),
-                      ],
-                    ],
+                  child: Text(
+                    widget.title,
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
                 ),
                 IconButton(
                   tooltip: 'Recarregar',
-                  onPressed: _loading ? null : fetchComments,
+                  onPressed: _loading ? null : _fetchComments,
                   icon: const Icon(Icons.refresh, size: 18, color: Colors.grey),
                 ),
               ],
             ),
           ),
-          // Lista
+          
+          // Lista de comentários
           Expanded(
             child: Container(
               color: AppColors.branco,
               child: _loading
                   ? const Center(
                       child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.azulClaro,
-                        ),
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.azulClaro),
                       ),
                     )
                   : _comments.isEmpty
-                  ? const _EmptyComments()
-                  : ListView.builder(
-                      controller: _listController,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      itemCount: _comments.length,
-                      itemBuilder: (context, i) {
-                        final c = _comments[i];
-                        return _CommentBubble(
-                          comment: c,
-                          onReact: (emoji) => toggleReaction(c.id, emoji),
-                        );
-                      },
-                    ),
+                      ? const _EmptyComments()
+                      : ListView.builder(
+                          controller: _listController,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          itemCount: _comments.length,
+                          itemBuilder: (context, i) {
+                            final comentario = _comments[i];
+                            return _CommentBubble(comentario: comentario);
+                          },
+                        ),
             ),
           ),
-          // Composer
+
+          // Área de digitação
           Container(
             color: AppColors.branco,
             child: Column(
@@ -1946,21 +1986,16 @@ class _CommentsPanelState extends State<CommentsPanel> {
                           minLines: 1,
                           maxLines: 4,
                           decoration: InputDecoration(
-                            hintText: 'Enviar um comentário',
+                            hintText: 'Enviar um comentário...',
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                               borderSide: BorderSide(color: Colors.grey[300]!),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: AppColors.azulClaro,
-                              ),
+                              borderSide: const BorderSide(color: AppColors.azulClaro),
                             ),
                           ),
                           onSubmitted: (_) => _trySend(),
@@ -1973,24 +2008,16 @@ class _CommentsPanelState extends State<CommentsPanel> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.azulClaro,
                             foregroundColor: AppColors.branco,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           ),
                           onPressed: sending ? null : _trySend,
                           child: sending
                               ? const SizedBox(
                                   height: 16,
                                   width: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
+                                  child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : Text(
-                                  'Enviar comentário',
-                                  style: AppTextStyles.fonteUbuntuSans,
-                                ),
+                              : const Text('Enviar', style: AppTextStyles.fonteUbuntuSans),
                         ),
                       ),
                     ],
@@ -2053,16 +2080,15 @@ class _Comment {
 }
 
 class _CommentBubble extends StatelessWidget {
-  final _Comment comment;
-  final void Function(String emoji) onReact;
+  final Comentario comentario;
 
-  const _CommentBubble({required this.comment, required this.onReact});
+  const _CommentBubble({required this.comentario});
 
   @override
   Widget build(BuildContext context) {
-    final initials = comment.author.isNotEmpty
-        ? comment.author.trim().split(' ').map((e) => e[0]).take(2).join()
-        : '?';
+    final autor = comentario.autor is Map ? comentario.autor['nome'] ?? 'Usuário' : 'Usuário';
+    final initials = autor.isNotEmpty ? autor.trim().split(' ').map((e) => e[0]).take(2).join() : '?';
+
     return Container(
       color: AppColors.branco,
       child: Padding(
@@ -2094,11 +2120,10 @@ class _CommentBubble extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // header
                     Row(
                       children: [
                         Text(
-                          comment.author,
+                          autor,
                           style: AppTextStyles.fonteUbuntu.copyWith(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -2107,7 +2132,7 @@ class _CommentBubble extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _formatTimestamp(comment.createdAt),
+                          _formatTimestamp(comentario.dataCriacao),
                           style: AppTextStyles.fonteUbuntuSans.copyWith(
                             color: Colors.grey[600],
                             fontSize: 11,
@@ -2116,28 +2141,71 @@ class _CommentBubble extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    // mensagem
                     Text(
-                      comment.message,
+                      comentario.texto,
                       style: AppTextStyles.fonteUbuntuSans.copyWith(
                         fontSize: 14,
                         color: Colors.black87,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    // reações
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final emoji in const ['👍', '👏', '😊'])
-                          _ReactionChip(
-                            emoji: emoji,
-                            count: comment.reactions[emoji] ?? 0,
-                            onTap: () => onReact(emoji),
+                    // Mostrar respostas se houver
+                    if (comentario.respostas.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      ...comentario.respostas.map((resposta) {
+                        final respostaAutor = resposta.autor is Map ? resposta.autor['nome'] ?? 'Usuário' : 'Usuário';
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              CircleAvatar(
+                                radius: 12,
+                                backgroundColor: Colors.grey[300],
+                                child: Text(
+                                  respostaAutor.isNotEmpty ? respostaAutor.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase() : '?',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        respostaAutor,
+                                        style: AppTextStyles.fonteUbuntu.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        resposta.texto,
+                                        style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                          fontSize: 13,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                      ],
-                    ),
+                        );
+                      }),
+                    ],
                   ],
                 ),
               ),
