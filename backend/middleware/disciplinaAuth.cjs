@@ -15,7 +15,7 @@ const verificarAcessoDisciplina = async (req, res, next) => {
       console.log('❌ Disciplina não encontrada:', slug);
       return res.status(404).json({
         success: false,
-        error: "Disciplina não encontrada",
+        message: "Disciplina não encontrada",
       });
     }
 
@@ -46,14 +46,14 @@ const verificarAcessoDisciplina = async (req, res, next) => {
     console.log('❌ Acesso negado: Usuário não está na disciplina');
     return res.status(403).json({
       success: false,
-      error: "Acesso negado. Você não está matriculado nesta disciplina.",
+      message: "Acesso negado. Você não está matriculado nesta disciplina.",
     });
 
   } catch (err) {
     console.error("💥 Erro no middleware de acesso:", err);
     return res.status(500).json({
       success: false,
-      error: "Erro interno do servidor ao verificar acesso",
+      message: "Erro interno do servidor ao verificar acesso",
     });
   }
 };
@@ -68,31 +68,31 @@ const verificarPermissaoNota = async (req, res, next) => {
 
     if (userRole === "admin") {
       console.log('✅ Permissão nota: ADMIN');
-      const nota = await Nota.findById(id).populate('aluno', 'nome ra').populate({ path: 'disciplina', select: 'titulo professores' });  // Fix: select para populate
+      const nota = await Nota.findById(id).populate('aluno', 'nome ra').populate({ path: 'disciplina', select: 'titulo professores' });
       if (!nota) {
-        return res.status(404).json({ success: false, error: "Nota não encontrada" });
+        return res.status(404).json({ success: false, message: "Nota não encontrada" });
       }
-      if (!nota.disciplina) {  // Fix: null check
+      if (!nota.disciplina) {
         console.log('⚠️ Populate falhou para disciplina da nota');
-        return res.status(404).json({ success: false, error: "Disciplina da nota não encontrada" });
+        return res.status(404).json({ success: false, message: "Disciplina da nota não encontrada" });
       }
       req.nota = nota;
       return next();
     }
 
     console.log('🔍 Buscando nota por ID:', id);
-    const nota = await Nota.findById(id).populate({ path: 'disciplina', select: 'titulo professores' });  // Fix: select
+    const nota = await Nota.findById(id).populate({ path: 'disciplina', select: 'titulo professores' });
     if (!nota) {
       console.log('❌ Nota não encontrada:', id);
       return res.status(404).json({
         success: false,
-        error: "Nota não encontrada",
+        message: "Nota não encontrada",
       });
     }
 
-    if (!nota.disciplina) {  // Fix: null check
+    if (!nota.disciplina) {
       console.log('⚠️ Populate falhou para disciplina da nota');
-      return res.status(404).json({ success: false, error: "Disciplina da nota não encontrada" });
+      return res.status(404).json({ success: false, message: "Disciplina da nota não encontrada" });
     }
 
     console.log('✅ Nota encontrada. Disciplina:', nota.disciplina.titulo);
@@ -110,14 +110,14 @@ const verificarPermissaoNota = async (req, res, next) => {
     console.log('❌ Permissão nota negada');
     return res.status(403).json({
       success: false,
-      error: "Apenas professores desta disciplina podem realizar esta ação.",
+      message: "Apenas professores desta disciplina podem realizar esta ação.",
     });
 
   } catch (err) {
     console.error("💥 Erro no middleware de permissão nota:", err);
     return res.status(500).json({
       success: false,
-      error: "Erro interno do servidor ao verificar permissões",
+      message: "Erro interno do servidor ao verificar permissões",
     });
   }
 };
@@ -146,7 +146,7 @@ const verificarProfessorDisciplina = async (req, res, next) => {
       }
       if (!disciplina) {
         console.log('❌ Disciplina não encontrada para admin');
-        return res.status(404).json({ success: false, error: "Disciplina não encontrada" });
+        return res.status(404).json({ success: false, message: "Disciplina não encontrada" });
       }
       req.disciplina = disciplina;
       return next();
@@ -169,7 +169,7 @@ const verificarProfessorDisciplina = async (req, res, next) => {
       console.log('❌ Disciplina não encontrada');
       return res.status(404).json({
         success: false,
-        error: "Disciplina não encontrada",
+        message: "Disciplina não encontrada",
       });
     }
 
@@ -190,14 +190,14 @@ const verificarProfessorDisciplina = async (req, res, next) => {
     console.log('❌ Permissão de edição negada');
     return res.status(403).json({
       success: false,
-      error: "Apenas professores desta disciplina podem realizar esta ação.",
+      message: "Apenas professores desta disciplina podem realizar esta ação.",
     });
 
   } catch (err) {
     console.error("💥 Erro no middleware de edição:", err);
     return res.status(500).json({
       success: false,
-      error: "Erro interno do servidor ao verificar permissões",
+      message: "Erro interno do servidor ao verificar permissões",
     });
   }
 };

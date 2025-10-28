@@ -152,7 +152,8 @@ app.use("/api/cardsDisciplinas", require("./routes/cards/disciplinas.cjs"));
 app.use("/api/cardsDisciplinas", require("./routes/disciplina/topicos.cjs"));
 app.use("/api/cardsDisciplinas", require("./routes/disciplina/materiais.cjs"));
 
-
+// Rotas de Comentários (ADICIONAR ESTA LINHA)
+app.use("/api/comentarios", require("./routes/disciplina/comentarios.cjs"));
 //rota de notificacoes
 app.use("/api/notificacoes", require("./routes/notificacoes.cjs"));
 //nova rota para notas

@@ -15,6 +15,10 @@ const comentarioSchema = new mongoose.Schema(
       ref: "CardDisciplina",
       required: true
     },
+    disciplinaSlug: {
+      type: String,
+      required: true
+    },
     autor: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
@@ -72,6 +76,7 @@ const comentarioSchema = new mongoose.Schema(
 comentarioSchema.index({ materialId: 1, dataCriacao: -1 });
 comentarioSchema.index({ topicoId: 1 });
 comentarioSchema.index({ disciplinaId: 1 });
+comentarioSchema.index({ disciplinaSlug: 1 }); // Novo índice para slug
 
 // Método para adicionar resposta
 comentarioSchema.methods.adicionarResposta = function(respostaData) {
@@ -84,6 +89,20 @@ comentarioSchema.statics.buscarPorMaterial = function(materialId, pagina = 1, li
   const skip = (pagina - 1) * limite;
   
   return this.find({ materialId })
+    .populate('autor', 'nome email')
+    .populate('respostas.autor', 'nome email')
+    .populate('disciplinaId', 'titulo slug')
+    .sort({ dataCriacao: -1 })
+    .skip(skip)
+    .limit(limite)
+    .exec();
+};
+
+// Método estático para buscar comentários por slug da disciplina
+comentarioSchema.statics.buscarPorSlugDisciplina = function(disciplinaSlug, pagina = 1, limite = 20) {
+  const skip = (pagina - 1) * limite;
+  
+  return this.find({ disciplinaSlug })
     .populate('autor', 'nome email')
     .populate('respostas.autor', 'nome email')
     .populate('disciplinaId', 'titulo slug')

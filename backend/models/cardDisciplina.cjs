@@ -122,4 +122,60 @@ cardDisciplinaSchema.pre("save", function (next) {
   next();
 });
 
+cardDisciplinaSchema.statics.verificarAcessoUsuario = async function(disciplinaId, userId, userRole) {
+  try {
+    console.log(`🔍 Verificando acesso: disciplina=${disciplinaId}, user=${userId}, role=${userRole}`);
+    
+    let disciplina;
+    
+    // Buscar por ObjectId primeiro
+    if (mongoose.Types.ObjectId.isValid(disciplinaId)) {
+      disciplina = await this.findById(disciplinaId);
+    }
+    
+    // Se não encontrou, buscar por slug
+    if (!disciplina) {
+      disciplina = await this.findOne({ slug: disciplinaId });
+    }
+    
+    if (!disciplina) {
+      console.log('❌ Disciplina não encontrada');
+      return false;
+    }
+
+    // Admin tem acesso total
+    if (userRole === 'admin') {
+      console.log('✅ Acesso permitido: ADMIN');
+      return true;
+    }
+
+    // Verificar se é professor da disciplina
+    const isProfessor = disciplina.professores.some(prof => 
+      prof.toString() === userId.toString()
+    );
+    
+    if (isProfessor) {
+      console.log('✅ Acesso permitido: PROFESSOR da disciplina');
+      return true;
+    }
+
+    // Verificar se é aluno da disciplina
+    const isAluno = disciplina.alunos.some(aluno => 
+      aluno.toString() === userId.toString()
+    );
+    
+    if (isAluno) {
+      console.log('✅ Acesso permitido: ALUNO matriculado');
+      return true;
+    }
+
+    console.log('❌ Acesso negado: usuário não tem permissão');
+    return false;
+    
+  } catch (error) {
+    console.error('💥 Erro ao verificar acesso do usuário:', error);
+    return false;
+  }
+};
+
 module.exports = mongoose.model("CardDisciplina", cardDisciplinaSchema);

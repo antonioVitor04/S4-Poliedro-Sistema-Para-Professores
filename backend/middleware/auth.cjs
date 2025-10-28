@@ -67,4 +67,37 @@ function auth(allowedRoles = []) {
   };
 }
 
+// ADIÇÃO: Função auxiliar para verificar se o usuário é admin
+auth.isAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    return next();
+  }
+  return res.status(403).json({ msg: "Acesso negado. Apenas administradores." });
+};
+
+// ADIÇÃO: Função auxiliar para verificar se o usuário é professor
+auth.isProfessor = (req, res, next) => {
+  if (req.user && (req.user.role === 'professor' || req.user.role === 'admin')) {
+    return next();
+  }
+  return res.status(403).json({ msg: "Acesso negado. Apenas professores ou administradores." });
+};
+
+// ADIÇÃO: Função auxiliar para verificar se o usuário é aluno
+auth.isAluno = (req, res, next) => {
+  if (req.user && (req.user.role === 'aluno' || req.user.role === 'professor' || req.user.role === 'admin')) {
+    return next();
+  }
+  return res.status(403).json({ msg: "Acesso negado. Apenas alunos, professores ou administradores." });
+};
+
+// ADIÇÃO: Middleware para verificar se o usuário é o próprio ou admin
+auth.isSelfOrAdmin = (req, res, next) => {
+  const userId = req.params.id || req.body.userId;
+  if (req.user && (req.user.id === userId || req.user.role === 'admin')) {
+    return next();
+  }
+  return res.status(403).json({ msg: "Acesso negado. Apenas o próprio usuário ou administrador." });
+};
+
 module.exports = auth;
