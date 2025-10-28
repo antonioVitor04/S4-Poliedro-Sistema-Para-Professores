@@ -69,7 +69,9 @@ app.post("/api/criar-admin-temp", async (req, res) => {
         senhaTestada: testMatch,
       });
     }
-
+    // Rota de Comentarios
+    const comentariosRoutes = require("./routes/comentarios.gs");
+    app.use("/api/comentarios", comentariosRoutes);
     // Criar novo admin
     console.log("🆕 Criando novo admin...");
     const senhaHash = await bcrypt.hash("Admin123!", 10);
@@ -150,7 +152,8 @@ app.use("/api/cardsDisciplinas", require("./routes/cards/disciplinas.cjs"));
 app.use("/api/cardsDisciplinas", require("./routes/disciplina/topicos.cjs"));
 app.use("/api/cardsDisciplinas", require("./routes/disciplina/materiais.cjs"));
 
-
+// Rotas de Comentários (ADICIONAR ESTA LINHA)
+app.use("/api/comentarios", require("./routes/disciplina/comentarios.cjs"));
 //rota de notificacoes
 app.use("/api/notificacoes", require("./routes/notificacoes.cjs"));
 //nova rota para notas

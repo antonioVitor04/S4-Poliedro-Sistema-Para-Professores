@@ -66,12 +66,6 @@ router.get("/disciplina/:disciplinaId", auth(), async (req, res) => {
     const { disciplinaId } = req.params;
     const userId = req.user.id;
 
-    console.log(
-      " Buscando notificações da disciplina:",
-      disciplinaId,
-      "para user:",
-      userId
-    );
 
     // Verificar se a disciplina existe E se o aluno está matriculado
     const disciplina = await Disciplina.findOne({
@@ -127,6 +121,7 @@ router.get("/disciplina/:disciplinaId", auth(), async (req, res) => {
           };
         }
 
+
         try {
           // Popular disciplina
           const disciplina = await Disciplina.findById(
@@ -161,6 +156,7 @@ router.get("/disciplina/:disciplinaId", auth(), async (req, res) => {
       "✅ Notificações encontradas para disciplina:",
       notificacoesPopuladas.length
     );
+
 
     res.json({
       success: true,
