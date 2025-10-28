@@ -1,5 +1,6 @@
 // pages/notificacoes_professor_page.dart
 import 'package:flutter/material.dart';
+import 'package:sistema_poliedro/src/components/alerta.dart';
 import 'package:sistema_poliedro/src/styles/cores.dart';
 import '../../services/mensagens_prof_service.dart';
 import '../../services/auth_service.dart';
@@ -46,6 +47,25 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
     _mensagemController.dispose();
     _editarMensagemController.dispose();
     super.dispose();
+  }
+
+  void _mostrarAlerta(String mensagem, bool sucesso) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: true,
+      builder: (context) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (Navigator.of(context, rootNavigator: true).canPop()) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
+
+        return AlertaWidget(mensagem: mensagem, sucesso: sucesso);
+      },
+    );
   }
 
   Future<void> _loadData() async {
@@ -176,7 +196,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
     final mensagemTexto = _mensagemController.text.trim();
 
     if (mensagemTexto.isEmpty) {
-      _mostrarSnackBar('Digite uma mensagem', tipo: SnackBarTipo.erro);
+      _mostrarAlerta('Digite uma mensagem', false);
       return;
     }
 
@@ -184,10 +204,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
         .where((d) => d.selecionada)
         .toList();
     if (disciplinasSelecionadas.isEmpty) {
-      _mostrarSnackBar(
-        'Selecione pelo menos uma disciplina',
-        tipo: SnackBarTipo.erro,
-      );
+      _mostrarAlerta('Selecione pelo menos uma disciplina', false);
       return;
     }
 
@@ -206,10 +223,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
         disciplina.selecionada = false;
       }
 
-      _mostrarSnackBar(
-        'Mensagem enviada com sucesso!',
-        tipo: SnackBarTipo.sucesso,
-      );
+      _mostrarAlerta('Mensagem enviada com sucesso!', true);
 
       await _carregarMensagensEnviadas();
 
@@ -220,49 +234,12 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
         curve: Curves.easeInOut,
       );
     } catch (e) {
-      _mostrarSnackBar('Erro ao enviar mensagem: $e', tipo: SnackBarTipo.erro);
+      _mostrarAlerta('Erro ao enviar mensagem: $e', false);
     } finally {
       setState(() {
         _enviandoMensagem = false;
       });
     }
-  }
-
-  void _mostrarSnackBar(String mensagem, {required SnackBarTipo tipo}) {
-    final backgroundColor = tipo == SnackBarTipo.sucesso
-        ? Colors.green.shade600
-        : tipo == SnackBarTipo.erro
-        ? Colors.red.shade600
-        : Colors.blue.shade600;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              tipo == SnackBarTipo.sucesso
-                  ? Icons.check_circle
-                  : tipo == SnackBarTipo.erro
-                  ? Icons.error
-                  : Icons.info,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                mensagem,
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: backgroundColor,
-        duration: const Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
   }
 
   void _toggleDisciplina(int index) {
@@ -477,8 +454,6 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
     );
   }
 
-  // CORREÇÃO: Widget de seleção de disciplinas com tamanho fixo
-  // CORREÇÃO: Widget de seleção de disciplinas com botão "Ver todas" funcionando
   Widget _buildSelecaoDisciplinas() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -511,99 +486,102 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
         ),
         const SizedBox(height: 12),
 
-        // CORREÇÃO: Container com altura fixa mas expansível
         Container(
-          constraints: BoxConstraints(
-            maxHeight: _expandidoDisciplinas
-                ? 400
-                : 150, // Altura máxima quando expandido
-          ),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey.shade200),
             borderRadius: BorderRadius.circular(12),
             color: Colors.white,
           ),
           child: _disciplinas.isEmpty
-              ? _buildEmptyState(
-                  icon: Icons.class_rounded,
-                  title: 'Nenhuma disciplina disponível',
-                  subtitle: 'Entre em contato com o administrador',
-                  height: 150,
+              ? SizedBox(
+                  height: 120,
+                  child: _buildEmptyState(
+                    icon: Icons.class_rounded,
+                    title: 'Nenhuma disciplina disponível',
+                    subtitle: 'Entre em contato com o administrador',
+                    height: 120,
+                  ),
                 )
-              : Column(
-                  children: [
-                    // Lista expansível
-                    Expanded(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: _disciplinas.length,
-                        itemBuilder: (context, index) {
-                          final disciplina = _disciplinas[index];
-                          return CheckboxListTile(
-                            title: Text(
-                              disciplina.nome,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            activeColor: AppColors.azulClaro,
-                            value: disciplina.selecionada,
-                            onChanged: (value) => _toggleDisciplina(index),
-                            dense: true,
-                            controlAffinity: ListTileControlAffinity.leading,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 4,
-                            ),
-                            tileColor: disciplina.selecionada
-                                ? AppColors.azulClaro.withOpacity(0.1)
-                                : null,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-
-                    // Botão "Ver todas" apenas se houver mais de 3 disciplinas
-                    if (_disciplinas.length > 3)
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            top: BorderSide(color: Colors.grey.shade200),
-                          ),
-                        ),
-                        child: TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _expandidoDisciplinas = !_expandidoDisciplinas;
-                            });
+              : ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: _expandidoDisciplinas ? 300 : 120,
+                  ),
+                  child: Column(
+                    children: [
+                      // Lista expansível
+                      Expanded(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          physics: const ClampingScrollPhysics(),
+                          itemCount: _disciplinas.length,
+                          itemBuilder: (context, index) {
+                            final disciplina = _disciplinas[index];
+                            return CheckboxListTile(
+                              title: Text(
+                                disciplina.nome,
+                                style: const TextStyle(fontSize: 14),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              activeColor: AppColors.azulClaro,
+                              value: disciplina.selecionada,
+                              onChanged: (value) => _toggleDisciplina(index),
+                              dense: true,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 2,
+                              ),
+                              tileColor: disciplina.selecionada
+                                  ? AppColors.azulClaro.withOpacity(0.1)
+                                  : null,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            );
                           },
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                _expandidoDisciplinas
-                                    ? 'Mostrar menos'
-                                    : 'Ver todas (${_disciplinas.length})',
-                                style: TextStyle(
-                                  color: AppColors.azulClaro,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Icon(
-                                _expandidoDisciplinas
-                                    ? Icons.expand_less
-                                    : Icons.expand_more,
-                                color: AppColors.azulClaro,
-                                size: 16,
-                              ),
-                            ],
-                          ),
                         ),
                       ),
-                  ],
+
+                      // Botão "Ver todas" apenas se houver mais de 3 disciplinas
+                      if (_disciplinas.length > 3)
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: Colors.grey.shade200),
+                            ),
+                          ),
+                          child: TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _expandidoDisciplinas = !_expandidoDisciplinas;
+                              });
+                            },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _expandidoDisciplinas
+                                      ? 'Mostrar menos'
+                                      : 'Ver todas (${_disciplinas.length})',
+                                  style: TextStyle(
+                                    color: AppColors.azulClaro,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Icon(
+                                  _expandidoDisciplinas
+                                      ? Icons.expand_less
+                                      : Icons.expand_more,
+                                  color: AppColors.azulClaro,
+                                  size: 16,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
         ),
       ],
@@ -719,24 +697,34 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
         children: [
           _buildHeaderHistorico(),
 
+          // CORREÇÃO: Removido o Expanded e usando Container com altura mínima
           _mensagensEnviadas.isEmpty
-              ? _buildEmptyState(
-                  icon: Icons.history_toggle_off_rounded,
-                  title: 'Nenhuma mensagem enviada',
-                  subtitle: 'As mensagens que você enviar aparecerão aqui',
-                  height: 200,
+              ? Container(
+                  height: 200, // Altura fixa para o estado vazio
+                  child: _buildEmptyState(
+                    icon: Icons.history_toggle_off_rounded,
+                    title: 'Nenhuma mensagem enviada',
+                    subtitle: 'As mensagens que você enviar aparecerão aqui',
+                    height: 200,
+                  ),
                 )
               : Column(
                   children: [
                     // Lista de mensagens da página atual
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: mensagensDaPagina.length,
-                      itemBuilder: (context, index) {
-                        final mensagem = mensagensDaPagina[index];
-                        return _buildItemMensagemEnviada(mensagem, index);
-                      },
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: 100, // Altura mínima
+                        maxHeight: MediaQuery.of(context).size.height * 0.6,
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        physics: const ClampingScrollPhysics(),
+                        itemCount: mensagensDaPagina.length,
+                        itemBuilder: (context, index) {
+                          final mensagem = mensagensDaPagina[index];
+                          return _buildItemMensagemEnviada(mensagem, index);
+                        },
+                      ),
                     ),
 
                     // Paginação
@@ -894,7 +882,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
   Future<void> _salvarEdicao(String mensagemId) async {
     final novaMensagem = _editarMensagemController.text.trim();
     if (novaMensagem.isEmpty) {
-      _mostrarSnackBar('Digite uma mensagem', tipo: SnackBarTipo.erro);
+      _mostrarAlerta('Digite uma mensagem', false);
       return;
     }
 
@@ -903,17 +891,15 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
         mensagemId: mensagemId,
         novaMensagem: novaMensagem,
       );
-      _mostrarSnackBar(
-        'Mensagem editada com sucesso!',
-        tipo: SnackBarTipo.sucesso,
-      );
+      _mostrarAlerta('Mensagem editada com sucesso!', true);
+
       setState(() {
         _mensagemEditandoId = null;
         _editarMensagemController.clear();
       });
       await _carregarMensagensEnviadas();
     } catch (e) {
-      _mostrarSnackBar('Erro ao editar mensagem: $e', tipo: SnackBarTipo.erro);
+      _mostrarAlerta('Erro ao editar mensagem: $e', false);
     }
   }
 
@@ -921,6 +907,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
         title: const Text('Excluir Mensagem'),
         content: Text(
           'Tem certeza que deseja excluir esta mensagem?\n\n"${mensagem.mensagem}"',
@@ -928,6 +915,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(foregroundColor: AppColors.azulClaro),
             child: const Text('Cancelar'),
           ),
           TextButton(
@@ -947,13 +935,14 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
   Future<void> _excluirMensagem(String mensagemId) async {
     try {
       await MensagensProfessorService.excluirMensagemCompleta(mensagemId);
-      _mostrarSnackBar(
+      _mostrarAlerta(
         'Mensagem excluída com sucesso de todas as disciplinas!',
-        tipo: SnackBarTipo.sucesso,
+        true,
       );
+
       await _carregarMensagensEnviadas();
     } catch (e) {
-      _mostrarSnackBar('Erro ao excluir mensagem: $e', tipo: SnackBarTipo.erro);
+      _mostrarAlerta('Erro ao excluir mensagem: $e', false);
     }
   }
 
@@ -964,18 +953,15 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
         _mensagensSelecionadas.toList(),
       );
 
-      _mostrarSnackBar(
+      _mostrarAlerta(
         '${_mensagensSelecionadas.length} mensagem(ns) excluída(s) com sucesso de todas as disciplinas!',
-        tipo: SnackBarTipo.sucesso,
+        true,
       );
 
       _desativarModoSelecao();
       await _carregarMensagensEnviadas();
     } catch (e) {
-      _mostrarSnackBar(
-        'Erro ao excluir mensagens: $e',
-        tipo: SnackBarTipo.erro,
-      );
+      _mostrarAlerta('Erro ao excluir mensagens: $e', false);
     }
   }
 
@@ -1021,6 +1007,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
         title: const Text('Excluir Mensagens'),
         content: Text(
           'Tem certeza que deseja excluir ${_mensagensSelecionadas.length} mensagem(ns) selecionada(s)?',
@@ -1028,6 +1015,7 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(foregroundColor: AppColors.azulClaro),
             child: const Text('Cancelar'),
           ),
           TextButton(
@@ -1160,29 +1148,39 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
     required String subtitle,
     double height = 150,
   }) {
-    return Container(
+    return SizedBox(
+      // ← USAR SizedBox em vez de Container
       height: height,
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 48, color: Colors.grey.shade300),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1267,25 +1265,35 @@ class _NotificacoesProfessorPageState extends State<NotificacoesProfessorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50, // Fundo da tela permanece cinza
-
+      backgroundColor: Colors.grey.shade50,
       body: _isLoading
           ? _buildLoadingState()
           : _errorMessage != null
           ? _buildErrorState()
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  children: [
-                    _buildFormularioMensagem(),
-                    _buildListaMensagensEnviadas(),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
+          : LayoutBuilder(
+              // ← USAR LayoutBuilder para ter constraints
+              builder: (context, constraints) {
+                return RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight:
+                            constraints.maxHeight, // ← GARANTIR altura mínima
+                      ),
+                      child: Column(
+                        children: [
+                          _buildFormularioMensagem(),
+                          _buildListaMensagensEnviadas(),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
     );
   }

@@ -9,104 +9,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:sistema_poliedro/src/styles/cores.dart';
 import '../../services/notificacoes_service.dart';
 import '../../services/auth_service.dart';
+import 'dart:convert'; // Para base64
+import 'dart:typed_data'; // Para Uint8List
+import '../../models/mensagem_model.dart'; // ← NOVA IMPORT
 
-/// ====== NOVO: contador global reativo para a Navbar exibir o badge ======
-/// Em sua Navbar, use:
-/// ValueListenableBuilder<int>(
-///   valueListenable: notificationsUnreadCount,
-///   builder: (_, count, __) => IconWithBadge(count: count),
-/// )
 final ValueNotifier<int> notificationsUnreadCount = ValueNotifier<int>(0);
-
-class Mensagem {
-  final String id;
-  final String data;
-  final String remetente;
-  final String materia;
-  final String conteudo;
-  final String disciplinaId;
-  bool isUnread;
-  bool isFavorita;
-  bool isSelected;
-
-  Mensagem({
-    required this.id,
-    required this.data,
-    required this.remetente,
-    required this.materia,
-    required this.conteudo,
-    required this.disciplinaId,
-    this.isUnread = true,
-    this.isFavorita = false,
-    this.isSelected = false,
-  });
-
-  factory Mensagem.fromJson(Map<String, dynamic> json) {
-    // Tratamento seguro para disciplina
-    String materia = '';
-    String disciplinaId = '';
-
-    if (json['disciplina'] != null) {
-      if (json['disciplina'] is String) {
-        disciplinaId = json['disciplina'];
-        materia = 'Disciplina';
-      } else if (json['disciplina'] is Map) {
-        final disciplina = json['disciplina'] as Map<String, dynamic>;
-        disciplinaId = disciplina['_id']?.toString() ?? '';
-        materia =
-            disciplina['titulo']?.toString() ??
-            disciplina['nome']?.toString() ??
-            'Disciplina';
-      }
-    }
-
-    // Tratamento seguro para professor
-    String remetente = 'Professor';
-    if (json['professor'] != null) {
-      if (json['professor'] is String) {
-        remetente = 'Professor';
-      } else if (json['professor'] is Map) {
-        final professor = json['professor'] as Map<String, dynamic>;
-        remetente = professor['nome']?.toString() ?? 'Professor';
-      }
-    }
-
-    // Tratamento seguro para data
-    String data = '';
-    if (json['dataCriacao'] != null) {
-      try {
-        data = DateTime.parse(
-          json['dataCriacao'].toString(),
-        ).toString().substring(0, 10);
-      } catch (e) {
-        data = 'Data inválida';
-      }
-    }
-
-    return Mensagem(
-      id: json['_id']?.toString() ?? '',
-      data: data,
-      remetente: remetente,
-      materia: materia,
-      conteudo: json['mensagem']?.toString() ?? '',
-      disciplinaId: disciplinaId,
-      isUnread: json['lida'] == false,
-      isFavorita: json['favorita'] == true,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      '_id': id,
-      'dataCriacao': data,
-      'professor': {'nome': remetente},
-      'disciplina': {'_id': disciplinaId, 'titulo': materia},
-      'mensagem': conteudo,
-      'lida': !isUnread,
-      'favorita': isFavorita,
-    };
-  }
-}
 
 class NotificacaoItem extends StatefulWidget {
   final Mensagem mensagem;
@@ -141,9 +48,7 @@ class _NotificacaoItemState extends State<NotificacaoItem> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isSelected
-              ? Theme.of(context).colorScheme.primary
-              : Colors.grey.shade200,
+          color: isSelected ? AppColors.azulClaro : Colors.grey.shade200,
           width: isSelected ? 2 : 1,
         ),
       ),
@@ -162,6 +67,8 @@ class _NotificacaoItemState extends State<NotificacaoItem> {
                   width: 24,
                   height: 24,
                   child: Checkbox(
+                    activeColor: AppColors.azulClaro,
+
                     value: widget.mensagem.isSelected,
                     onChanged: widget.onSelect,
                     shape: RoundedRectangleBorder(
@@ -287,6 +194,101 @@ class VisualizadorMensagem extends StatelessWidget {
 
   const VisualizadorMensagem({super.key, this.mensagem});
 
+  Widget _buildSimpleAvatar(BuildContext context) {
+    // VERIFICAÇÃO DE SEGURANÇA ADICIONAL
+    if (mensagem == null) {
+      return CircleAvatar(
+        backgroundColor: Colors.grey.shade300,
+        child: const Icon(Icons.person, color: Colors.white),
+      );
+    }
+
+    // Se não tem foto ou não é Base64, usar avatar com inicial
+    if (mensagem!.fotoProfessor.isEmpty) {
+      String inicial = 'P';
+      if (mensagem!.remetente.isNotEmpty) {
+        inicial = mensagem!.remetente[0].toUpperCase();
+      }
+
+      return CircleAvatar(
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: Text(
+          inicial,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+
+    // Se tem foto mas não é Base64 (é URL)
+    if (!mensagem!.isFotoBase64) {
+      return CircleAvatar(
+        backgroundColor: Colors.grey.shade300,
+        backgroundImage: NetworkImage(mensagem!.fotoProfessor),
+        onBackgroundImageError: (exception, stackTrace) {
+          // Fallback em caso de erro na imagem
+          print('❌ Erro ao carregar imagem de rede: $exception');
+        },
+        child: mensagem!.fotoProfessor.isEmpty
+            ? Text(
+                mensagem!.remetente.isNotEmpty
+                    ? mensagem!.remetente[0].toUpperCase()
+                    : 'P',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              )
+            : null,
+      );
+    }
+
+    // Tentar carregar Base64
+    try {
+      String base64String = mensagem!.fotoProfessor;
+
+      // Limpar o prefixo data:image/ se existir
+      if (base64String.startsWith('data:image/')) {
+        final parts = base64String.split(',');
+        if (parts.length == 2) {
+          base64String = parts[1];
+        }
+      }
+
+      final imageBytes = base64.decode(base64String);
+
+      return CircleAvatar(
+        backgroundColor: Colors.grey.shade300,
+        backgroundImage: MemoryImage(imageBytes),
+        onBackgroundImageError: (exception, stackTrace) {
+          // Fallback em caso de erro na imagem Base64
+          print('❌ Erro ao carregar imagem Base64: $exception');
+        },
+        child: null,
+      );
+    } catch (e) {
+      print('❌ Erro ao decodificar Base64: $e');
+      // Fallback para avatar com inicial
+      String inicial = 'P';
+      if (mensagem!.remetente.isNotEmpty) {
+        inicial = mensagem!.remetente[0].toUpperCase();
+      }
+
+      return CircleAvatar(
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: Text(
+          inicial,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (mensagem == null) {
@@ -306,16 +308,25 @@ class VisualizadorMensagem extends StatelessWidget {
                   color: Colors.grey.shade600,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Escolha uma notificação para visualizar',
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-              ),
             ],
           ),
         ),
       );
     }
+
+    // VERIFICAÇÃO ADICIONAL DE SEGURANÇA
+    final safeRemetente = mensagem!.remetente.isNotEmpty
+        ? mensagem!.remetente
+        : 'Professor';
+    final safeMateria = mensagem!.materia.isNotEmpty
+        ? mensagem!.materia
+        : 'Disciplina';
+    final safeData = mensagem!.data.isNotEmpty
+        ? mensagem!.data
+        : 'Data não disponível';
+    final safeConteudo = mensagem!.conteudo.isNotEmpty
+        ? mensagem!.conteudo
+        : 'Conteúdo não disponível';
 
     return Container(
       color: Colors.white,
@@ -334,25 +345,14 @@ class VisualizadorMensagem extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    child: Text(
-                      mensagem!.remetente.isNotEmpty
-                          ? mensagem!.remetente[0].toUpperCase()
-                          : 'P',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
+                  _buildSimpleAvatar(context),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          mensagem!.remetente,
+                          safeRemetente,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -360,7 +360,7 @@ class VisualizadorMensagem extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          mensagem!.materia,
+                          safeMateria,
                           style: TextStyle(
                             fontSize: 14,
                             color: Theme.of(context).colorScheme.primary,
@@ -371,7 +371,7 @@ class VisualizadorMensagem extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    mensagem!.data,
+                    safeData,
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 ],
@@ -389,7 +389,7 @@ class VisualizadorMensagem extends StatelessWidget {
                 border: Border.all(color: Colors.grey.shade200),
               ),
               child: Text(
-                mensagem!.conteudo,
+                safeConteudo,
                 style: const TextStyle(
                   fontSize: 15,
                   height: 1.6,
@@ -513,8 +513,8 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
         if (mensagem.isUnread) {
           mensagem.isUnread = false;
           // ====== NOVO: decrementa contador global
-          notificationsUnreadCount.value =
-              (notificationsUnreadCount.value - 1).clamp(0, 999);
+          notificationsUnreadCount.value = (notificationsUnreadCount.value - 1)
+              .clamp(0, 999);
           _lastUnread = notificationsUnreadCount.value;
         }
       });
@@ -564,7 +564,10 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
               opacity: 1,
               duration: const Duration(milliseconds: 150),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.primary,
                   borderRadius: BorderRadius.circular(12),
@@ -573,13 +576,16 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                       color: Colors.black26,
                       blurRadius: 10,
                       offset: Offset(0, 4),
-                    )
+                    ),
                   ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.notifications_active_rounded, color: Colors.white),
+                    const Icon(
+                      Icons.notifications_active_rounded,
+                      color: Colors.white,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       unread == 1
@@ -703,15 +709,50 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
       child: ListView.builder(
         itemCount: _mensagensFiltradas.length,
         itemBuilder: (context, index) {
-          final mensagem = _mensagensFiltradas[index];
-          return NotificacaoItem(
-            mensagem: mensagem,
-            isSelectedMessage: mensagem.id == _mensagemSelecionada?.id,
-            onTap: () => _selecionarMensagem(mensagem),
-            onToggleFavorita: () => _toggleFavorita(mensagem),
-            onSelect: (selecionado) => _toggleSelecionar(mensagem, selecionado),
-          );
+          try {
+            final mensagem = _mensagensFiltradas[index];
+
+            // VERIFICAÇÃO DE SEGURANÇA PARA CADA MENSAGEM
+            if (mensagem.id.isEmpty) {
+              return _buildErrorItem('Mensagem sem ID válido');
+            }
+
+            return NotificacaoItem(
+              mensagem: mensagem,
+              isSelectedMessage: mensagem.id == _mensagemSelecionada?.id,
+              onTap: () => _selecionarMensagem(mensagem),
+              onToggleFavorita: () => _toggleFavorita(mensagem),
+              onSelect: (selecionado) =>
+                  _toggleSelecionar(mensagem, selecionado),
+            );
+          } catch (e) {
+            print('❌ Erro ao construir item $index: $e');
+            return _buildErrorItem('Erro ao carregar mensagem');
+          }
         },
+      ),
+    );
+  }
+
+  // Widget de fallback para erros
+  Widget _buildErrorItem(String mensagemErro) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      color: Colors.white,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red.shade400),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                mensagemErro,
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -934,49 +975,49 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                     ),
                   )
                 : _errorMessage != null
-                    ? Container(
-                        color: Colors.white,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.error_outline_rounded,
-                                size: 64,
-                                color: Colors.grey.shade400,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Erro ao carregar notificações',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 32),
-                                child: Text(
-                                  _errorMessage!,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey.shade500,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: _loadData,
-                                child: const Text('Tentar novamente'),
-                              ),
-                            ],
+                ? Container(
+                    color: Colors.white,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline_rounded,
+                            size: 64,
+                            color: Colors.grey.shade400,
                           ),
-                        ),
-                      )
-                    : isWideScreen
-                        ? _buildWideScreenLayout(context)
-                        : _buildNarrowScreenLayout(context),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Erro ao carregar notificações',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                            child: Text(
+                              _errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadData,
+                            child: const Text('Tentar novamente'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : isWideScreen
+                ? _buildWideScreenLayout(context)
+                : _buildNarrowScreenLayout(context),
           ),
         ],
       ),
