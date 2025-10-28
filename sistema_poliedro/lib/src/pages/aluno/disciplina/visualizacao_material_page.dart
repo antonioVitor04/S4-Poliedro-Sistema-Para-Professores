@@ -3,11 +3,12 @@ import 'package:flutter/material.dart';
 import 'dart:convert' as convert;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
+import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:open_file/open_file.dart';
 import 'package:universal_html/html.dart' as html;
-import '../../../services/permission_service.dart'; 
+import '../../../services/permission_service.dart';
 import '../../../services/material_service.dart';
 import '../../../models/modelo_card_disciplina.dart';
 import '../../../styles/cores.dart';
@@ -34,6 +35,9 @@ class VisualizacaoMaterialPage extends StatefulWidget {
 
 class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   late Future<Uint8List?> _fileBytesFuture;
+
+  /// Controller do chat para badge/integração externa (se quiser usar fora)
+  final CommentsController _chatController = CommentsController();
 
   @override
   void initState() {
@@ -146,19 +150,19 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
             content: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
-              children: [
+              children: const [
                 Text(
                   'Download concluído!',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'Arquivo salvo em: SistemaPoliedro/$fileName',
+                  'Arquivo salvo em: SistemaPoliedro/',
                   style: TextStyle(fontSize: 12),
                 ),
               ],
             ),
             backgroundColor: AppColors.verdeConfirmacao,
-            duration: Duration(seconds: 4),
+            duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'Abrir',
               textColor: Colors.white,
@@ -179,7 +183,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
             '=== DEBUG: Não foi possível abrir o arquivo automaticamente ===',
           );
           print('=== DEBUG: Resultado: $result ===');
-          // Não mostrar erro aqui, pois o arquivo foi salvo com sucesso
         }
       } else {
         _showError('Não foi possível acessar o armazenamento do dispositivo');
@@ -204,19 +207,19 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
               'O arquivo foi salvo em:',
               style: AppTextStyles.fonteUbuntuSans,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Container(
-              padding: EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(4),
               ),
               child: SelectableText(
                 filePath,
-                style: TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Text(
               'Você pode abri-lo manualmente usando um app de arquivos.',
               style: AppTextStyles.fonteUbuntuSans.copyWith(fontSize: 12),
@@ -231,7 +234,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // Tentar abrir o gerenciador de arquivos
               OpenFile.open(filePath);
             },
             child: Text('Abrir Local', style: AppTextStyles.fonteUbuntuSans),
@@ -350,7 +352,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       html.document.body?.append(anchor);
       anchor.click();
 
-      Future.delayed(Duration(seconds: 1), () {
+      Future.delayed(const Duration(seconds: 1), () {
         anchor.remove();
         html.Url.revokeObjectUrl(url);
       });
@@ -368,7 +370,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     try {
       final base64Pdf = convert.base64Encode(bytes);
       final pdfUrl = 'data:application/pdf;base64,$base64Pdf';
-      final window = html.window.open(pdfUrl, '_blank');
+      html.window.open(pdfUrl, '_blank');
     } catch (e2) {
       print('=== DEBUG ERRO Data URL: $e2 ===');
       _showOpenPdfDialogWeb(bytes);
@@ -423,7 +425,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       html.document.body?.append(anchor);
       anchor.click();
 
-      Future.delayed(Duration(seconds: 2), () {
+      Future.delayed(const Duration(seconds: 2), () {
         anchor.remove();
       });
     } catch (e) {
@@ -435,7 +437,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   void _openLinkInNewTabWeb(String url) {
     if (!kIsWeb) return;
-
     html.window.open(url, '_blank');
   }
 
@@ -472,7 +473,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         child: Column(
           children: [
             Container(
-              padding: EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
               color: Colors.grey[100],
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -487,7 +488,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                   Row(
                     children: [
                       IconButton(
-                        icon: Icon(
+                        icon: const Icon(
                           Icons.open_in_new,
                           size: 20,
                           color: AppColors.azulClaro,
@@ -496,7 +497,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         tooltip: 'Abrir em nova aba',
                       ),
                       IconButton(
-                        icon: Icon(
+                        icon: const Icon(
                           Icons.download,
                           size: 20,
                           color: AppColors.azulClaro,
@@ -519,7 +520,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                       size: 64,
                       color: corIcone,
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     Text(
                       '$tipoDisplay carregado com sucesso',
                       style: AppTextStyles.fonteUbuntu.copyWith(
@@ -527,7 +528,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
                       'Tamanho: ${(bytes.length / 1024).toStringAsFixed(1)} KB',
                       style: AppTextStyles.fonteUbuntuSans.copyWith(
@@ -535,27 +536,33 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         fontSize: 14,
                       ),
                     ),
-                    SizedBox(height: 24),
+                    const SizedBox(height: 24),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.azulClaro,
                         foregroundColor: AppColors.branco,
                       ),
                       onPressed: () => _openPdfInNewTab(bytes),
-                      icon: Icon(Icons.open_in_new, color: AppColors.branco),
+                      icon: const Icon(
+                        Icons.open_in_new,
+                        color: AppColors.branco,
+                      ),
                       label: Text(
                         openText,
                         style: AppTextStyles.fonteUbuntuSans,
                       ),
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.azulClaro,
-                        side: BorderSide(color: AppColors.azulClaro),
+                        side: const BorderSide(color: AppColors.azulClaro),
                       ),
                       onPressed: () => _downloadPdf(bytes),
-                      icon: Icon(Icons.download, color: AppColors.azulClaro),
+                      icon: const Icon(
+                        Icons.download,
+                        color: AppColors.azulClaro,
+                      ),
                       label: Text(
                         downloadText,
                         style: AppTextStyles.fonteUbuntuSans,
@@ -646,9 +653,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                       ),
                     ),
                     onPressed: () => _downloadPdf(bytes),
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.download,
-                      size: isMobile ? 18 : 20,
+                      size: 20,
                       color: AppColors.branco,
                     ),
                     label: Text(
@@ -658,8 +665,8 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                       ),
                     ),
                   ),
-                  SizedBox(height: isMobile ? 10 : 12),
-                  if (widget.material.tipo == 'atividade')
+                  if (widget.material.tipo == 'atividade') ...[
+                    SizedBox(height: isMobile ? 10 : 12),
                     Text(
                       'A atividade será salva e aberta automaticamente',
                       style: AppTextStyles.fonteUbuntuSans.copyWith(
@@ -668,6 +675,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                       ),
                       textAlign: TextAlign.center,
                     ),
+                  ],
                 ],
               ),
             ),
@@ -704,7 +712,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     if (kIsWeb) {
       _openPdfInNewTabWeb(bytes);
     } else {
-      // No mobile, fazer download
       _downloadPdf(bytes);
     }
   }
@@ -713,7 +720,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     if (kIsWeb) {
       _openLinkInNewTabWeb(url);
     } else {
-      // No mobile, mostrar mensagem
       _showError('Funcionalidade disponível apenas na versão web');
     }
   }
@@ -738,9 +744,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
+          const Icon(
             Icons.error_outline,
-            size: isMobile ? 48 : 64,
+            size: 64,
             color: AppColors.vermelhoErro,
           ),
           SizedBox(height: isMobile ? 12 : 16),
@@ -774,7 +780,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           ),
           backgroundColor: AppColors.azulClaro,
           foregroundColor: AppColors.branco,
-          actions: [],
+          actions: const [],
         ),
         body: Padding(
           padding: EdgeInsets.all(isMobile ? 12 : 16),
@@ -826,7 +832,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                                   : AppColors.vermelho,
                               size: isMobile ? 16 : 18,
                             ),
-                            SizedBox(width: 6),
+                            const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 widget.material.prazo!.isBefore(DateTime.now())
@@ -851,12 +857,12 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         SizedBox(height: isMobile ? 6 : 8),
                         Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.assessment,
                               color: AppColors.azulClaro,
-                              size: isMobile ? 16 : 18,
+                              size: 18,
                             ),
-                            SizedBox(width: 6),
+                            const SizedBox(width: 6),
                             Text(
                               'Peso: ${widget.material.peso}%',
                               style: AppTextStyles.fonteUbuntuSans.copyWith(
@@ -876,7 +882,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                             color: _getMaterialColor(widget.material.tipo),
                             size: isMobile ? 16 : 18,
                           ),
-                          SizedBox(width: 6),
+                          const SizedBox(width: 6),
                           Text(
                             _getTipoNome(widget.material.tipo),
                             style: AppTextStyles.fonteUbuntuSans.copyWith(
@@ -891,89 +897,128 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                 ),
               ),
               SizedBox(height: isMobile ? 12 : 16),
+
+              /// ====== LAYOUT RESPONSIVO COM O CHAT ======
               Expanded(
-                child: FutureBuilder<Uint8List?>(
-                  future: _fileBytesFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                AppColors.azulClaro,
-                              ),
+                child: LayoutBuilder(
+                  builder: (context, cts) {
+                    final isWide = cts.maxWidth >= 960;
+
+                    if (!isWide) {
+                      // Empilhado (material em cima, chat abaixo)
+                      return Column(
+                        children: [
+                          Expanded(
+                            flex: 6,
+                            child: FutureBuilder<Uint8List?>(
+                              future: _fileBytesFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const CircularProgressIndicator(
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                AppColors.azulClaro,
+                                              ),
+                                        ),
+                                        SizedBox(height: isMobile ? 12 : 16),
+                                        Text(
+                                          'Carregando material...',
+                                          style: AppTextStyles.fonteUbuntuSans
+                                              .copyWith(
+                                                fontSize: isMobile ? 14 : 16,
+                                                color: AppColors.azulClaro,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                                if (snapshot.hasError) {
+                                  return _buildErrorWidget(
+                                    'Erro ao carregar arquivo',
+                                  );
+                                }
+                                final bytes = snapshot.data;
+                                return _buildConteudoMaterial(context, bytes);
+                              },
                             ),
-                            SizedBox(height: isMobile ? 12 : 16),
-                            Text(
-                              'Carregando material...',
-                              style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                fontSize: isMobile ? 14 : 16,
-                                color: AppColors.azulClaro,
-                              ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 420,
+                            child: CommentsPanel(
+                              entityId: widget.material.id,
+                              title: 'Comentários',
+                              controller:
+                                  _chatController, // <- controller plugado
+                              showHeaderBadge:
+                                  false, // badge só fora do painel se quiser
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       );
                     }
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.error,
-                              size: isMobile ? 48 : 64,
-                              color: AppColors.vermelhoErro,
-                            ),
-                            SizedBox(height: isMobile ? 12 : 16),
-                            Text(
-                              'Erro ao carregar arquivo',
-                              style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                fontSize: isMobile ? 16 : 18,
-                                color: AppColors.vermelhoErro,
-                              ),
-                            ),
-                            SizedBox(height: isMobile ? 8 : 12),
-                            Text(
-                              '${snapshot.error}',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: isMobile ? 12 : 14,
-                              ),
-                            ),
-                            SizedBox(height: isMobile ? 16 : 20),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.azulClaro,
-                                foregroundColor: AppColors.branco,
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isMobile ? 16 : 20,
-                                  vertical: isMobile ? 12 : 16,
-                                ),
-                              ),
-                              onPressed: () => setState(() {
-                                _fileBytesFuture = MaterialService.getFileBytes(
-                                  slug: widget.slug,
-                                  topicoId: widget.topicoId,
-                                  materialId: widget.material.id,
+
+                    // Duas colunas (material à esquerda, chat à direita)
+                    return Row(
+                      children: [
+                        Expanded(
+                          flex: 7,
+                          child: FutureBuilder<Uint8List?>(
+                            future: _fileBytesFuture,
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const CircularProgressIndicator(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              AppColors.azulClaro,
+                                            ),
+                                      ),
+                                      SizedBox(height: isMobile ? 12 : 16),
+                                      Text(
+                                        'Carregando material...',
+                                        style: AppTextStyles.fonteUbuntuSans
+                                            .copyWith(
+                                              fontSize: isMobile ? 14 : 16,
+                                              color: AppColors.azulClaro,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
                                 );
-                              }),
-                              child: Text(
-                                'Tentar Novamente',
-                                style: AppTextStyles.fonteUbuntuSans.copyWith(
-                                  fontSize: isMobile ? 14 : 16,
-                                ),
-                              ),
-                            ),
-                          ],
+                              }
+                              if (snapshot.hasError) {
+                                return _buildErrorWidget(
+                                  'Erro ao carregar arquivo',
+                                );
+                              }
+                              final bytes = snapshot.data;
+                              return _buildConteudoMaterial(context, bytes);
+                            },
+                          ),
                         ),
-                      );
-                    }
-                    final bytes = snapshot.data;
-                    return _buildConteudoMaterial(context, bytes);
+                        const SizedBox(width: 16),
+                        SizedBox(
+                          width: 360,
+                          child: CommentsPanel(
+                            entityId: widget.material.id,
+                            title: 'Comentários',
+                            controller: _chatController,
+                          ),
+                        ),
+                      ],
+                    );
                   },
                 ),
               ),
@@ -989,9 +1034,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
+              const Icon(
                 Icons.bug_report,
-                size: isMobile ? 48 : 64,
+                size: 64,
                 color: AppColors.vermelhoErro,
               ),
               SizedBox(height: isMobile ? 12 : 16),
@@ -1002,13 +1047,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                   color: AppColors.vermelhoErro,
                 ),
               ),
-              SizedBox(height: 8),
-              Text(
+              const SizedBox(height: 8),
+              const Text(
                 'Recarregue a página',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: isMobile ? 12 : 14,
-                ),
+                style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ],
           ),
@@ -1084,7 +1126,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           future: _isPdfValid(bytes),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
+              return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasData == true && snapshot.data!) {
               return _buildPdfWeb(bytes);
@@ -1107,8 +1149,8 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.insert_drive_file, size: 64, color: Colors.grey),
-              SizedBox(height: 16),
+              const Icon(Icons.insert_drive_file, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
               Text(
                 'Tipo de material não suportado: ${widget.material.tipo}',
                 style: AppTextStyles.fonteUbuntuSans.copyWith(
@@ -1144,7 +1186,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           print('=== DEBUG ERRO imagem URL: $error ===');
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+            children: const [
               Icon(Icons.broken_image, size: 48, color: Colors.grey),
               SizedBox(height: 8),
               Text(
@@ -1167,7 +1209,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           print('=== DEBUG ERRO imagem memory: $error ===');
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+            children: const [
               Icon(Icons.broken_image, size: 48, color: Colors.grey),
               SizedBox(height: 8),
               Text(
@@ -1183,8 +1225,8 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
-          SizedBox(height: 16),
+          const Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
           Text(
             'Imagem não disponível',
             style: AppTextStyles.fonteUbuntuSans.copyWith(
@@ -1225,7 +1267,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                 ),
                 if (!isMobile)
                   IconButton(
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.download,
                       size: 20,
                       color: AppColors.azulClaro,
@@ -1254,17 +1296,17 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.azulClaro,
-                side: BorderSide(color: AppColors.azulClaro),
+                side: const BorderSide(color: AppColors.azulClaro),
                 padding: EdgeInsets.symmetric(
                   horizontal: isMobile ? 16 : 20,
                   vertical: isMobile ? 10 : 12,
                 ),
               ),
               onPressed: () => _downloadImage(bytes, url),
-              icon: Icon(
+              icon: const Icon(
                 Icons.download,
                 color: AppColors.azulClaro,
-                size: isMobile ? 18 : 20,
+                size: 20,
               ),
               label: Text(
                 'Fazer Download',
@@ -1319,7 +1361,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                   Row(
                     children: [
                       IconButton(
-                        icon: Icon(
+                        icon: const Icon(
                           Icons.open_in_new,
                           size: 20,
                           color: AppColors.azulClaro,
@@ -1328,7 +1370,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         tooltip: 'Abrir em nova aba',
                       ),
                       IconButton(
-                        icon: Icon(
+                        icon: const Icon(
                           Icons.copy,
                           size: 20,
                           color: AppColors.azulClaro,
@@ -1381,9 +1423,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         ),
                       ),
                       onPressed: () => _openLinkInNewTab(url),
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.open_in_new,
-                        size: isMobile ? 18 : 20,
+                        size: 20,
                         color: AppColors.branco,
                       ),
                       label: Text(
@@ -1393,20 +1435,20 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         ),
                       ),
                     ),
-                    SizedBox(height: isMobile ? 10 : 12),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.azulClaro,
-                        side: BorderSide(color: AppColors.azulClaro),
+                        side: const BorderSide(color: AppColors.azulClaro),
                         padding: EdgeInsets.symmetric(
                           horizontal: isMobile ? 16 : 20,
                           vertical: isMobile ? 10 : 12,
                         ),
                       ),
                       onPressed: () => _copyLink(url),
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.copy,
-                        size: isMobile ? 18 : 20,
+                        size: 20,
                         color: AppColors.azulClaro,
                       ),
                       label: Text(
@@ -1441,7 +1483,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   Widget _buildAtividadeContainer(Uint8List? bytes) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-    bool isPastDue =
+    final isPastDue =
         widget.material.prazo != null &&
         widget.material.prazo!.isBefore(DateTime.now());
 
@@ -1491,7 +1533,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         fontSize: isMobile ? 14 : 16,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
                       widget.material.descricao!,
                       style: AppTextStyles.fonteUbuntuSans.copyWith(
@@ -1510,7 +1552,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                               ? AppColors.vermelhoErro
                               : AppColors.azulClaro,
                         ),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             isPastDue
@@ -1532,12 +1574,12 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                     SizedBox(height: isMobile ? 8 : 12),
                     Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.assessment,
-                          size: isMobile ? 16 : 18,
+                          size: 18,
                           color: AppColors.azulClaro,
                         ),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
                         Text(
                           'Peso: ${widget.material.peso}%',
                           style: AppTextStyles.fonteUbuntuSans.copyWith(
@@ -1558,13 +1600,15 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: isMobile ? 8 : 12),
+                    const SizedBox(height: 8),
                     FutureBuilder<bool>(
                       future: _isPdfValid(bytes),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
-                          return Center(child: CircularProgressIndicator());
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
                         }
                         if (snapshot.hasData == true && snapshot.data!) {
                           return _buildPdfWeb(bytes);
@@ -1615,10 +1659,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
             textAlign: TextAlign.center,
           ),
           if (reason != null) ...[
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               reason,
-              style: TextStyle(color: Colors.red, fontSize: 12),
+              style: const TextStyle(color: Colors.red, fontSize: 12),
               textAlign: TextAlign.center,
             ),
           ],
@@ -1633,13 +1677,553 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
               ),
             ),
             onPressed: () => _downloadPdf(bytes),
-            icon: Icon(Icons.download, color: AppColors.branco),
+            icon: const Icon(Icons.download, color: AppColors.branco),
             label: Text(
               'Baixar $tipoDisplay',
               style: AppTextStyles.fonteUbuntuSans,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// =======================
+/// CONTROLLER DO COMENTÁRIOS (para badge e mensagens externas)
+/// =======================
+class CommentsController {
+  final ValueNotifier<int> unreadCount = ValueNotifier<int>(0);
+  bool _isActive = false;
+
+  void Function(_Comment c)? _insertIncoming;
+
+  void _attach(void Function(_Comment c) insertIncoming) {
+    _insertIncoming = insertIncoming;
+  }
+
+  void setActive(bool active) {
+    _isActive = active;
+    if (active) markAllRead();
+  }
+
+  void markAllRead() {
+    unreadCount.value = 0;
+  }
+
+  void addIncomingMessage({required String author, required String message}) {
+    final c = _Comment(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      author: author,
+      message: message,
+      createdAt: DateTime.now(),
+      reactions: {},
+    );
+    _insertIncoming?.call(c);
+    if (!_isActive) {
+      unreadCount.value = unreadCount.value + 1;
+    }
+  }
+
+  void dispose() {
+    unreadCount.dispose();
+  }
+}
+
+/// =======================
+/// COMMENTS PANEL (UI do chat)
+/// =======================
+class CommentsPanel extends StatefulWidget {
+  final String entityId; // id do material/discussão
+  final String title;
+  final CommentsController? controller;
+  final bool showHeaderBadge;
+
+  const CommentsPanel({
+    super.key,
+    required this.entityId,
+    this.title = 'Comentários',
+    this.controller,
+    this.showHeaderBadge = true,
+  });
+
+  @override
+  State<CommentsPanel> createState() => _CommentsPanelState();
+}
+
+class _CommentsPanelState extends State<CommentsPanel> {
+  final TextEditingController _controllerText = TextEditingController();
+  final ScrollController _listController = ScrollController();
+  final ValueNotifier<bool> _isSending = ValueNotifier(false);
+
+  List<_Comment> _comments = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller?._attach(_insertIncomingFromController);
+    widget.controller?.setActive(true);
+    fetchComments();
+  }
+
+  @override
+  void dispose() {
+    widget.controller?.setActive(false);
+    _controllerText.dispose();
+    _listController.dispose();
+    _isSending.dispose();
+    super.dispose();
+  }
+
+  Future<void> fetchComments() async {
+    setState(() => _loading = true);
+    await Future.delayed(const Duration(milliseconds: 400));
+    _comments = [
+      _Comment(
+        id: 'c1',
+        author: 'Instrutor',
+        message: 'Bem-vindos à discussão desta matéria!',
+        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+        reactions: {'👍': 2, '👏': 1},
+      ),
+      _Comment(
+        id: 'c2',
+        author: 'Você',
+        message: 'Dúvida: haverá lista de exercícios?',
+        createdAt: DateTime.now().subtract(const Duration(minutes: 45)),
+        reactions: {'👍': 1},
+      ),
+    ];
+    setState(() => _loading = false);
+    _jumpToEnd();
+  }
+
+  void _insertIncomingFromController(_Comment c) {
+    setState(() => _comments.add(c));
+    _jumpToEnd();
+  }
+
+  Future<void> postComment(String text) async {
+    _isSending.value = true;
+    await Future.delayed(const Duration(milliseconds: 250)); // mock
+    final newComment = _Comment(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      author: 'Você',
+      message: text.trim(),
+      createdAt: DateTime.now(),
+      reactions: {},
+    );
+    setState(() => _comments.add(newComment));
+    _controllerText.clear();
+    _isSending.value = false;
+    _jumpToEnd();
+  }
+
+  Future<void> toggleReaction(String commentId, String emoji) async {
+    setState(() {
+      final c = _comments.firstWhere((e) => e.id == commentId);
+      final current = c.reactions[emoji] ?? 0;
+      c.reactions[emoji] = current == 0 ? 1 : 0;
+      if (c.reactions[emoji] == 0) c.reactions.remove(emoji);
+    });
+  }
+
+  void _jumpToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_listController.hasClients) {
+        _listController.animateTo(
+          _listController.position.maxScrollExtent + 80,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _trySend() {
+    final text = _controllerText.text.trim();
+    if (text.isEmpty) return;
+    postComment(text);
+    widget.controller?.markAllRead(); // usuário está ativo
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            color: AppColors.branco,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.chat_bubble_outline,
+                  size: 18,
+                  color: Colors.grey,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text(
+                        widget.title,
+                        style: AppTextStyles.fonteUbuntu.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      if (widget.showHeaderBadge &&
+                          widget.controller != null) ...[
+                        const SizedBox(width: 6),
+                        ValueListenableBuilder<int>(
+                          valueListenable: widget.controller!.unreadCount,
+                          builder: (_, count, __) => count <= 0
+                              ? const SizedBox()
+                              : _UnreadPill(count: count),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Recarregar',
+                  onPressed: _loading ? null : fetchComments,
+                  icon: const Icon(Icons.refresh, size: 18, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          // Lista
+          Expanded(
+            child: Container(
+              color: AppColors.branco,
+              child: _loading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.azulClaro,
+                        ),
+                      ),
+                    )
+                  : _comments.isEmpty
+                  ? const _EmptyComments()
+                  : ListView.builder(
+                      controller: _listController,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      itemCount: _comments.length,
+                      itemBuilder: (context, i) {
+                        final c = _comments[i];
+                        return _CommentBubble(
+                          comment: c,
+                          onReact: (emoji) => toggleReaction(c.id, emoji),
+                        );
+                      },
+                    ),
+            ),
+          ),
+          // Composer
+          Container(
+            color: AppColors.branco,
+            child: Column(
+              children: [
+                const Divider(height: 1, color: Colors.grey),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _controllerText,
+                          minLines: 1,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            hintText: 'Enviar um comentário',
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: AppColors.azulClaro,
+                              ),
+                            ),
+                          ),
+                          onSubmitted: (_) => _trySend(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: _isSending,
+                        builder: (_, sending, __) => ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.azulClaro,
+                            foregroundColor: AppColors.branco,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                          ),
+                          onPressed: sending ? null : _trySend,
+                          child: sending
+                              ? const SizedBox(
+                                  height: 16,
+                                  width: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  'Enviar comentário',
+                                  style: AppTextStyles.fonteUbuntuSans,
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyComments extends StatelessWidget {
+  const _EmptyComments();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.branco,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.forum_outlined, size: 48, color: Colors.grey),
+              const SizedBox(height: 8),
+              Text(
+                'É aqui que você pode deixar um comentário\n'
+                'e ver o feedback do seu instrutor.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Comment {
+  final String id;
+  final String author;
+  final String message;
+  final DateTime createdAt;
+  final Map<String, int> reactions;
+
+  _Comment({
+    required this.id,
+    required this.author,
+    required this.message,
+    required this.createdAt,
+    required this.reactions,
+  });
+}
+
+class _CommentBubble extends StatelessWidget {
+  final _Comment comment;
+  final void Function(String emoji) onReact;
+
+  const _CommentBubble({required this.comment, required this.onReact});
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = comment.author.isNotEmpty
+        ? comment.author.trim().split(' ').map((e) => e[0]).take(2).join()
+        : '?';
+    return Container(
+      color: AppColors.branco,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.grey[200],
+              child: Text(
+                initials.toUpperCase(),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // header
+                    Row(
+                      children: [
+                        Text(
+                          comment.author,
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _formatTimestamp(comment.createdAt),
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            color: Colors.grey[600],
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // mensagem
+                    Text(
+                      comment.message,
+                      style: AppTextStyles.fonteUbuntuSans.copyWith(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // reações
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final emoji in const ['👍', '👏', '😊'])
+                          _ReactionChip(
+                            emoji: emoji,
+                            count: comment.reactions[emoji] ?? 0,
+                            onTap: () => onReact(emoji),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatTimestamp(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 1) return 'agora';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min';
+    if (diff.inHours < 24) return '${diff.inHours} h';
+    return '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _ReactionChip extends StatelessWidget {
+  final String emoji;
+  final int count;
+  final VoidCallback onTap;
+
+  const _ReactionChip({
+    required this.emoji,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = count > 0;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.blue[50] : Colors.grey[100],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isActive ? AppColors.azulClaro : Colors.grey[300]!,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 14)),
+            if (count > 0) ...[
+              const SizedBox(width: 4),
+              Text(
+                '$count',
+                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                  fontSize: 12,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UnreadPill extends StatelessWidget {
+  final int count;
+  const _UnreadPill({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.redAccent,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
