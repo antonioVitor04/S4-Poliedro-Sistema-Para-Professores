@@ -19,6 +19,40 @@ import '../../../models/modelo_usuario.dart'; // Import da classe Usuario
 import 'package:http/http.dart' as http; // Import para http
 import '../../../styles/cores.dart';
 import '../../../styles/fontes.dart';
+import '../../../components/alerta.dart';
+
+/// =====================================================
+/// ALERTA NO TOPO (Overlay) — usa seu AlertaWidget
+/// =====================================================
+void showTopAlert(
+  BuildContext context,
+  String mensagem, {
+  required bool sucesso,
+  Duration duration = const Duration(seconds: 3),
+}) {
+  final overlay = Overlay.of(context);
+  if (overlay == null) return;
+
+  final entry = OverlayEntry(
+    builder: (_) => SafeArea(
+      child: Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 16, right: 16),
+          child: AlertaWidget(
+            mensagem: mensagem,
+            sucesso: sucesso,
+          ),
+        ),
+      ),
+    ),
+  );
+
+  overlay.insert(entry);
+  Future.delayed(duration, () {
+    if (entry.mounted) entry.remove();
+  });
+}
 
 class VisualizacaoMaterialPage extends StatefulWidget {
   final MaterialDisciplina material;
@@ -132,42 +166,16 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
         print('=== DEBUG: Arquivo salvo em: ${file.path} ===');
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text(
-                  'Download concluído!',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'Arquivo salvo em: SistemaPoliedro/',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-            backgroundColor: AppColors.verdeConfirmacao,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'Abrir',
-              textColor: Colors.white,
-              onPressed: () async {
-                final result = await OpenFile.open(file.path);
-                if (result.type != ResultType.done) {
-                  _showFileLocationDialog(file.path);
-                }
-              },
-            ),
-          ),
+        // Alerta no topo em vez de SnackBar com ação
+        showTopAlert(
+          context,
+          'Download concluído! Arquivo salvo em: SistemaPoliedro/',
+          sucesso: true,
         );
 
         final result = await OpenFile.open(file.path);
         if (result.type != ResultType.done) {
-          print(
-            '=== DEBUG: Não foi possível abrir o arquivo automaticamente ===',
-          );
+          print('=== DEBUG: Não foi possível abrir o arquivo automaticamente ===');
         }
       } else {
         _showError('Não foi possível acessar o armazenamento do dispositivo');
@@ -183,6 +191,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white, // remove qualquer tom roxo
         title: Text('Download Concluído', style: AppTextStyles.fonteUbuntu),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -240,12 +249,8 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       html.document.body?.append(anchor);
       anchor.click();
       anchor.remove();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Download iniciado: $fileName'),
-          backgroundColor: AppColors.verdeConfirmacao,
-        ),
-      );
+
+      showTopAlert(context, 'Download iniciado: $fileName', sucesso: true);
     } catch (e) {
       print('=== DEBUG ERRO download web: $e ===');
       _showError('Erro ao fazer download');
@@ -289,6 +294,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white, // remove roxo
         title: Text('Abrir PDF', style: AppTextStyles.fonteUbuntu),
         content: Text(
           'O navegador bloqueou a abertura automática do PDF. Clique no botão abaixo para abrir manualmente.',
@@ -361,12 +367,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: AppTextStyles.fonteUbuntuSans),
-        backgroundColor: AppColors.vermelhoErro,
-      ),
-    );
+    showTopAlert(context, message, sucesso: false);
   }
 
   Widget _buildErrorWidget(String message) {
@@ -933,11 +934,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         anchor.click();
         anchor.remove();
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Download iniciado: ${widget.material.titulo}'),
-          backgroundColor: AppColors.verdeConfirmacao,
-        ),
+      showTopAlert(
+        context,
+        'Download iniciado: ${widget.material.titulo}',
+        sucesso: true,
       );
     } catch (e) {
       print('=== DEBUG ERRO download imagem web: $e ===');
@@ -1107,14 +1107,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   void _copyLink(String url) async {
     await Clipboard.setData(ClipboardData(text: url));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Link copiado para a área de transferência',
-          style: AppTextStyles.fonteUbuntuSans,
-        ),
-        backgroundColor: AppColors.verdeConfirmacao,
-      ),
+    showTopAlert(
+      context,
+      'Link copiado para a área de transferência',
+      sucesso: true,
     );
   }
 
@@ -1707,24 +1703,17 @@ class _CommentsPanelState extends State<CommentsPanel> {
         _jumpToEnd();
       } else {
         if (response.message != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro: ${response.message}'),
-              backgroundColor: AppColors.vermelhoErro,
-              duration: const Duration(seconds: 3),
-            ),
-          );
+          showTopAlert(context, 'Erro: ${response.message}', sucesso: false);
         }
         setState(() => _loading = false);
       }
     } catch (error) {
       print('Erro inesperado: $error');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao carregar comentários: $error'),
-            backgroundColor: AppColors.vermelhoErro,
-          ),
+        showTopAlert(
+          context,
+          'Erro ao carregar comentários: $error',
+          sucesso: false,
         );
       }
       setState(() => _loading = false);
@@ -1746,30 +1735,19 @@ class _CommentsPanelState extends State<CommentsPanel> {
         setState(() => _comments.insert(0, response.data!));
         _controllerText.clear();
         _jumpToEnd();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Comentário enviado com sucesso!'),
-            backgroundColor: AppColors.verdeConfirmacao,
-          ),
-        );
+        showTopAlert(context, 'Comentário enviado com sucesso!', sucesso: true);
       } else {
         if (response.message != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro: ${response.message}'),
-              backgroundColor: AppColors.vermelhoErro,
-            ),
-          );
+          showTopAlert(context, 'Erro: ${response.message}', sucesso: false);
         }
       }
     } catch (error) {
       print('Erro ao enviar comentário: $error');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao enviar comentário: $error'),
-            backgroundColor: AppColors.vermelhoErro,
-          ),
+        showTopAlert(
+          context,
+          'Erro ao enviar comentário: $error',
+          sucesso: false,
         );
       }
     } finally {
@@ -1787,27 +1765,16 @@ class _CommentsPanelState extends State<CommentsPanel> {
         setState(() {
           _comments.removeWhere((c) => c.id == comentario.id);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Comentário excluído com sucesso!'),
-            backgroundColor: AppColors.verdeConfirmacao,
-          ),
-        );
+        showTopAlert(context, 'Comentário excluído com sucesso!', sucesso: true);
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: ${response.message}'),
-            backgroundColor: AppColors.vermelhoErro,
-          ),
-        );
+        showTopAlert(context, 'Erro: ${response.message}', sucesso: false);
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao excluir comentário: $error'),
-            backgroundColor: AppColors.vermelhoErro,
-          ),
+        showTopAlert(
+          context,
+          'Erro ao excluir comentário: $error',
+          sucesso: false,
         );
       }
     }
@@ -1895,35 +1862,36 @@ class _CommentsPanelState extends State<CommentsPanel> {
               color: AppColors.branco,
               child: _loading
                   ? const Center(
-                      child: CircularProgressIndicator(
+                      child: const CircularProgressIndicator(
                         valueColor: AlwaysStoppedAnimation<Color>(
                           AppColors.azulClaro,
                         ),
                       ),
                     )
                   : _comments.isEmpty
-                  ? const _EmptyComments()
-                  : ListView.builder(
-                      controller: _listController,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      itemCount: _comments.length,
-                      itemBuilder: (context, i) {
-                        final comentario = _comments[i];
-                        return _CommentBubble(
-                          comentario: comentario,
-                          onEdit: _handleEditComment,
-                          onDelete: () => _handleDeleteComment(comentario),
-                          canEdit: _canEditComment(comentario),
-                          canDelete: _canDeleteComment(comentario),
-                        );
-                      },
-                    ),
+                      ? const _EmptyComments()
+                      : ListView.builder(
+                          controller: _listController,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          itemCount: _comments.length,
+                          itemBuilder: (context, i) {
+                            final comentario = _comments[i];
+                            return _CommentBubble(
+                              comentario: comentario,
+                              onEdit: _handleEditComment,
+                              onDelete: () => _handleDeleteComment(comentario),
+                              canEdit: _canEditComment(comentario),
+                              canDelete: _canDeleteComment(comentario),
+                            );
+                          },
+                        ),
             ),
           ),
 
+          // Caixa de envio
           Container(
             color: AppColors.branco,
             child: Column(
@@ -1951,9 +1919,8 @@ class _CommentsPanelState extends State<CommentsPanel> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: AppColors.azulClaro,
-                              ),
+                              borderSide:
+                                  const BorderSide(color: AppColors.azulClaro),
                             ),
                           ),
                           onSubmitted: (_) => _trySend(),
@@ -2067,9 +2034,7 @@ class __CommentBubbleState extends State<_CommentBubble> {
   }
 
   void _startEditing() {
-    setState(() {
-      _isEditing = true;
-    });
+    setState(() => _isEditing = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _editFocusNode.requestFocus();
     });
@@ -2082,7 +2047,7 @@ class __CommentBubbleState extends State<_CommentBubble> {
     });
   }
 
-  void _saveEditing() async {
+  Future<void> _saveEditing() async {
     if (_editController.text.trim().isEmpty) return;
 
     try {
@@ -2092,32 +2057,22 @@ class __CommentBubbleState extends State<_CommentBubble> {
       );
 
       if (response.success && mounted) {
-        setState(() {
-          _isEditing = false;
-        });
+        setState(() => _isEditing = false);
         widget.onEdit?.call();
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Comentário editado com sucesso!'),
-            backgroundColor: AppColors.verdeConfirmacao,
-          ),
-        );
+        showTopAlert(context, 'Comentário editado com sucesso!', sucesso: true);
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: ${response.message}'),
-            backgroundColor: AppColors.vermelhoErro,
-          ),
+        showTopAlert(
+          context,
+          'Erro: ${response.message}',
+          sucesso: false,
         );
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao editar comentário: $error'),
-            backgroundColor: AppColors.vermelhoErro,
-          ),
+        showTopAlert(
+          context,
+          'Erro ao editar comentário: $error',
+          sucesso: false,
         );
       }
     }
@@ -2127,6 +2082,7 @@ class __CommentBubbleState extends State<_CommentBubble> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white, // sem fundo roxo
         title: const Text('Excluir Comentário'),
         content: const Text('Tem certeza que deseja excluir este comentário?'),
         actions: [
@@ -2164,11 +2120,13 @@ class __CommentBubbleState extends State<_CommentBubble> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ATUALIZADO: Passa o autorData completo
-            _buildUserAvatar(fotoUrl, initials, autor, widget.comentario.autor),
-
+            _buildUserAvatar(
+              fotoUrl,
+              initials,
+              autor,
+              widget.comentario.autor,
+            ),
             const SizedBox(width: 10),
-
             Expanded(
               child: Container(
                 padding: const EdgeInsets.all(10),
@@ -2180,20 +2138,12 @@ class __CommentBubbleState extends State<_CommentBubble> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Cabeçalho com nome, tempo e ações
                     _buildCommentHeader(autor),
-
                     const SizedBox(height: 6),
-
-                    // Conteúdo do comentário (modo leitura ou edição)
                     _buildCommentContent(),
-
-                    // Mostrar respostas se houver
                     if (widget.comentario.respostas.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      ...widget.comentario.respostas.map((resposta) {
-                        return _buildRespostaBubble(resposta);
-                      }),
+                      ...widget.comentario.respostas.map(_buildRespostaBubble),
                     ],
                   ],
                 ),
@@ -2205,54 +2155,38 @@ class __CommentBubbleState extends State<_CommentBubble> {
     );
   }
 
+  // ---------- Avatar & helpers ----------
+
   Widget _buildUserAvatar(
     String? fotoUrl,
     String initials,
     String autor,
     Map<String, dynamic> autorData,
   ) {
-    // CORREÇÃO: Extrai o tipo corretamente do autorData
     final autorId = autorData['_id']?.toString() ?? autorData['id']?.toString();
 
-    // CORREÇÃO CRÍTICA: Detecta o tipo corretamente
-    String autorTipo = 'aluno'; // default
+    String autorTipo = 'aluno';
     if (autorData['tipo'] != null) {
       autorTipo = autorData['tipo'].toString();
     } else {
-      // Tenta inferir pelo contexto - se tem RA é aluno, senão é professor
       autorTipo = autorData['ra'] != null ? 'aluno' : 'professor';
     }
 
-    // DEBUG PARA VERIFICAR O TIPO REAL
-    print('=== DEBUG AVATAR CORRIGIDO ===');
-    print('Autor: $autor');
-    print('Tipo detectado: $autorTipo');
-    print('ID: $autorId');
-    print('Tem RA: ${autorData['ra'] != null}');
-    print('Dados completos do autor: $autorData');
-    print('========================');
-
-    // SEMPRE gera a URL baseada no ID e tipo CORRETO
-    final String tipoEndpoint = autorTipo == 'aluno' ? 'alunos' : 'professores';
+    final String tipoEndpoint =
+        autorTipo == 'aluno' ? 'alunos' : 'professores';
     final String urlFinal =
         '${AuthService.baseUrl}/api/$tipoEndpoint/image/$autorId';
 
-    print('=== URL Gerada: $urlFinal ===');
-
-    // Usa FutureBuilder para obter os headers
     return FutureBuilder<Map<String, String>>(
       future: _getImageHeaders(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildLoadingAvatar();
         }
-
         if (snapshot.hasError || !snapshot.hasData) {
           return _buildAvatarFallback(initials, autor);
         }
-
         final headers = snapshot.data!;
-
         return ClipOval(
           child: CachedNetworkImage(
             imageUrl: urlFinal,
@@ -2262,14 +2196,8 @@ class __CommentBubbleState extends State<_CommentBubble> {
             fit: BoxFit.cover,
             placeholder: (context, url) => _buildLoadingAvatar(),
             errorWidget: (context, url, error) {
-              print('=== IMAGE LOAD ERROR: $error ===');
-              print('=== TENTANDO URL ALTERNATIVA ===');
-
-              // Tenta a URL alternativa (às vezes o backend usa rotas diferentes)
               final String altUrlFinal =
                   '${AuthService.baseUrl}/api/$tipoEndpoint/$autorId/foto';
-              print('=== URL Alternativa: $altUrlFinal ===');
-
               return CachedNetworkImage(
                 imageUrl: altUrlFinal,
                 httpHeaders: headers,
@@ -2277,10 +2205,8 @@ class __CommentBubbleState extends State<_CommentBubble> {
                 height: 32,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => _buildLoadingAvatar(),
-                errorWidget: (context, url, error2) {
-                  print('=== FALHA NA URL ALTERNATIVA TAMBÉM: $error2 ===');
-                  return _buildAvatarFallback(initials, autor);
-                },
+                errorWidget: (context, url, error2) =>
+                    _buildAvatarFallback(initials, autor),
               );
             },
           ),
@@ -2289,19 +2215,16 @@ class __CommentBubbleState extends State<_CommentBubble> {
     );
   }
 
-  // Headers de autenticação (mantém como Future)
   Future<Map<String, String>> _getImageHeaders() async {
     try {
       final token = await AuthService.getToken();
       if (token == null) return {};
       return {'Authorization': 'Bearer $token'};
-    } catch (e) {
-      print('=== ERRO ao obter token: $e ===');
+    } catch (_) {
       return {};
     }
   }
 
-  // Loading state simplificado
   Widget _buildLoadingAvatar() {
     return Container(
       width: 32,
@@ -2319,7 +2242,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
     );
   }
 
-  // Fallback para avatar com iniciais
   Widget _buildAvatarFallback(String initials, String autor) {
     return CircleAvatar(
       backgroundColor: _getColorFromName(autor),
@@ -2335,10 +2257,8 @@ class __CommentBubbleState extends State<_CommentBubble> {
     );
   }
 
-  // Método para gerar cor consistente baseada no nome
   Color _getColorFromName(String name) {
     if (name.isEmpty) return AppColors.azulClaro;
-
     final colors = [
       AppColors.azulClaro,
       AppColors.vermelho,
@@ -2350,79 +2270,78 @@ class __CommentBubbleState extends State<_CommentBubble> {
       Colors.brown,
       Colors.pink,
     ];
-
     final index = name.codeUnits.reduce((a, b) => a + b) % colors.length;
     return colors[index];
   }
 
-  // Método auxiliar para corrigir URL - VERSÃO CORRIGIDA
   Usuario _corrigirFotoUrl(Usuario user) {
-    // Se não tem fotoUrl no comentário, gera a URL baseada no tipo e ID
     if (user.fotoUrl == null || user.fotoUrl!.isEmpty) {
-      final String tipoEndpoint = user.tipo == 'aluno'
-          ? 'alunos'
-          : 'professores';
-      final String imageEndpoint = '/$tipoEndpoint/image/${user.id}';
-      final String correctedUrl = AuthService.baseUrl + '/api' + imageEndpoint;
-      print('=== DEBUG: Gerando URL para imagem: $correctedUrl ===');
+      final String tipoEndpoint =
+          user.tipo == 'aluno' ? 'alunos' : 'professores';
+      final String correctedUrl =
+          '${AuthService.baseUrl}/api/$tipoEndpoint/image/${user.id}';
       return user.copyWith(fotoUrl: correctedUrl);
     }
-
-    // Se tem uma URL localhost, corrige
     if (user.fotoUrl!.contains('localhost')) {
-      final String tipoEndpoint = user.tipo == 'aluno'
-          ? 'alunos'
-          : 'professores';
-      final String imageEndpoint = '/$tipoEndpoint/image/${user.id}';
-      final String correctedUrl = AuthService.baseUrl + '/api' + imageEndpoint;
-      print('=== DEBUG: Corrigindo URL localhost: $correctedUrl ===');
+      final String tipoEndpoint =
+          user.tipo == 'aluno' ? 'alunos' : 'professores';
+      final String correctedUrl =
+          '${AuthService.baseUrl}/api/$tipoEndpoint/image/${user.id}';
       return user.copyWith(fotoUrl: correctedUrl);
     }
+    if (user.fotoUrl!.startsWith('http')) return user;
 
-    // Se já tem uma URL completa, mantém
-    if (user.fotoUrl!.startsWith('http')) {
-      print('=== DEBUG: URL já é válida: ${user.fotoUrl} ===');
-      return user;
-    }
-
-    // Fallback: gera URL padrão
-    final String tipoEndpoint = user.tipo == 'aluno' ? 'alunos' : 'professores';
-    final String imageEndpoint = '/$tipoEndpoint/image/${user.id}';
-    final String correctedUrl = AuthService.baseUrl + '/api' + imageEndpoint;
-    print('=== DEBUG: Fallback - gerando URL: $correctedUrl ===');
+    final String tipoEndpoint =
+        user.tipo == 'aluno' ? 'alunos' : 'professores';
+    final String correctedUrl =
+        '${AuthService.baseUrl}/api/$tipoEndpoint/image/${user.id}';
     return user.copyWith(fotoUrl: correctedUrl);
   }
 
-  Widget _buildCommentHeader(String autor) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                autor,
-                style: AppTextStyles.fonteUbuntu.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: Colors.black87,
-                ),
+ Widget _buildCommentHeader(String autor) {
+  return Row(
+    children: [
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              autor,
+              style: AppTextStyles.fonteUbuntu.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.black87,
               ),
-              const SizedBox(height: 2),
-              Text(
-                _formatTimestamp(widget.comentario.dataCriacao),
-                style: AppTextStyles.fonteUbuntuSans.copyWith(
-                  color: Colors.grey[600],
-                  fontSize: 10,
-                ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              _formatTimestamp(widget.comentario.dataCriacao),
+              style: AppTextStyles.fonteUbuntuSans.copyWith(
+                color: Colors.grey[600],
+                fontSize: 10,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-
-        // Menu de ações (editar/excluir)
-        if (widget.canEdit || widget.canDelete)
-          PopupMenuButton<String>(
+      ),
+      if (widget.canEdit || widget.canDelete)
+        Theme(
+          data: Theme.of(context).copyWith(
+            useMaterial3: true,
+            popupMenuTheme: const PopupMenuThemeData(
+              color: Colors.white, // Fundo branco puro (sem roxo)
+              elevation: 6,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(12)),
+              ),
+              textStyle: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            cardColor: Colors.white, // Força branco em qualquer tema
+          ),
+          child: PopupMenuButton<String>(
             icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
             itemBuilder: (context) => [
               if (widget.canEdit)
@@ -2430,7 +2349,7 @@ class __CommentBubbleState extends State<_CommentBubble> {
                   value: 'edit',
                   child: Row(
                     children: [
-                      Icon(Icons.edit, size: 16),
+                      Icon(Icons.edit, size: 16, color: Colors.black87),
                       SizedBox(width: 8),
                       Text('Editar'),
                     ],
@@ -2441,11 +2360,7 @@ class __CommentBubbleState extends State<_CommentBubble> {
                   value: 'delete',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.delete,
-                        size: 16,
-                        color: AppColors.vermelhoErro,
-                      ),
+                      Icon(Icons.delete, size: 16, color: AppColors.vermelhoErro),
                       SizedBox(width: 8),
                       Text(
                         'Excluir',
@@ -2466,9 +2381,11 @@ class __CommentBubbleState extends State<_CommentBubble> {
               }
             },
           ),
-      ],
-    );
-  }
+        ),
+    ],
+  );
+}
+
 
   Widget _buildCommentContent() {
     if (_isEditing) {
@@ -2503,7 +2420,8 @@ class __CommentBubbleState extends State<_CommentBubble> {
                     side: const BorderSide(color: Colors.grey),
                     padding: const EdgeInsets.symmetric(vertical: 4),
                   ),
-                  child: const Text('Cancelar', style: TextStyle(fontSize: 12)),
+                  child:
+                      const Text('Cancelar', style: TextStyle(fontSize: 12)),
                 ),
               ),
               const SizedBox(width: 8),
