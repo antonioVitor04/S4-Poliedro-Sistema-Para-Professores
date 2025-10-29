@@ -2083,10 +2083,14 @@ class __CommentBubbleState extends State<_CommentBubble> {
     }
   }
 
-void _confirmDelete() {
+  void _confirmDelete() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        // ✅ fundo branco sem tom roxo
+        backgroundColor: AppColors.branco,
+        surfaceTintColor: Colors.transparent,
+
         title: const Text('Excluir Comentário'),
         content: const Text('Tem certeza que deseja excluir este comentário?'),
         actions: [
@@ -2379,50 +2383,55 @@ void _confirmDelete() {
 
         // Menu de ações (editar/excluir)
         if (widget.canEdit || widget.canDelete)
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
-            itemBuilder: (context) => [
-              if (widget.canEdit)
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 16),
-                      SizedBox(width: 8),
-                      Text('Editar'),
-                    ],
-                  ),
-                ),
-              if (widget.canDelete)
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.delete,
-                        size: 16,
-                        color: AppColors.vermelhoErro,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Excluir',
-                        style: TextStyle(color: AppColors.vermelhoErro),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-            onSelected: (value) {
-              switch (value) {
-                case 'edit':
-                  _startEditing();
-                  break;
-                case 'delete':
-                  _confirmDelete();
-                  break;
-              }
-            },
-          ),
+         PopupMenuButton<String>(
+  // ✅ fundo branco, sem tonalidade roxa do Material 3
+  color: AppColors.branco,
+  surfaceTintColor: Colors.transparent,
+
+  icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
+  itemBuilder: (context) => [
+    if (widget.canEdit)
+      const PopupMenuItem(
+        value: 'edit',
+        child: Row(
+          children: [
+            Icon(Icons.edit, size: 16),
+            SizedBox(width: 8),
+            Text('Editar'),
+          ],
+        ),
+      ),
+    if (widget.canDelete)
+      const PopupMenuItem(
+        value: 'delete',
+        child: Row(
+          children: [
+            Icon(
+              Icons.delete,
+              size: 16,
+              color: AppColors.vermelhoErro,
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Excluir',
+              style: TextStyle(color: AppColors.vermelhoErro),
+            ),
+          ],
+        ),
+      ),
+  ],
+  onSelected: (value) {
+    switch (value) {
+      case 'edit':
+        _startEditing();
+        break;
+      case 'delete':
+        _confirmDelete();
+        break;
+    }
+  },
+),
+
       ],
     );
   }
