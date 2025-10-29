@@ -9,35 +9,99 @@ const {
   verificarPermissaoNota, // NOVO
 } = require("../middleware/disciplinaAuth.cjs");
 
+// Função auxiliar para calcular média
+function calcularMedia(avaliacoes) {
+  if (!avaliacoes || avaliacoes.length === 0) return 0;
+
+  let somaPonderada = 0;
+  let totalPesos = 0;
+
+  avaliacoes.forEach((av) => {
+    somaPonderada += av.nota * av.peso;
+    totalPesos += av.peso;
+  });
+
+  return totalPesos > 0 ? somaPonderada / totalPesos : 0;
+}
 // GET: Listar notas de uma disciplina (populada com aluno)
 routerNotas.get(
   "/:disciplinaId",
   auth(["professor", "admin"]),
-  verificarProfessorDisciplina, // Garante permissão
+  verificarProfessorDisciplina,
   async (req, res) => {
     try {
       console.log("=== ROTA GET NOTAS EXECUTADA ===");
       const { disciplinaId } = req.params;
 
       const notas = await Nota.find({ disciplina: disciplinaId })
-        .populate("aluno", "nome ra email") // Fix: populate correto
+        .populate("aluno", "nome ra email")
         .populate("disciplina", "titulo");
 
-      const notasWithDetails = notas.map((nota) => ({
-        _id: nota._id,
-        disciplina: nota.disciplina._id,
-        aluno: nota.aluno._id,
-        alunoNome: nota.aluno ? nota.aluno.nome : null, // Fix: check null
-        alunoRa: nota.aluno ? nota.aluno.ra : null,
-        avaliacoes: nota.avaliacoes,
-        createdAt: nota.createdAt,
-        updatedAt: nota.updatedAt,
-      }));
+      console.log(`Notas encontradas: ${notas.length}`);
+
+      // ✅ ADICIONAR VALIDAÇÕES ROBUSTAS
+      const notasWithDetails = notas.map((nota) => {
+        // Verificar se aluno foi populado corretamente
+        if (!nota.aluno) {
+          console.warn(`Nota ${nota._id} tem aluno não encontrado (deletado)`);
+          return {
+            _id: nota._id,
+            disciplina: nota.disciplina ? nota.disciplina._id : disciplinaId,
+            aluno: null,
+            alunoNome: "Aluno deletado",
+            alunoRa: "N/A",
+            avaliacoes: nota.avaliacoes,
+            createdAt: nota.createdAt,
+            updatedAt: nota.updatedAt,
+            status: "aluno_nao_encontrado",
+          };
+        }
+
+        // Verificar se disciplina foi populada corretamente
+        if (!nota.disciplina) {
+          console.warn(`Nota ${nota._id} tem disciplina não encontrada`);
+          return {
+            _id: nota._id,
+            disciplina: disciplinaId,
+            aluno: nota.aluno._id,
+            alunoNome: nota.aluno.nome,
+            alunoRa: nota.aluno.ra,
+            avaliacoes: nota.avaliacoes,
+            createdAt: nota.createdAt,
+            updatedAt: nota.updatedAt,
+            status: "disciplina_nao_encontrada",
+          };
+        }
+
+        // ✅ DADOS VÁLIDOS
+        return {
+          _id: nota._id,
+          disciplina: nota.disciplina._id,
+          aluno: nota.aluno._id,
+          alunoNome: nota.aluno.nome,
+          alunoRa: nota.aluno.ra,
+          avaliacoes: nota.avaliacoes,
+          createdAt: nota.createdAt,
+          updatedAt: nota.updatedAt,
+        };
+      });
+
+      // ✅ FILTRAR APENAS NOTAS VÁLIDAS (opcional)
+      const notasValidas = notasWithDetails.filter(
+        (nota) => nota.aluno !== null && nota.status !== "aluno_nao_encontrado"
+      );
+
+      console.log(`Notas válidas: ${notasValidas.length}`);
 
       res.json({
         success: true,
-        count: notas.length,
-        data: notasWithDetails,
+        count: notasValidas.length,
+        data: notasValidas,
+        // ✅ INFORMAR SOBRE NOTAS COM PROBLEMAS
+        warnings:
+          notas.length - notasValidas.length > 0
+            ? `${notas.length - notasValidas.length} notas com alunos deletados`
+            : undefined,
       });
     } catch (err) {
       console.error("Erro ao buscar notas:", err);
@@ -48,7 +112,6 @@ routerNotas.get(
     }
   }
 );
-
 // POST: Criar nova nota para aluno em disciplina
 routerNotas.post("/", auth(["professor", "admin"]), async (req, res) => {
   try {
@@ -69,12 +132,10 @@ routerNotas.post("/", auth(["professor", "admin"]), async (req, res) => {
         (p) => p.toString() === req.user.id
       );
       if (!isProfessor) {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            error: "Apenas professores desta disciplina podem criar notas",
-          });
+        return res.status(403).json({
+          success: false,
+          error: "Apenas professores desta disciplina podem criar notas",
+        });
       }
     }
 
@@ -242,6 +303,7 @@ routerNotas.get(
       const notas = await Nota.find({ aluno: alunoId })
         .populate("disciplina", "titulo descricao")
         .populate("aluno", "nome ra email");
+      console.log("Primeira nota encontrada:", notas[0]);
 
       const notasFormatadas = notas.map((nota) => ({
         _id: nota._id,
@@ -274,20 +336,5 @@ routerNotas.get(
     }
   }
 );
-
-// Função auxiliar para calcular média
-function calcularMedia(avaliacoes) {
-  if (!avaliacoes || avaliacoes.length === 0) return 0;
-
-  let somaPonderada = 0;
-  let totalPesos = 0;
-
-  avaliacoes.forEach((av) => {
-    somaPonderada += av.nota * av.peso;
-    totalPesos += av.peso;
-  });
-
-  return totalPesos > 0 ? somaPonderada / totalPesos : 0;
-}
 
 module.exports = routerNotas;

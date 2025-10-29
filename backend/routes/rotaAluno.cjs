@@ -1,10 +1,12 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Aluno = require("../models/aluno.cjs");
 const auth = require("../middleware/auth.cjs");
 const multer = require("multer");
-
+const Nota = require("../models/nota.cjs");
+const CardDisciplina = require("../models/cardDisciplina.cjs");
 const router = express.Router();
 
 // Configuração do Multer para memória (não salva arquivo)
@@ -160,32 +162,32 @@ router.post("/login", async (req, res) => {
   try {
     console.log("=== 🔐 TENTATIVA DE LOGIN ALUNO ===");
     console.log("📦 Body recebido:", req.body);
-    
+
     const { ra, senha } = req.body;
 
     if (!ra || !senha) {
       console.log("❌ Dados incompletos:", { ra: !!ra, senha: !!senha });
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        msg: "RA e senha são obrigatórios" 
+        msg: "RA e senha são obrigatórios",
       });
     }
 
     console.log("🔍 Buscando aluno com RA:", ra);
     const aluno = await Aluno.findOne({ ra });
-    
+
     console.log("📊 Aluno encontrado:", {
       encontrado: !!aluno,
       id: aluno?._id,
       ra: aluno?.ra,
-      nome: aluno?.nome
+      nome: aluno?.nome,
     });
 
     if (!aluno) {
       console.log("❌ Aluno não encontrado com RA:", ra);
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        msg: "Aluno não encontrado" 
+        msg: "Aluno não encontrado",
       });
     }
 
@@ -194,9 +196,9 @@ router.post("/login", async (req, res) => {
 
     if (!isMatch) {
       console.log("❌ Senha incorreta");
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        msg: "Senha incorreta" 
+        msg: "Senha incorreta",
       });
     }
 
@@ -218,14 +220,13 @@ router.post("/login", async (req, res) => {
         email: aluno.email,
         tipo: "aluno",
         hasImage: !!aluno.imagem,
-      }
+      },
     });
-
   } catch (err) {
     console.error("💥 Erro no login:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: err.message 
+      error: err.message,
     });
   }
 });
@@ -444,24 +445,26 @@ router.get("/", auth("aluno"), async (req, res) => {
 router.get("/buscar", auth(["admin", "professor"]), async (req, res) => {
   try {
     const { ra } = req.query;
-    
+
     if (!ra) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Parâmetro 'ra' é obrigatório" 
+      return res.status(400).json({
+        success: false,
+        error: "Parâmetro 'ra' é obrigatório",
       });
     }
 
     const alunos = await Aluno.find({
-      ra: { $regex: ra, $options: 'i' }
-    }).select('_id nome ra email').limit(10);
+      ra: { $regex: ra, $options: "i" },
+    })
+      .select("_id nome ra email")
+      .limit(10);
 
     res.json(alunos);
   } catch (err) {
     console.error("Erro ao buscar alunos:", err);
-    res.status(500).json({ 
-      success: false, 
-      error: "Erro interno do servidor ao buscar alunos" 
+    res.status(500).json({
+      success: false,
+      error: "Erro interno do servidor ao buscar alunos",
     });
   }
 });
@@ -527,19 +530,91 @@ router.put("/:id", auth(["admin", "professor"]), async (req, res) => {
 });
 
 // Deletar aluno por ID (DELETE /:id) - Permite admin e professor
+// Deletar aluno por ID (DELETE /:id) - Permite admin e professor
 router.delete("/:id", auth(["admin", "professor"]), async (req, res) => {
+  let session;
   try {
-    console.log("=== ROTA DELETE ALUNO POR ID CHAMADA ==="); // Log para debug
+    console.log("=== ROTA DELETE ALUNO POR ID CHAMADA ===");
     console.log("User role:", req.user.role);
+    console.log("User ID:", req.user.id);
+    console.log("Aluno ID a ser deletado:", req.params.id);
+
     const { id } = req.params;
-    const aluno = await Aluno.findByIdAndDelete(id);
+
+    // Verificar se o aluno existe
+    const aluno = await Aluno.findById(id);
     if (!aluno) {
-      return res.status(404).json({ msg: "Aluno não encontrado" });
+      return res.status(404).json({
+        success: false,
+        error: "Aluno não encontrado",
+      });
     }
-    res.json({ msg: "Aluno deletado com sucesso" });
+
+    // Iniciar transação para operação atômica
+    session = await mongoose.startSession();
+    session.startTransaction();
+
+    // Importar modelos necessários
+
+    // 1. Deletar todas as notas do aluno
+    const resultadoNotas = await Nota.deleteMany({ aluno: id }).session(
+      session
+    );
+    console.log(`Notas deletadas: ${resultadoNotas.deletedCount}`);
+
+    // 2. Remover o aluno de todas as disciplinas
+    const resultadoDisciplinas = await CardDisciplina.updateMany(
+      { alunos: id },
+      { $pull: { alunos: id } },
+      { session }
+    );
+    console.log(
+      `Disciplinas atualizadas: ${resultadoDisciplinas.modifiedCount}`
+    );
+
+    // 3. Deletar o aluno
+    await Aluno.findByIdAndDelete(id).session(session);
+
+    // Confirmar a transação
+    await session.commitTransaction();
+    session.endSession();
+
+    console.log(`Aluno "${aluno.nome}" deletado com sucesso`);
+
+    res.json({
+      success: true,
+      message: "Aluno e todos os dados associados foram deletados com sucesso",
+      data: {
+        _id: aluno._id,
+        nome: aluno.nome,
+        email: aluno.email,
+        estatisticas: {
+          notasDeletadas: resultadoNotas.deletedCount,
+          disciplinasAtualizadas: resultadoDisciplinas.modifiedCount,
+        },
+      },
+    });
   } catch (err) {
-    console.error("Erro ao deletar aluno:", err); // Log para debug
-    res.status(500).json({ error: err.message });
+    // Reverter a transação em caso de erro
+    if (session) {
+      await session.abortTransaction();
+      session.endSession();
+    }
+
+    console.error("Erro ao deletar aluno:", err);
+
+    if (err.name === "CastError") {
+      return res.status(400).json({
+        success: false,
+        error: "ID inválido",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: "Erro interno do servidor ao deletar o aluno",
+      details: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
   }
 });
 
