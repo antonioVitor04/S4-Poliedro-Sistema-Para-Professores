@@ -1,3 +1,4 @@
+import 'dart:async'; // <-- para o timer do alerta
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -27,6 +28,11 @@ class _PerfilPageState extends State<PerfilPage> {
   Uint8List? _imagemBytes;
   int _imageVersion = 0;
 
+  // --- estado do alerta padronizado (canto superior direito) ---
+  String? _alertaMensagem;
+  bool _alertaSucesso = false;
+  Timer? _alertaTimer;
+
   @override
   void initState() {
     super.initState();
@@ -39,8 +45,7 @@ class _PerfilPageState extends State<PerfilPage> {
       case 'professor':
         return TipoUsuario.professor;
       case 'admin':
-        return TipoUsuario
-            .professor; // ou crie um TipoUsuario.admin se necessário
+        return TipoUsuario.professor; // ou crie um TipoUsuario.admin se necessário
       default:
         return TipoUsuario.aluno;
     }
@@ -94,8 +99,7 @@ class _PerfilPageState extends State<PerfilPage> {
 
       await _carregarImagem();
     } catch (e) {
-      if (e.toString().contains('401') &&
-          _tipoUsuarioAtual == TipoUsuario.aluno) {
+      if (e.toString().contains('401') && _tipoUsuarioAtual == TipoUsuario.aluno) {
         _tipoUsuarioAtual = TipoUsuario.professor;
         _userService.setTipoUsuario(TipoUsuario.professor);
         await _carregarDadosUsuario();
@@ -148,17 +152,24 @@ class _PerfilPageState extends State<PerfilPage> {
     _mostrarAlerta(mensagem, false);
   }
 
+  // --- padronização: usa o AlertaWidget no canto superior direito ---
   void _mostrarAlerta(String mensagem, bool sucesso) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensagem),
-        backgroundColor: sucesso ? Colors.green : Colors.red,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
+    // cancelar timer anterior, se houver
+    _alertaTimer?.cancel();
+
+    setState(() {
+      _alertaMensagem = mensagem;
+      _alertaSucesso = sucesso;
+    });
+
+    // auto-hide após 2.5s (ajuste se quiser)
+    _alertaTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) {
+        setState(() {
+          _alertaMensagem = null;
+        });
+      }
+    });
   }
 
   Future<void> _selecionarImagem() async {
@@ -311,6 +322,18 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
+  // --- overlay do alerta (usa diretamente seu AlertaWidget)
+  Widget _buildAlertaOverlay() {
+    if (_alertaMensagem == null) return const SizedBox.shrink();
+    return IgnorePointer(
+      ignoring: true, // não bloqueia toques na tela
+      child: AlertaWidget(
+        mensagem: _alertaMensagem!,
+        sucesso: _alertaSucesso,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -386,355 +409,359 @@ class _PerfilPageState extends State<PerfilPage> {
       );
     }
 
+    // --- principal: apenas envolve o body em Stack e coloca o overlay
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(
-                top: 60,
-                bottom: 30,
-                left: 20,
-                right: 20,
-              ),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Colors.blue.shade600, Colors.blue.shade400],
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(24),
-                  bottomRight: Radius.circular(24),
-                ),
-              ),
-              child: Column(
-                children: [
-                  Stack(
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(
+                    top: 60,
+                    bottom: 30,
+                    left: 20,
+                    right: 20,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Colors.blue.shade600, Colors.blue.shade400],
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(24),
+                      bottomRight: Radius.circular(24),
+                    ),
+                  ),
+                  child: Column(
                     children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                      Stack(
+                        children: [
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        child: ClipOval(
-                          child:
-                              _imagemBytes != null && _imagemBytes!.isNotEmpty
-                              ? Image.memory(
-                                  _imagemBytes!,
-                                  fit: BoxFit.cover,
-                                  key: ValueKey('profile_image_$_imageVersion'),
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return _buildIconePadrao();
-                                  },
-                                )
-                              : _buildIconePadrao(),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            child: ClipOval(
+                              child: _imagemBytes != null && _imagemBytes!.isNotEmpty
+                                  ? Image.memory(
+                                      _imagemBytes!,
+                                      fit: BoxFit.cover,
+                                      key: ValueKey('profile_image_$_imageVersion'),
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return _buildIconePadrao();
+                                      },
+                                    )
+                                  : _buildIconePadrao(),
+                            ),
                           ),
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.camera_alt,
-                              size: 18,
-                              color: Colors.blue.shade600,
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: IconButton(
+                                icon: Icon(
+                                  Icons.camera_alt,
+                                  size: 18,
+                                  color: Colors.blue.shade600,
+                                ),
+                                onPressed: _selecionarImagem,
+                              ),
                             ),
-                            onPressed: _selecionarImagem,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _getMensagemBoasVindas(),
+                        style: AppTextStyles.fonteUbuntu.copyWith(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _isProfessor ? "PROFESSOR" : "ALUNO",
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _getMensagemBoasVindas(),
-                    style: AppTextStyles.fonteUbuntu.copyWith(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _isProfessor ? "PROFESSOR" : "ALUNO",
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Icons.person_outline,
-                                size: 20,
-                                color: Colors.blue.shade600,
-                              ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Dados Pessoais',
-                                style: AppTextStyles.fonteUbuntu.copyWith(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey.shade800,
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.person_outline,
+                                    size: 20,
+                                    color: Colors.blue.shade600,
+                                  ),
                                 ),
-                                overflow: TextOverflow.ellipsis,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Dados Pessoais',
+                                    style: AppTextStyles.fonteUbuntu.copyWith(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            _buildInfoItem(
+                              'Nome',
+                              _usuario!.nome,
+                              Icons.badge_outlined,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildInfoItem(
+                              _getIdentificadorLabel(),
+                              _getIdentificadorValor(),
+                              _isProfessor ? Icons.email_outlined : Icons.numbers_outlined,
+                            ),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.edit, size: 20),
+                                label: const Text('Editar Perfil'),
+                                onPressed: _abrirModalEditarPerfil,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue.shade50,
+                                  foregroundColor: Colors.blue.shade700,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 0,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 20),
-                        _buildInfoItem(
-                          'Nome',
-                          _usuario!.nome,
-                          Icons.badge_outlined,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildInfoItem(
-                          _getIdentificadorLabel(),
-                          _getIdentificadorValor(),
-                          _isProfessor
-                              ? Icons.email_outlined
-                              : Icons.numbers_outlined,
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.edit, size: 20),
-                            label: const Text('Editar Perfil'),
-                            onPressed: _abrirModalEditarPerfil,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue.shade50,
-                              foregroundColor: Colors.blue.shade700,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 0,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_usuario!.hasImage && _imagemBytes != null)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                      const SizedBox(height: 16),
+                      if (_usuario!.hasImage && _imagemBytes != null)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.purple.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.photo_camera_outlined,
-                                  size: 20,
-                                  color: Colors.purple.shade600,
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.purple.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      Icons.photo_camera_outlined,
+                                      size: 20,
+                                      color: Colors.purple.shade600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Imagem de Perfil',
+                                    style: AppTextStyles.fonteUbuntu.copyWith(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Gerencie sua foto de perfil',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 14,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Imagem de Perfil',
-                                style: AppTextStyles.fonteUbuntu.copyWith(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey.shade800,
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  icon: const Icon(Icons.delete_outline, size: 20),
+                                  label: const Text('Remover Imagem'),
+                                  onPressed: _removerImagem,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.red.shade600,
+                                    side: BorderSide(color: Colors.red.shade300),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Gerencie sua foto de perfil',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              icon: const Icon(Icons.delete_outline, size: 20),
-                              label: const Text('Remover Imagem'),
-                              onPressed: _removerImagem,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.red.shade600,
-                                side: BorderSide(color: Colors.red.shade300),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Icons.security_outlined,
-                                size: 20,
-                                color: Colors.orange.shade600,
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.security_outlined,
+                                    size: 20,
+                                    color: Colors.orange.shade600,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Sessão',
+                                  style: AppTextStyles.fonteUbuntu.copyWith(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Gerencie sua sessão atual',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Sessão',
-                              style: AppTextStyles.fonteUbuntu.copyWith(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade800,
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.logout, size: 20),
+                                label: const Text('Sair da Conta'),
+                                onPressed: _fazerLogout,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.red.shade600,
+                                  side: BorderSide(color: Colors.red.shade300),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Gerencie sua sessão atual',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.logout, size: 20),
-                            label: const Text('Sair da Conta'),
-                            onPressed: _fazerLogout,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red.shade600,
-                              side: BorderSide(color: Colors.red.shade300),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          // overlay do alerta padronizado
+          _buildAlertaOverlay(),
+        ],
       ),
     );
   }
@@ -754,6 +781,7 @@ class _PerfilPageState extends State<PerfilPage> {
   void dispose() {
     _emailController.dispose();
     _senhaController.dispose();
+    _alertaTimer?.cancel(); // limpa o timer do alerta
     super.dispose();
   }
 }

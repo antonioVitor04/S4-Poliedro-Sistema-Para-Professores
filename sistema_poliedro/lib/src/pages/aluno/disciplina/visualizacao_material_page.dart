@@ -1,4 +1,5 @@
 // pages/material/visualizacao_material_page.dart
+import 'dart:async'; // <-- para o timer do alerta
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -19,6 +20,7 @@ import '../../../models/modelo_usuario.dart'; // Import da classe Usuario
 import 'package:http/http.dart' as http; // Import para http
 import '../../../styles/cores.dart';
 import '../../../styles/fontes.dart';
+import '../../../components/alerta.dart'; // <-- seu AlertaWidget
 
 class VisualizacaoMaterialPage extends StatefulWidget {
   final MaterialDisciplina material;
@@ -43,6 +45,11 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   late Future<Uint8List?> _fileBytesFuture;
   final CommentsController _chatController = CommentsController();
 
+  // --- estado do alerta padronizado ---
+  String? _alertaMensagem;
+  bool _alertaSucesso = false;
+  Timer? _alertaTimer;
+
   @override
   void initState() {
     super.initState();
@@ -63,6 +70,34 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     } else {
       _fileBytesFuture = Future.value(null);
     }
+  }
+
+  // =======================
+  // ALERTA PADRONIZADO
+  // =======================
+  void _mostrarAlerta(String mensagem, bool sucesso) {
+    // cancela qualquer timer em andamento
+    _alertaTimer?.cancel();
+
+    setState(() {
+      _alertaMensagem = mensagem;
+      _alertaSucesso = sucesso;
+    });
+
+    // auto-hide após 2.5s
+    _alertaTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) {
+        setState(() => _alertaMensagem = null);
+      }
+    });
+  }
+
+  Widget _buildAlertaOverlay() {
+    if (_alertaMensagem == null) return const SizedBox.shrink();
+    return IgnorePointer(
+      ignoring: true, // não bloqueia cliques
+      child: AlertaWidget(mensagem: _alertaMensagem!, sucesso: _alertaSucesso),
+    );
   }
 
   // Métodos para PDF
@@ -93,7 +128,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       }
     } catch (e) {
       print('=== DEBUG ERRO download mobile: $e ===');
-      _showError('Erro ao salvar arquivo: $e');
+      _mostrarAlerta('Erro ao salvar arquivo: $e', false);
     }
   }
 
@@ -110,8 +145,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
       final hasPermission = await PermissionService.requestStoragePermissions();
       if (!hasPermission) {
-        _showError(
+        _mostrarAlerta(
           'Permissão de armazenamento necessária para salvar o arquivo',
+          false,
         );
         return;
       }
@@ -132,49 +168,24 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
         print('=== DEBUG: Arquivo salvo em: ${file.path} ===');
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text(
-                  'Download concluído!',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'Arquivo salvo em: SistemaPoliedro/',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-            backgroundColor: AppColors.verdeConfirmacao,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'Abrir',
-              textColor: Colors.white,
-              onPressed: () async {
-                final result = await OpenFile.open(file.path);
-                if (result.type != ResultType.done) {
-                  _showFileLocationDialog(file.path);
-                }
-              },
-            ),
-          ),
-        );
+        _mostrarAlerta('Download concluído! Salvo em: SistemaPoliedro/', true);
 
         final result = await OpenFile.open(file.path);
         if (result.type != ResultType.done) {
           print(
             '=== DEBUG: Não foi possível abrir o arquivo automaticamente ===',
           );
+          // Mantemos o comportamento: apenas informa via alerta
         }
       } else {
-        _showError('Não foi possível acessar o armazenamento do dispositivo');
+        _mostrarAlerta(
+          'Não foi possível acessar o armazenamento do dispositivo',
+          false,
+        );
       }
     } catch (e) {
       print('=== DEBUG ERRO Android download: $e ===');
-      _showError('Erro ao salvar arquivo: $e');
+      _mostrarAlerta('Erro ao salvar arquivo: $e', false);
     }
   }
 
@@ -240,15 +251,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       html.document.body?.append(anchor);
       anchor.click();
       anchor.remove();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Download iniciado: $fileName'),
-          backgroundColor: AppColors.verdeConfirmacao,
-        ),
-      );
+      _mostrarAlerta('Download iniciado: $fileName', true);
     } catch (e) {
       print('=== DEBUG ERRO download web: $e ===');
-      _showError('Erro ao fazer download');
+      _mostrarAlerta('Erro ao fazer download', false);
     }
   }
 
@@ -332,8 +338,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         anchor.remove();
       });
     } catch (e) {
-      _showError(
+      _mostrarAlerta(
         'Não foi possível abrir o PDF. Faça o download e abra manualmente.',
+        false,
       );
     }
   }
@@ -361,12 +368,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: AppTextStyles.fonteUbuntuSans),
-        backgroundColor: AppColors.vermelhoErro,
-      ),
-    );
+    _mostrarAlerta(message, false);
   }
 
   Widget _buildErrorWidget(String message) {
@@ -411,247 +413,262 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         backgroundColor: AppColors.azulClaro,
         foregroundColor: AppColors.branco,
       ),
-      body: Padding(
-        padding: EdgeInsets.all(isMobile ? 12 : 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Cabeçalho do material
-            Card(
-              color: Colors.blue[50],
-              child: Padding(
-                padding: EdgeInsets.all(isMobile ? 12 : 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tópico: ${widget.topicoTitulo}',
-                      style: AppTextStyles.fonteUbuntuSans.copyWith(
-                        color: Colors.grey,
-                        fontSize: isMobile ? 12 : 14,
-                      ),
-                    ),
-                    SizedBox(height: isMobile ? 6 : 8),
-                    Text(
-                      widget.material.titulo,
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: isMobile ? 20 : 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (widget.material.descricao != null) ...[
-                      SizedBox(height: isMobile ? 8 : 12),
-                      Text(
-                        widget.material.descricao!,
-                        style: AppTextStyles.fonteUbuntuSans.copyWith(
-                          fontSize: isMobile ? 14 : 16,
-                        ),
-                      ),
-                    ],
-                    if (widget.material.prazo != null) ...[
-                      SizedBox(height: isMobile ? 8 : 12),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.access_time,
-                            color:
-                                widget.material.prazo!.isBefore(DateTime.now())
-                                ? AppColors.vermelhoErro
-                                : AppColors.vermelho,
-                            size: isMobile ? 16 : 18,
+      body: Stack(
+        children: [
+          Padding(
+            padding: EdgeInsets.all(isMobile ? 12 : 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Cabeçalho do material
+                Card(
+                  color: Colors.blue[50],
+                  child: Padding(
+                    padding: EdgeInsets.all(isMobile ? 12 : 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tópico: ${widget.topicoTitulo}',
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            color: Colors.grey,
+                            fontSize: isMobile ? 12 : 14,
                           ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              widget.material.prazo!.isBefore(DateTime.now())
-                                  ? 'Prazo Expirado: ${_formatarData(widget.material.prazo!)}'
-                                  : 'Prazo: ${_formatarData(widget.material.prazo!)}',
-                              style: AppTextStyles.fonteUbuntuSans.copyWith(
+                        ),
+                        SizedBox(height: isMobile ? 6 : 8),
+                        Text(
+                          widget.material.titulo,
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: isMobile ? 20 : 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (widget.material.descricao != null) ...[
+                          SizedBox(height: isMobile ? 8 : 12),
+                          Text(
+                            widget.material.descricao!,
+                            style: AppTextStyles.fonteUbuntuSans.copyWith(
+                              fontSize: isMobile ? 14 : 16,
+                            ),
+                          ),
+                        ],
+                        if (widget.material.prazo != null) ...[
+                          SizedBox(height: isMobile ? 8 : 12),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.access_time,
                                 color:
                                     widget.material.prazo!.isBefore(
                                       DateTime.now(),
                                     )
                                     ? AppColors.vermelhoErro
                                     : AppColors.vermelho,
-                                fontWeight: FontWeight.bold,
+                                size: isMobile ? 16 : 18,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  widget.material.prazo!.isBefore(
+                                        DateTime.now(),
+                                      )
+                                      ? 'Prazo Expirado: ${_formatarData(widget.material.prazo!)}'
+                                      : 'Prazo: ${_formatarData(widget.material.prazo!)}',
+                                  style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                    color:
+                                        widget.material.prazo!.isBefore(
+                                          DateTime.now(),
+                                        )
+                                        ? AppColors.vermelhoErro
+                                        : AppColors.vermelho,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: isMobile ? 14 : 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (widget.material.peso > 0) ...[
+                          SizedBox(height: isMobile ? 6 : 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.assessment,
+                                color: AppColors.azulClaro,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Peso: ${widget.material.peso}%',
+                                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                  color: AppColors.azulClaro,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: isMobile ? 14 : 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        SizedBox(height: isMobile ? 6 : 8),
+                        Row(
+                          children: [
+                            Icon(
+                              _getMaterialIconData(widget.material.tipo),
+                              color: _getMaterialColor(widget.material.tipo),
+                              size: isMobile ? 16 : 18,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _getTipoNome(widget.material.tipo),
+                              style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                color: Colors.grey[600],
                                 fontSize: isMobile ? 14 : 16,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (widget.material.peso > 0) ...[
-                      SizedBox(height: isMobile ? 6 : 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.assessment,
-                            color: AppColors.azulClaro,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Peso: ${widget.material.peso}%',
-                            style: AppTextStyles.fonteUbuntuSans.copyWith(
-                              color: AppColors.azulClaro,
-                              fontWeight: FontWeight.bold,
-                              fontSize: isMobile ? 14 : 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    SizedBox(height: isMobile ? 6 : 8),
-                    Row(
-                      children: [
-                        Icon(
-                          _getMaterialIconData(widget.material.tipo),
-                          color: _getMaterialColor(widget.material.tipo),
-                          size: isMobile ? 16 : 18,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _getTipoNome(widget.material.tipo),
-                          style: AppTextStyles.fonteUbuntuSans.copyWith(
-                            color: Colors.grey[600],
-                            fontSize: isMobile ? 14 : 16,
-                          ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            SizedBox(height: isMobile ? 12 : 16),
+                SizedBox(height: isMobile ? 12 : 16),
 
-            // Conteúdo principal com layout responsivo
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth >= 960;
+                // Conteúdo principal com layout responsivo
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth >= 960;
 
-                  if (!isWide) {
-                    // Layout empilhado para telas menores
-                    return Column(
-                      children: [
-                        Expanded(
-                          flex: 6,
-                          child: FutureBuilder<Uint8List?>(
-                            future: _fileBytesFuture,
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const CircularProgressIndicator(
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              AppColors.azulClaro,
-                                            ),
-                                      ),
-                                      SizedBox(height: isMobile ? 12 : 16),
-                                      Text(
-                                        'Carregando material...',
-                                        style: AppTextStyles.fonteUbuntuSans
-                                            .copyWith(
-                                              fontSize: isMobile ? 14 : 16,
-                                              color: AppColors.azulClaro,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
-                              if (snapshot.hasError) {
-                                return _buildErrorWidget(
-                                  'Erro ao carregar arquivo',
-                                );
-                              }
-                              final bytes = snapshot.data;
-                              return _buildConteudoMaterial(context, bytes);
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          height: 420,
-                          child: CommentsPanel(
-                            materialId: widget.material.id,
-                            topicoId: widget.topicoId,
-                            disciplinaId: widget.slug,
-                            title: 'Comentários',
-                            controller: _chatController,
-                            showHeaderBadge: false,
-                          ),
-                        ),
-                      ],
-                    );
-                  }
-
-                  // Layout em colunas para telas maiores
-                  return Row(
-                    children: [
-                      Expanded(
-                        flex: 7,
-                        child: FutureBuilder<Uint8List?>(
-                          future: _fileBytesFuture,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        AppColors.azulClaro,
-                                      ),
-                                    ),
-                                    SizedBox(height: isMobile ? 12 : 16),
-                                    Text(
-                                      'Carregando material...',
-                                      style: AppTextStyles.fonteUbuntuSans
-                                          .copyWith(
-                                            fontSize: isMobile ? 14 : 16,
-                                            color: AppColors.azulClaro,
+                      if (!isWide) {
+                        // Layout empilhado para telas menores
+                        return Column(
+                          children: [
+                            Expanded(
+                              flex: 6,
+                              child: FutureBuilder<Uint8List?>(
+                                future: _fileBytesFuture,
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const CircularProgressIndicator(
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  AppColors.azulClaro,
+                                                ),
                                           ),
+                                          SizedBox(height: isMobile ? 12 : 16),
+                                          Text(
+                                            'Carregando material...',
+                                            style: AppTextStyles.fonteUbuntuSans
+                                                .copyWith(
+                                                  fontSize: isMobile ? 14 : 16,
+                                                  color: AppColors.azulClaro,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                  if (snapshot.hasError) {
+                                    return _buildErrorWidget(
+                                      'Erro ao carregar arquivo',
+                                    );
+                                  }
+                                  final bytes = snapshot.data;
+                                  return _buildConteudoMaterial(context, bytes);
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 420,
+                              child: CommentsPanel(
+                                materialId: widget.material.id,
+                                topicoId: widget.topicoId,
+                                disciplinaId: widget.slug,
+                                title: 'Comentários',
+                                controller: _chatController,
+                                showHeaderBadge: false,
+                                onAlert:
+                                    _mostrarAlerta, // <-- alerta padronizado
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      // Layout em colunas para telas maiores
+                      return Row(
+                        children: [
+                          Expanded(
+                            flex: 7,
+                            child: FutureBuilder<Uint8List?>(
+                              future: _fileBytesFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const CircularProgressIndicator(
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                AppColors.azulClaro,
+                                              ),
+                                        ),
+                                        SizedBox(height: isMobile ? 12 : 16),
+                                        Text(
+                                          'Carregando material...',
+                                          style: AppTextStyles.fonteUbuntuSans
+                                              .copyWith(
+                                                fontSize: isMobile ? 14 : 16,
+                                                color: AppColors.azulClaro,
+                                              ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              );
-                            }
-                            if (snapshot.hasError) {
-                              return _buildErrorWidget(
-                                'Erro ao carregar arquivo',
-                              );
-                            }
-                            final bytes = snapshot.data;
-                            return _buildConteudoMaterial(context, bytes);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      SizedBox(
-                        width: 360,
-                        child: CommentsPanel(
-                          materialId: widget.material.id,
-                          topicoId: widget.topicoId,
-                          disciplinaId: widget.slug,
-                          title: 'Comentários',
-                          controller: _chatController,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                                  );
+                                }
+                                if (snapshot.hasError) {
+                                  return _buildErrorWidget(
+                                    'Erro ao carregar arquivo',
+                                  );
+                                }
+                                final bytes = snapshot.data;
+                                return _buildConteudoMaterial(context, bytes);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          SizedBox(
+                            width: 360,
+                            child: CommentsPanel(
+                              materialId: widget.material.id,
+                              topicoId: widget.topicoId,
+                              disciplinaId: widget.slug,
+                              title: 'Comentários',
+                              controller: _chatController,
+                              onAlert: _mostrarAlerta, // <-- alerta padronizado
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          _buildAlertaOverlay(), // <-- overlay no topo direito
+        ],
       ),
     );
   }
@@ -909,7 +926,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     } else if (bytes != null) {
       _downloadFileMobile(bytes, fileName, 'image/jpeg');
     } else {
-      _showError('Imagem não disponível para download');
+      _mostrarAlerta('Imagem não disponível para download', false);
     }
   }
 
@@ -933,15 +950,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         anchor.click();
         anchor.remove();
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Download iniciado: ${widget.material.titulo}'),
-          backgroundColor: AppColors.verdeConfirmacao,
-        ),
-      );
+      _mostrarAlerta('Download iniciado: ${widget.material.titulo}', true);
     } catch (e) {
       print('=== DEBUG ERRO download imagem web: $e ===');
-      _showError('Erro ao fazer download da imagem');
+      _mostrarAlerta('Erro ao fazer download da imagem', false);
     }
   }
 
@@ -1096,7 +1108,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     if (kIsWeb) {
       _openLinkInNewTabWeb(url);
     } else {
-      _showError('Funcionalidade disponível apenas na versão web');
+      _mostrarAlerta('Funcionalidade disponível apenas na versão web', false);
     }
   }
 
@@ -1107,15 +1119,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   void _copyLink(String url) async {
     await Clipboard.setData(ClipboardData(text: url));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Link copiado para a área de transferência',
-          style: AppTextStyles.fonteUbuntuSans,
-        ),
-        backgroundColor: AppColors.verdeConfirmacao,
-      ),
-    );
+    _mostrarAlerta('Link copiado para a área de transferência', true);
   }
 
   Widget _buildAtividadeContainer(Uint8List? bytes) {
@@ -1566,6 +1570,12 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
     );
   }
+
+  @override
+  void dispose() {
+    _alertaTimer?.cancel(); // limpa timer do alerta
+    super.dispose();
+  }
 }
 
 /// =======================
@@ -1619,6 +1629,9 @@ class CommentsPanel extends StatefulWidget {
   final CommentsController? controller;
   final bool showHeaderBadge;
 
+  // <-- callback para exibir alerta padronizado do pai
+  final void Function(String mensagem, bool sucesso)? onAlert;
+
   const CommentsPanel({
     super.key,
     required this.materialId,
@@ -1627,6 +1640,7 @@ class CommentsPanel extends StatefulWidget {
     this.title = 'Comentários',
     this.controller,
     this.showHeaderBadge = true,
+    this.onAlert,
   });
 
   @override
@@ -1707,25 +1721,14 @@ class _CommentsPanelState extends State<CommentsPanel> {
         _jumpToEnd();
       } else {
         if (response.message != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro: ${response.message}'),
-              backgroundColor: AppColors.vermelhoErro,
-              duration: const Duration(seconds: 3),
-            ),
-          );
+          widget.onAlert?.call('Erro: ${response.message}', false);
         }
         setState(() => _loading = false);
       }
     } catch (error) {
       print('Erro inesperado: $error');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao carregar comentários: $error'),
-            backgroundColor: AppColors.vermelhoErro,
-          ),
-        );
+        widget.onAlert?.call('Erro ao carregar comentários: $error', false);
       }
       setState(() => _loading = false);
     }
@@ -1746,31 +1749,16 @@ class _CommentsPanelState extends State<CommentsPanel> {
         setState(() => _comments.insert(0, response.data!));
         _controllerText.clear();
         _jumpToEnd();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Comentário enviado com sucesso!'),
-            backgroundColor: AppColors.verdeConfirmacao,
-          ),
-        );
+        widget.onAlert?.call('Comentário enviado com sucesso!', true);
       } else {
         if (response.message != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro: ${response.message}'),
-              backgroundColor: AppColors.vermelhoErro,
-            ),
-          );
+          widget.onAlert?.call('Erro: ${response.message}', false);
         }
       }
     } catch (error) {
       print('Erro ao enviar comentário: $error');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao enviar comentário: $error'),
-            backgroundColor: AppColors.vermelhoErro,
-          ),
-        );
+        widget.onAlert?.call('Erro ao enviar comentário: $error', false);
       }
     } finally {
       _isSending.value = false;
@@ -1787,28 +1775,13 @@ class _CommentsPanelState extends State<CommentsPanel> {
         setState(() {
           _comments.removeWhere((c) => c.id == comentario.id);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Comentário excluído com sucesso!'),
-            backgroundColor: AppColors.verdeConfirmacao,
-          ),
-        );
+        widget.onAlert?.call('Comentário excluído com sucesso!', true);
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: ${response.message}'),
-            backgroundColor: AppColors.vermelhoErro,
-          ),
-        );
+        widget.onAlert?.call('Erro: ${response.message}', false);
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao excluir comentário: $error'),
-            backgroundColor: AppColors.vermelhoErro,
-          ),
-        );
+        widget.onAlert?.call('Erro ao excluir comentário: $error', false);
       }
     }
   }
@@ -1918,6 +1891,7 @@ class _CommentsPanelState extends State<CommentsPanel> {
                           onDelete: () => _handleDeleteComment(comentario),
                           canEdit: _canEditComment(comentario),
                           canDelete: _canDeleteComment(comentario),
+                          onAlert: widget.onAlert, // <-- repassa alerta
                         );
                       },
                     ),
@@ -2035,6 +2009,7 @@ class _CommentBubble extends StatefulWidget {
   final VoidCallback? onDelete;
   final bool canEdit;
   final bool canDelete;
+  final void Function(String mensagem, bool sucesso)? onAlert;
 
   const _CommentBubble({
     required this.comentario,
@@ -2042,6 +2017,7 @@ class _CommentBubble extends StatefulWidget {
     this.onDelete,
     required this.canEdit,
     required this.canDelete,
+    this.onAlert,
   });
 
   @override
@@ -2082,7 +2058,7 @@ class __CommentBubbleState extends State<_CommentBubble> {
     });
   }
 
-  void _saveEditing() async {
+  Future<void> _saveEditing() async {
     if (_editController.text.trim().isEmpty) return;
 
     try {
@@ -2096,34 +2072,18 @@ class __CommentBubbleState extends State<_CommentBubble> {
           _isEditing = false;
         });
         widget.onEdit?.call();
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Comentário editado com sucesso!'),
-            backgroundColor: AppColors.verdeConfirmacao,
-          ),
-        );
+        widget.onAlert?.call('Comentário editado com sucesso!', true);
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: ${response.message}'),
-            backgroundColor: AppColors.vermelhoErro,
-          ),
-        );
+        widget.onAlert?.call('Erro: ${response.message}', false);
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao editar comentário: $error'),
-            backgroundColor: AppColors.vermelhoErro,
-          ),
-        );
+        widget.onAlert?.call('Erro ao editar comentário: $error', false);
       }
     }
   }
 
-  void _confirmDelete() {
+void _confirmDelete() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2148,6 +2108,7 @@ class __CommentBubbleState extends State<_CommentBubble> {
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -2263,9 +2224,9 @@ class __CommentBubbleState extends State<_CommentBubble> {
             placeholder: (context, url) => _buildLoadingAvatar(),
             errorWidget: (context, url, error) {
               print('=== IMAGE LOAD ERROR: $error ===');
-              print('=== TENTANDO URL ALTERNATIVA ===');
+              print('=== TENTANDO THE URL ALTERNATIVA ===');
 
-              // Tenta a URL alternativa (às vezes o backend usa rotas diferentes)
+              // Tenta a URL alternativa
               final String altUrlFinal =
                   '${AuthService.baseUrl}/api/$tipoEndpoint/$autorId/foto';
               print('=== URL Alternativa: $altUrlFinal ===');
@@ -2357,7 +2318,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
 
   // Método auxiliar para corrigir URL - VERSÃO CORRIGIDA
   Usuario _corrigirFotoUrl(Usuario user) {
-    // Se não tem fotoUrl no comentário, gera a URL baseada no tipo e ID
     if (user.fotoUrl == null || user.fotoUrl!.isEmpty) {
       final String tipoEndpoint = user.tipo == 'aluno'
           ? 'alunos'
@@ -2368,7 +2328,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
       return user.copyWith(fotoUrl: correctedUrl);
     }
 
-    // Se tem uma URL localhost, corrige
     if (user.fotoUrl!.contains('localhost')) {
       final String tipoEndpoint = user.tipo == 'aluno'
           ? 'alunos'
@@ -2379,13 +2338,11 @@ class __CommentBubbleState extends State<_CommentBubble> {
       return user.copyWith(fotoUrl: correctedUrl);
     }
 
-    // Se já tem uma URL completa, mantém
     if (user.fotoUrl!.startsWith('http')) {
       print('=== DEBUG: URL já é válida: ${user.fotoUrl} ===');
       return user;
     }
 
-    // Fallback: gera URL padrão
     final String tipoEndpoint = user.tipo == 'aluno' ? 'alunos' : 'professores';
     final String imageEndpoint = '/$tipoEndpoint/image/${user.id}';
     final String correctedUrl = AuthService.baseUrl + '/api' + imageEndpoint;
