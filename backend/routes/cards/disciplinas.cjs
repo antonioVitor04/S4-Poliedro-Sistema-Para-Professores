@@ -757,7 +757,6 @@ routerCards.put(
 );
 
 // DELETE: Deletar disciplina
-// DELETE: Deletar disciplina
 routerCards.delete(
   "/:id",
   auth(["professor", "admin"]),
