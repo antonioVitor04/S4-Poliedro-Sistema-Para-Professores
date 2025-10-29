@@ -9,6 +9,20 @@ const {
   verificarPermissaoNota, // NOVO
 } = require("../middleware/disciplinaAuth.cjs");
 
+// Função auxiliar para calcular média
+function calcularMedia(avaliacoes) {
+  if (!avaliacoes || avaliacoes.length === 0) return 0;
+
+  let somaPonderada = 0;
+  let totalPesos = 0;
+
+  avaliacoes.forEach((av) => {
+    somaPonderada += av.nota * av.peso;
+    totalPesos += av.peso;
+  });
+
+  return totalPesos > 0 ? somaPonderada / totalPesos : 0;
+}
 // GET: Listar notas de uma disciplina (populada com aluno)
 routerNotas.get(
   "/:disciplinaId",
@@ -69,12 +83,10 @@ routerNotas.post("/", auth(["professor", "admin"]), async (req, res) => {
         (p) => p.toString() === req.user.id
       );
       if (!isProfessor) {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            error: "Apenas professores desta disciplina podem criar notas",
-          });
+        return res.status(403).json({
+          success: false,
+          error: "Apenas professores desta disciplina podem criar notas",
+        });
       }
     }
 
@@ -242,6 +254,7 @@ routerNotas.get(
       const notas = await Nota.find({ aluno: alunoId })
         .populate("disciplina", "titulo descricao")
         .populate("aluno", "nome ra email");
+      console.log("Primeira nota encontrada:", notas[0]);
 
       const notasFormatadas = notas.map((nota) => ({
         _id: nota._id,
@@ -274,20 +287,5 @@ routerNotas.get(
     }
   }
 );
-
-// Função auxiliar para calcular média
-function calcularMedia(avaliacoes) {
-  if (!avaliacoes || avaliacoes.length === 0) return 0;
-
-  let somaPonderada = 0;
-  let totalPesos = 0;
-
-  avaliacoes.forEach((av) => {
-    somaPonderada += av.nota * av.peso;
-    totalPesos += av.peso;
-  });
-
-  return totalPesos > 0 ? somaPonderada / totalPesos : 0;
-}
 
 module.exports = routerNotas;
