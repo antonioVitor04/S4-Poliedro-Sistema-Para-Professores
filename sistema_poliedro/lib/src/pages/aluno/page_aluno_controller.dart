@@ -30,7 +30,7 @@ class MainAlunoPage extends StatefulWidget {
 class _MainAlunoPageState extends State<MainAlunoPage>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver { // << NOVO
   late String _currentRoute;
-  String _previousRoute = '/disciplinas';
+  String _previousRoute = '/disciplinas'; // << USADO AGORA NO TOGGLE DO PERFIL
   bool _isProfileOpen = false;
   String? _token;
   bool _isLoading = true;
@@ -177,10 +177,15 @@ class _MainAlunoPageState extends State<MainAlunoPage>
   void _onNavTap(String route) {
     setState(() {
       if (route == '/perfil') {
-        _isProfileOpen = !_isProfileOpen;
-        if (_isProfileOpen) {
+        // CORRIGIDO: LÓGICA IGUAL À DO PROFESSOR - SALVA ANTERIOR E MUDA CURRENT
+        if (!_isProfileOpen) {
+          _previousRoute = _currentRoute;
+          _currentRoute = '/perfil';
+          _isProfileOpen = true;
           _profileController.forward();
         } else {
+          _isProfileOpen = false;
+          _currentRoute = _previousRoute;
           _profileController.reverse();
         }
       } else {

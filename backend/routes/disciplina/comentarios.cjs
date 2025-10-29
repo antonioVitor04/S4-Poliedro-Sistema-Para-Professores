@@ -5,29 +5,86 @@ const CardDisciplina = require("../../models/cardDisciplina.cjs");
 const auth = require("../../middleware/auth.cjs");
 const mongoose = require("mongoose");
 
-// GET /comentarios/material/:materialId - Buscar comentários de um material
+// Função auxiliar para host correto (para dev com IP) - REUTILIZADA DAS ROTAS ANTERIORES
+const getHost = (req) => {
+  return process.env.NODE_ENV === "development"
+    ? "192.168.15.123:5000"  // Ajuste para o seu IP/host de dev se necessário
+    : req.get("host");
+};
+
+// GET /comentarios/material/:materialId - Buscar comentários de um material (VERSÃO CORRIGIDA)
 router.get("/material/:materialId", auth(), async (req, res) => {
   try {
     const { materialId } = req.params;
     const pagina = parseInt(req.query.pagina) || 1;
     const limite = parseInt(req.query.limite) || 20;
+    const skip = (pagina - 1) * limite;
 
-    console.log(`=== BUSCANDO COMENTÁRIOS: materialId=${materialId} ===`);
+    console.log(`=== BUSCANDO COMENTÁRIOS: materialId=${materialId}, pagina=${pagina}, limite=${limite} ===`);
 
-    // Buscar comentários diretamente
-    const comentarios = await Comentario.buscarPorMaterial(materialId, pagina, limite);
-    
+    // Buscar comentários com população CORRIGIDA - INCLUINDO 'ra' e 'tipo' para detecção de avatar
+    const comentarios = await Comentario.find({ materialId })
+      .sort({ dataCriacao: -1 })  // Mais recentes primeiro
+      .skip(skip)
+      .limit(limite)
+      .populate({
+        path: 'autor',
+        select: 'nome email ra imagem tipo'  // KEY FIX: Incluir 'ra' (para alunos) e 'tipo' (para ambos)
+      })
+      .populate({
+        path: 'respostas.autor',
+        select: 'nome email ra imagem tipo'  // Mesma correção para respostas
+      })
+      .populate('disciplinaId', 'titulo slug');  // Manter população da disciplina
+
+    // Contar total para paginação real
+    const total = await Comentario.countDocuments({ materialId });
+
+    // Transformar para adicionar 'tipo' explicitamente se ausente e gerar 'fotoUrl'
+    const formattedComentarios = comentarios.map(comentario => {
+      const base = comentario.toObject();
+
+      // Setar 'tipo' baseado no autorModel se não estiver presente
+      if (base.autorModel === 'Aluno' && !base.autor.tipo) {
+        base.autor.tipo = 'aluno';
+      } else if (base.autorModel === 'Professor' && !base.autor.tipo) {
+        base.autor.tipo = base.autor.tipo || 'professor';  // Default para professor/admin
+      }
+
+      // Gerar fotoUrl para autor principal
+      if (base.autor && base.autor.imagem && base.autor._id) {
+        const endpoint = base.autor.tipo === 'aluno' ? 'alunos' : 'professores';
+        base.autor.fotoUrl = `${req.protocol}://${getHost(req)}/api/${endpoint}/image/${base.autor._id}`;
+      }
+
+      // Gerar fotoUrl para respostas (se houver)
+      if (base.respostas && base.respostas.length > 0) {
+        base.respostas = base.respostas.map(resposta => {
+          if (resposta.autor && resposta.autor.imagem && resposta.autor._id) {
+            const endpointResposta = resposta.autor.tipo === 'aluno' ? 'alunos' : 'professores';
+            resposta.autor.fotoUrl = `${req.protocol}://${getHost(req)}/api/${endpointResposta}/image/${resposta.autor._id}`;
+          }
+          return resposta;
+        });
+      }
+
+      return base;
+    });
+
+    console.log(`✅ Encontrados ${formattedComentarios.length} comentários (total: ${total})`);
+
     res.json({
       success: true,
-      data: comentarios,
+      data: formattedComentarios,
       paginacao: {
         pagina,
         limite,
-        total: comentarios.length
+        total,
+        totalPaginas: Math.ceil(total / limite)
       }
     });
   } catch (error) {
-    console.error("Erro ao buscar comentários:", error);
+    console.error("❌ Erro ao buscar comentários:", error);
     res.status(500).json({
       success: false,
       message: "Erro interno do servidor ao buscar comentários",
@@ -141,9 +198,19 @@ router.post("/", auth(), async (req, res) => {
 
     await novoComentario.save();
     
-    // Popular os dados para retorno
-    await novoComentario.populate('autor', 'nome email');
+    // Popular os dados para retorno - CORRIGIDO PARA INCLUIR 'ra' E 'TIPO'
+    await novoComentario.populate({
+      path: 'autor',
+      select: 'nome email ra imagem tipo'  // Incluir 'ra' e 'tipo'
+    });
     await novoComentario.populate('disciplinaId', 'titulo slug');
+
+    // Gerar fotoUrl para o autor no novo comentário
+    if (novoComentario.autor && novoComentario.autor.imagem && novoComentario.autor._id) {
+      const autorTipo = novoComentario.autor.tipo || (novoComentario.autorModel === 'Aluno' ? 'aluno' : 'professor');
+      const endpoint = autorTipo === 'aluno' ? 'alunos' : 'professores';
+      novoComentario.autor.fotoUrl = `${req.protocol}://${getHost(req)}/api/${endpoint}/image/${novoComentario.autor._id}`;
+    }
 
     res.status(201).json({
       success: true,
@@ -161,7 +228,7 @@ router.post("/", auth(), async (req, res) => {
   }
 });
 
-// POST /comentarios/:id/respostas - Adicionar resposta a um comentário
+// POST /comentarios/:id/respostas - Adicionar resposta a um comentário (CORRIGIDO)
 router.post("/:id/respostas", auth(), async (req, res) => {
   try {
     const { id } = req.params;
@@ -210,10 +277,28 @@ router.post("/:id/respostas", auth(), async (req, res) => {
 
     await comentario.adicionarResposta(respostaData);
     
-    // Popular dados atualizados
-    await comentario.populate('autor', 'nome email');
-    await comentario.populate('respostas.autor', 'nome email');
+    // Popular dados atualizados - CORRIGIDO PARA INCLUIR 'ra' E 'TIPO'
+    await comentario.populate({
+      path: 'autor',
+      select: 'nome email ra imagem tipo'
+    });
+    await comentario.populate({
+      path: 'respostas.autor',
+      select: 'nome email ra imagem tipo'
+    });
     await comentario.populate('disciplinaId', 'titulo slug');
+
+    // Gerar fotoUrl para autores nas respostas
+    if (comentario.respostas && comentario.respostas.length > 0) {
+      comentario.respostas = comentario.respostas.map(resposta => {
+        if (resposta.autor && resposta.autor.imagem && resposta.autor._id) {
+          const autorTipoResposta = resposta.autor.tipo || (resposta.autorModel === 'Aluno' ? 'aluno' : 'professor');
+          const endpointResposta = autorTipoResposta === 'aluno' ? 'alunos' : 'professores';
+          resposta.autor.fotoUrl = `${req.protocol}://${getHost(req)}/api/${endpointResposta}/image/${resposta.autor._id}`;
+        }
+        return resposta;
+      });
+    }
 
     res.json({
       success: true,
@@ -230,7 +315,7 @@ router.post("/:id/respostas", auth(), async (req, res) => {
   }
 });
 
-// PUT /comentarios/:id - Editar comentário
+// PUT /comentarios/:id - Editar comentário (CORRIGIDO)
 router.put("/:id", auth(), async (req, res) => {
   try {
     const { id } = req.params;
@@ -273,9 +358,33 @@ router.put("/:id", auth(), async (req, res) => {
         editado: true
       },
       { new: true, runValidators: true }
-    ).populate('autor', 'nome email')
-     .populate('respostas.autor', 'nome email')
+    ).populate({
+      path: 'autor',
+      select: 'nome email ra imagem tipo'  // Incluir 'ra' e 'tipo'
+    })
+     .populate({
+       path: 'respostas.autor',
+       select: 'nome email ra imagem tipo'  // Incluir para respostas
+     })
      .populate('disciplinaId', 'titulo slug');
+
+    // Gerar fotoUrl após update
+    if (comentarioAtualizado.autor && comentarioAtualizado.autor.imagem && comentarioAtualizado.autor._id) {
+      const autorTipo = comentarioAtualizado.autor.tipo || (comentarioAtualizado.autorModel === 'Aluno' ? 'aluno' : 'professor');
+      const endpoint = autorTipo === 'aluno' ? 'alunos' : 'professores';
+      comentarioAtualizado.autor.fotoUrl = `${req.protocol}://${getHost(req)}/api/${endpoint}/image/${comentarioAtualizado.autor._id}`;
+    }
+
+    if (comentarioAtualizado.respostas && comentarioAtualizado.respostas.length > 0) {
+      comentarioAtualizado.respostas = comentarioAtualizado.respostas.map(resposta => {
+        if (resposta.autor && resposta.autor.imagem && resposta.autor._id) {
+          const autorTipoResposta = resposta.autor.tipo || (resposta.autorModel === 'Aluno' ? 'aluno' : 'professor');
+          const endpointResposta = autorTipoResposta === 'aluno' ? 'alunos' : 'professores';
+          resposta.autor.fotoUrl = `${req.protocol}://${getHost(req)}/api/${endpointResposta}/image/${resposta.autor._id}`;
+        }
+        return resposta;
+      });
+    }
 
     res.json({
       success: true,
