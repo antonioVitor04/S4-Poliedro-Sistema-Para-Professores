@@ -4,11 +4,13 @@ import 'card_notas.dart';
 class ListaDisciplinas extends StatefulWidget {
   final List<Map<String, dynamic>> disciplinas;
   final String searchText;
+  final bool isNestedScroll; // Nova propriedade
 
   const ListaDisciplinas({
     super.key,
     required this.disciplinas,
     required this.searchText,
+    this.isNestedScroll = false,
   });
 
   @override

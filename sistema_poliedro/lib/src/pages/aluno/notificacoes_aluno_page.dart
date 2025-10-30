@@ -1035,7 +1035,7 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          CircularProgressIndicator(),
+                          CircularProgressIndicator(color: AppColors.azulClaro),
                           SizedBox(height: 16),
                           Text(
                             'Carregando notificações...',
