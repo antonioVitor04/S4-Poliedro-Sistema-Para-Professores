@@ -39,10 +39,7 @@ void showTopAlert(
         alignment: Alignment.topRight,
         child: Padding(
           padding: const EdgeInsets.only(top: 16, right: 16),
-          child: AlertaWidget(
-            mensagem: mensagem,
-            sucesso: sucesso,
-          ),
+          child: AlertaWidget(mensagem: mensagem, sucesso: sucesso),
         ),
       ),
     ),
@@ -175,7 +172,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
         final result = await OpenFile.open(file.path);
         if (result.type != ResultType.done) {
-          print('=== DEBUG: Não foi possível abrir o arquivo automaticamente ===');
+          print(
+            '=== DEBUG: Não foi possível abrir o arquivo automaticamente ===',
+          );
         }
       } else {
         _showError('Não foi possível acessar o armazenamento do dispositivo');
@@ -1765,7 +1764,11 @@ class _CommentsPanelState extends State<CommentsPanel> {
         setState(() {
           _comments.removeWhere((c) => c.id == comentario.id);
         });
-        showTopAlert(context, 'Comentário excluído com sucesso!', sucesso: true);
+        showTopAlert(
+          context,
+          'Comentário excluído com sucesso!',
+          sucesso: true,
+        );
       } else if (mounted) {
         showTopAlert(context, 'Erro: ${response.message}', sucesso: false);
       }
@@ -1869,25 +1872,25 @@ class _CommentsPanelState extends State<CommentsPanel> {
                       ),
                     )
                   : _comments.isEmpty
-                      ? const _EmptyComments()
-                      : ListView.builder(
-                          controller: _listController,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          itemCount: _comments.length,
-                          itemBuilder: (context, i) {
-                            final comentario = _comments[i];
-                            return _CommentBubble(
-                              comentario: comentario,
-                              onEdit: _handleEditComment,
-                              onDelete: () => _handleDeleteComment(comentario),
-                              canEdit: _canEditComment(comentario),
-                              canDelete: _canDeleteComment(comentario),
-                            );
-                          },
-                        ),
+                  ? const _EmptyComments()
+                  : ListView.builder(
+                      controller: _listController,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      itemCount: _comments.length,
+                      itemBuilder: (context, i) {
+                        final comentario = _comments[i];
+                        return _CommentBubble(
+                          comentario: comentario,
+                          onEdit: _handleEditComment,
+                          onDelete: () => _handleDeleteComment(comentario),
+                          canEdit: _canEditComment(comentario),
+                          canDelete: _canDeleteComment(comentario),
+                        );
+                      },
+                    ),
             ),
           ),
 
@@ -1913,19 +1916,38 @@ class _CommentsPanelState extends State<CommentsPanel> {
                               horizontal: 12,
                               vertical: 10,
                             ),
+
+                            // borda "genérica" / fallback
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF2CA3AC), // turquesa
+                                width: 1.5,
+                              ),
                             ),
+
+                            // borda quando o campo está habilitado mas não focado
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF2CA3AC), // turquesa
+                                width: 1.5,
+                              ),
+                            ),
+
+                            // borda quando o campo está focado
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: AppColors.azulClaro),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF2CA3AC), // turquesa
+                                width: 2,
+                              ),
                             ),
                           ),
                           onSubmitted: (_) => _trySend(),
                         ),
                       ),
+
                       const SizedBox(width: 8),
                       ValueListenableBuilder<bool>(
                         valueListenable: _isSending,
@@ -2061,11 +2083,7 @@ class __CommentBubbleState extends State<_CommentBubble> {
         widget.onEdit?.call();
         showTopAlert(context, 'Comentário editado com sucesso!', sucesso: true);
       } else if (mounted) {
-        showTopAlert(
-          context,
-          'Erro: ${response.message}',
-          sucesso: false,
-        );
+        showTopAlert(context, 'Erro: ${response.message}', sucesso: false);
       }
     } catch (error) {
       if (mounted) {
@@ -2082,14 +2100,29 @@ class __CommentBubbleState extends State<_CommentBubble> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white, // sem fundo roxo
+        backgroundColor: AppColors.branco,
+        surfaceTintColor: Colors.transparent,
         title: const Text('Excluir Comentário'),
         content: const Text('Tem certeza que deseja excluir este comentário?'),
         actions: [
+          // Botão "Cancelar" azul turquesa/azul
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            style: ButtonStyle(
+              foregroundColor: const MaterialStatePropertyAll(
+                Color(0xFF1E64D6),
+              ),
+              overlayColor: MaterialStatePropertyAll(
+                const Color(0xFF1E64D6).withOpacity(0.08),
+              ),
+            ),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Color(0xFF1E64D6)),
+            ),
           ),
+
+          // Botão "Excluir" vermelho (igual você já tinha)
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -2120,12 +2153,7 @@ class __CommentBubbleState extends State<_CommentBubble> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildUserAvatar(
-              fotoUrl,
-              initials,
-              autor,
-              widget.comentario.autor,
-            ),
+            _buildUserAvatar(fotoUrl, initials, autor, widget.comentario.autor),
             const SizedBox(width: 10),
             Expanded(
               child: Container(
@@ -2172,8 +2200,7 @@ class __CommentBubbleState extends State<_CommentBubble> {
       autorTipo = autorData['ra'] != null ? 'aluno' : 'professor';
     }
 
-    final String tipoEndpoint =
-        autorTipo == 'aluno' ? 'alunos' : 'professores';
+    final String tipoEndpoint = autorTipo == 'aluno' ? 'alunos' : 'professores';
     final String urlFinal =
         '${AuthService.baseUrl}/api/$tipoEndpoint/image/$autorId';
 
@@ -2276,196 +2303,217 @@ class __CommentBubbleState extends State<_CommentBubble> {
 
   Usuario _corrigirFotoUrl(Usuario user) {
     if (user.fotoUrl == null || user.fotoUrl!.isEmpty) {
-      final String tipoEndpoint =
-          user.tipo == 'aluno' ? 'alunos' : 'professores';
+      final String tipoEndpoint = user.tipo == 'aluno'
+          ? 'alunos'
+          : 'professores';
       final String correctedUrl =
           '${AuthService.baseUrl}/api/$tipoEndpoint/image/${user.id}';
       return user.copyWith(fotoUrl: correctedUrl);
     }
     if (user.fotoUrl!.contains('localhost')) {
-      final String tipoEndpoint =
-          user.tipo == 'aluno' ? 'alunos' : 'professores';
+      final String tipoEndpoint = user.tipo == 'aluno'
+          ? 'alunos'
+          : 'professores';
       final String correctedUrl =
           '${AuthService.baseUrl}/api/$tipoEndpoint/image/${user.id}';
       return user.copyWith(fotoUrl: correctedUrl);
     }
     if (user.fotoUrl!.startsWith('http')) return user;
 
-    final String tipoEndpoint =
-        user.tipo == 'aluno' ? 'alunos' : 'professores';
+    final String tipoEndpoint = user.tipo == 'aluno' ? 'alunos' : 'professores';
     final String correctedUrl =
         '${AuthService.baseUrl}/api/$tipoEndpoint/image/${user.id}';
     return user.copyWith(fotoUrl: correctedUrl);
   }
 
- Widget _buildCommentHeader(String autor) {
-  return Row(
-    children: [
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              autor,
-              style: AppTextStyles.fonteUbuntu.copyWith(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Colors.black87,
+  Widget _buildCommentHeader(String autor) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                autor,
+                style: AppTextStyles.fonteUbuntu.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _formatTimestamp(widget.comentario.dataCriacao),
+                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                  color: Colors.grey[600],
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (widget.canEdit || widget.canDelete)
+          Theme(
+            data: Theme.of(context).copyWith(
+              useMaterial3: true,
+              popupMenuTheme: const PopupMenuThemeData(
+                color: Colors.white, // Fundo branco puro (sem roxo)
+                elevation: 6,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+                textStyle: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              cardColor: Colors.white, // Força branco em qualquer tema
+            ),
+            child: PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
+              itemBuilder: (context) => [
+                if (widget.canEdit)
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 16, color: Colors.black87),
+                        SizedBox(width: 8),
+                        Text('Editar'),
+                      ],
+                    ),
+                  ),
+                if (widget.canDelete)
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete,
+                          size: 16,
+                          color: AppColors.vermelhoErro,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Excluir',
+                          style: TextStyle(color: AppColors.vermelhoErro),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+              onSelected: (value) {
+                switch (value) {
+                  case 'edit':
+                    _startEditing();
+                    break;
+                  case 'delete':
+                    _confirmDelete();
+                    break;
+                }
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+Widget _buildCommentContent() {
+  if (_isEditing) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _editController,
+          focusNode: _editFocusNode,
+          maxLines: null,
+          style: AppTextStyles.fonteUbuntuSans.copyWith(
+            fontSize: 14,
+            color: Colors.black87,
+          ),
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.all(8),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(
+                color: Color(0xFF2CA3AC), // 💠 azul turquesa
+                width: 1.5,
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              _formatTimestamp(widget.comentario.dataCriacao),
-              style: AppTextStyles.fonteUbuntuSans.copyWith(
-                color: Colors.grey[600],
-                fontSize: 10,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(
+                color: Color(0xFF2CA3AC), // borda quando não focado
+                width: 1.5,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(
+                color: Color(0xFF2CA3AC), // borda quando focado (clicado)
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _cancelEditing,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey,
+                  side: const BorderSide(color: Colors.grey),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                ),
+                child: const Text('Cancelar', style: TextStyle(fontSize: 12)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _saveEditing,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.azulClaro,
+                  foregroundColor: AppColors.branco,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                ),
+                child: const Text('Salvar', style: TextStyle(fontSize: 12)),
               ),
             ),
           ],
         ),
-      ),
-      if (widget.canEdit || widget.canDelete)
-        Theme(
-          data: Theme.of(context).copyWith(
-            useMaterial3: true,
-            popupMenuTheme: const PopupMenuThemeData(
-              color: Colors.white, // Fundo branco puro (sem roxo)
-              elevation: 6,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12)),
-              ),
-              textStyle: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            cardColor: Colors.white, // Força branco em qualquer tema
-          ),
-          child: PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
-            itemBuilder: (context) => [
-              if (widget.canEdit)
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 16, color: Colors.black87),
-                      SizedBox(width: 8),
-                      Text('Editar'),
-                    ],
-                  ),
-                ),
-              if (widget.canDelete)
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, size: 16, color: AppColors.vermelhoErro),
-                      SizedBox(width: 8),
-                      Text(
-                        'Excluir',
-                        style: TextStyle(color: AppColors.vermelhoErro),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-            onSelected: (value) {
-              switch (value) {
-                case 'edit':
-                  _startEditing();
-                  break;
-                case 'delete':
-                  _confirmDelete();
-                  break;
-              }
-            },
+      ],
+    );
+  } else {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.comentario.texto,
+          style: AppTextStyles.fonteUbuntuSans.copyWith(
+            fontSize: 14,
+            color: Colors.black87,
           ),
         ),
-    ],
-  );
+        if (widget.comentario.editado) ...[
+          const SizedBox(height: 4),
+          Text(
+            'editado',
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              color: Colors.grey[500],
+              fontSize: 10,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
-
-  Widget _buildCommentContent() {
-    if (_isEditing) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _editController,
-            focusNode: _editFocusNode,
-            maxLines: null,
-            style: AppTextStyles.fonteUbuntuSans.copyWith(
-              fontSize: 14,
-              color: Colors.black87,
-            ),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.all(8),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.azulClaro),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _cancelEditing,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.grey,
-                    side: const BorderSide(color: Colors.grey),
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                  ),
-                  child:
-                      const Text('Cancelar', style: TextStyle(fontSize: 12)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _saveEditing,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.azulClaro,
-                    foregroundColor: AppColors.branco,
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                  ),
-                  child: const Text('Salvar', style: TextStyle(fontSize: 12)),
-                ),
-              ),
-            ],
-          ),
-        ],
-      );
-    } else {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.comentario.texto,
-            style: AppTextStyles.fonteUbuntuSans.copyWith(
-              fontSize: 14,
-              color: Colors.black87,
-            ),
-          ),
-          if (widget.comentario.editado) ...[
-            const SizedBox(height: 4),
-            Text(
-              'editado',
-              style: AppTextStyles.fonteUbuntuSans.copyWith(
-                color: Colors.grey[500],
-                fontSize: 10,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ],
-      );
-    }
-  }
 
   Widget _buildRespostaBubble(Comentario resposta) {
     final respostaAutor = resposta.autor['nome']?.toString() ?? 'Usuário';

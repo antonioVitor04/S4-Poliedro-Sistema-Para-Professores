@@ -1919,20 +1919,38 @@ class _CommentsPanelState extends State<CommentsPanel> {
                               horizontal: 12,
                               vertical: 10,
                             ),
+
+                            // borda "genérica" / fallback
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF2CA3AC), // turquesa
+                                width: 1.5,
+                              ),
                             ),
+
+                            // borda quando o campo está habilitado mas não focado
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF2CA3AC), // turquesa
+                                width: 1.5,
+                              ),
+                            ),
+
+                            // borda quando o campo está focado
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                               borderSide: const BorderSide(
-                                color: AppColors.azulClaro,
+                                color: Color(0xFF2CA3AC), // turquesa
+                                width: 2,
                               ),
                             ),
                           ),
                           onSubmitted: (_) => _trySend(),
                         ),
                       ),
+
                       const SizedBox(width: 8),
                       ValueListenableBuilder<bool>(
                         valueListenable: _isSending,
@@ -2087,16 +2105,25 @@ class __CommentBubbleState extends State<_CommentBubble> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        // ✅ fundo branco sem tom roxo
         backgroundColor: AppColors.branco,
         surfaceTintColor: Colors.transparent,
-
         title: const Text('Excluir Comentário'),
         content: const Text('Tem certeza que deseja excluir este comentário?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            style: ButtonStyle(
+              foregroundColor: const MaterialStatePropertyAll(
+                Color(0xFF1E64D6),
+              ),
+              overlayColor: MaterialStatePropertyAll(
+                const Color(0xFF1E64D6).withOpacity(0.08),
+              ),
+            ),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Color(0xFF1E64D6)),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -2112,7 +2139,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -2383,137 +2409,153 @@ class __CommentBubbleState extends State<_CommentBubble> {
 
         // Menu de ações (editar/excluir)
         if (widget.canEdit || widget.canDelete)
-         PopupMenuButton<String>(
-  // ✅ fundo branco, sem tonalidade roxa do Material 3
-  color: AppColors.branco,
-  surfaceTintColor: Colors.transparent,
+          PopupMenuButton<String>(
+            // ✅ fundo branco, sem tonalidade roxa do Material 3
+            color: AppColors.branco,
+            surfaceTintColor: Colors.transparent,
 
-  icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
-  itemBuilder: (context) => [
-    if (widget.canEdit)
-      const PopupMenuItem(
-        value: 'edit',
-        child: Row(
-          children: [
-            Icon(Icons.edit, size: 16),
-            SizedBox(width: 8),
-            Text('Editar'),
-          ],
-        ),
-      ),
-    if (widget.canDelete)
-      const PopupMenuItem(
-        value: 'delete',
-        child: Row(
-          children: [
-            Icon(
-              Icons.delete,
-              size: 16,
-              color: AppColors.vermelhoErro,
-            ),
-            SizedBox(width: 8),
-            Text(
-              'Excluir',
-              style: TextStyle(color: AppColors.vermelhoErro),
-            ),
-          ],
-        ),
-      ),
-  ],
-  onSelected: (value) {
-    switch (value) {
-      case 'edit':
-        _startEditing();
-        break;
-      case 'delete':
-        _confirmDelete();
-        break;
-    }
-  },
-),
-
+            icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
+            itemBuilder: (context) => [
+              if (widget.canEdit)
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 16),
+                      SizedBox(width: 8),
+                      Text('Editar'),
+                    ],
+                  ),
+                ),
+              if (widget.canDelete)
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.delete,
+                        size: 16,
+                        color: AppColors.vermelhoErro,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Excluir',
+                        style: TextStyle(color: AppColors.vermelhoErro),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+            onSelected: (value) {
+              switch (value) {
+                case 'edit':
+                  _startEditing();
+                  break;
+                case 'delete':
+                  _confirmDelete();
+                  break;
+              }
+            },
+          ),
       ],
     );
   }
 
-  Widget _buildCommentContent() {
-    if (_isEditing) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _editController,
-            focusNode: _editFocusNode,
-            maxLines: null,
-            style: AppTextStyles.fonteUbuntuSans.copyWith(
-              fontSize: 14,
-              color: Colors.black87,
+Widget _buildCommentContent() {
+  if (_isEditing) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _editController,
+          focusNode: _editFocusNode,
+          maxLines: null,
+          style: AppTextStyles.fonteUbuntuSans.copyWith(
+            fontSize: 14,
+            color: Colors.black87,
+          ),
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.all(8),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(
+                color: Color(0xFF2CA3AC), // 💠 azul turquesa
+                width: 1.5,
+              ),
             ),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.all(8),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.azulClaro),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(
+                color: Color(0xFF2CA3AC), // borda quando não focado
+                width: 1.5,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(
+                color: Color(0xFF2CA3AC), // borda quando focado (clicado)
+                width: 2,
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _cancelEditing,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.grey,
-                    side: const BorderSide(color: Colors.grey),
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                  ),
-                  child: const Text('Cancelar', style: TextStyle(fontSize: 12)),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _cancelEditing,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey,
+                  side: const BorderSide(color: Colors.grey),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                 ),
+                child: const Text('Cancelar', style: TextStyle(fontSize: 12)),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _saveEditing,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.azulClaro,
-                    foregroundColor: AppColors.branco,
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                  ),
-                  child: const Text('Salvar', style: TextStyle(fontSize: 12)),
-                ),
-              ),
-            ],
-          ),
-        ],
-      );
-    } else {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.comentario.texto,
-            style: AppTextStyles.fonteUbuntuSans.copyWith(
-              fontSize: 14,
-              color: Colors.black87,
             ),
-          ),
-          if (widget.comentario.editado) ...[
-            const SizedBox(height: 4),
-            Text(
-              'editado',
-              style: AppTextStyles.fonteUbuntuSans.copyWith(
-                color: Colors.grey[500],
-                fontSize: 10,
-                fontStyle: FontStyle.italic,
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _saveEditing,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.azulClaro,
+                  foregroundColor: AppColors.branco,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                ),
+                child: const Text('Salvar', style: TextStyle(fontSize: 12)),
               ),
             ),
           ],
+        ),
+      ],
+    );
+  } else {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.comentario.texto,
+          style: AppTextStyles.fonteUbuntuSans.copyWith(
+            fontSize: 14,
+            color: Colors.black87,
+          ),
+        ),
+        if (widget.comentario.editado) ...[
+          const SizedBox(height: 4),
+          Text(
+            'editado',
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              color: Colors.grey[500],
+              fontSize: 10,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
         ],
-      );
-    }
+      ],
+    );
   }
+}
 
   Widget _buildRespostaBubble(Comentario resposta) {
     final respostaAutor = resposta.autor['nome']?.toString() ?? 'Usuário';
