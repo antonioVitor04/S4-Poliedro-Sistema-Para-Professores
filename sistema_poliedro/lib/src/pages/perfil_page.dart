@@ -45,7 +45,8 @@ class _PerfilPageState extends State<PerfilPage> {
       case 'professor':
         return TipoUsuario.professor;
       case 'admin':
-        return TipoUsuario.professor; // ou crie um TipoUsuario.admin se necessário
+        return TipoUsuario
+            .professor; // ou crie um TipoUsuario.admin se necessário
       default:
         return TipoUsuario.aluno;
     }
@@ -59,6 +60,33 @@ class _PerfilPageState extends State<PerfilPage> {
       case TipoUsuario.aluno:
         return 'aluno';
     }
+  }
+
+  // MÉTODO PARA TRATAR MENSAGENS DE ERRO DO JSON
+  String _tratarMensagemErro(dynamic erro) {
+    if (erro is String) {
+      // Se já é uma string, retorna direto
+      return erro;
+    } else if (erro is Map<String, dynamic>) {
+      // Se é um objeto JSON, extrai a mensagem
+      final mensagem = erro['msg'] ?? erro['message'] ?? erro['error'];
+      if (mensagem != null) {
+        return mensagem.toString();
+      }
+
+      // Se tem errors array, extrai o primeiro
+      final errors = erro['errors'];
+      if (errors is List && errors.isNotEmpty) {
+        final primeiroErro = errors.first;
+        if (primeiroErro is Map) {
+          return primeiroErro['message']?.toString() ?? 'Erro desconhecido';
+        }
+        return primeiroErro.toString();
+      }
+    }
+
+    // Fallback: converte para string e remove "Exception: "
+    return erro.toString().replaceAll('Exception: ', '');
   }
 
   Future<void> _carregarTokenEConfigurar() async {
@@ -76,7 +104,7 @@ class _PerfilPageState extends State<PerfilPage> {
         _mostrarErro('Usuário não autenticado. Faça login novamente.');
       }
     } catch (e) {
-      _mostrarErro('Erro de autenticação: $e');
+      _mostrarErro('Erro de autenticação: ${_tratarMensagemErro(e)}');
     }
   }
 
@@ -99,13 +127,14 @@ class _PerfilPageState extends State<PerfilPage> {
 
       await _carregarImagem();
     } catch (e) {
-      if (e.toString().contains('401') && _tipoUsuarioAtual == TipoUsuario.aluno) {
+      if (e.toString().contains('401') &&
+          _tipoUsuarioAtual == TipoUsuario.aluno) {
         _tipoUsuarioAtual = TipoUsuario.professor;
         _userService.setTipoUsuario(TipoUsuario.professor);
         await _carregarDadosUsuario();
         return;
       }
-      _mostrarErro('Erro ao carregar perfil: $e');
+      _mostrarErro('Erro ao carregar perfil: ${_tratarMensagemErro(e)}');
     }
   }
 
@@ -204,7 +233,10 @@ class _PerfilPageState extends State<PerfilPage> {
         _mostrarAlerta('Imagem atualizada com sucesso!', true);
       }
     } catch (e) {
-      _mostrarAlerta('Erro ao atualizar imagem: $e', false);
+      _mostrarAlerta(
+        'Erro ao atualizar imagem: ${_tratarMensagemErro(e)}',
+        false,
+      );
     }
   }
 
@@ -222,7 +254,10 @@ class _PerfilPageState extends State<PerfilPage> {
 
       _mostrarAlerta('Imagem removida com sucesso!', true);
     } catch (e) {
-      _mostrarAlerta('Erro ao remover imagem: $e', false);
+      _mostrarAlerta(
+        'Erro ao remover imagem: ${_tratarMensagemErro(e)}',
+        false,
+      );
     }
   }
 
@@ -242,7 +277,10 @@ class _PerfilPageState extends State<PerfilPage> {
             await _carregarDadosUsuario();
             _mostrarAlerta('Perfil atualizado com sucesso!', true);
           } catch (e) {
-            _mostrarAlerta('Erro ao atualizar perfil: $e', false);
+            _mostrarAlerta(
+              'Erro ao atualizar perfil: ${_tratarMensagemErro(e)}',
+              false,
+            );
           }
         },
       ),
@@ -327,10 +365,7 @@ class _PerfilPageState extends State<PerfilPage> {
     if (_alertaMensagem == null) return const SizedBox.shrink();
     return IgnorePointer(
       ignoring: true, // não bloqueia toques na tela
-      child: AlertaWidget(
-        mensagem: _alertaMensagem!,
-        sucesso: _alertaSucesso,
-      ),
+      child: AlertaWidget(mensagem: _alertaMensagem!, sucesso: _alertaSucesso),
     );
   }
 
@@ -455,14 +490,19 @@ class _PerfilPageState extends State<PerfilPage> {
                               ],
                             ),
                             child: ClipOval(
-                              child: _imagemBytes != null && _imagemBytes!.isNotEmpty
+                              child:
+                                  _imagemBytes != null &&
+                                      _imagemBytes!.isNotEmpty
                                   ? Image.memory(
                                       _imagemBytes!,
                                       fit: BoxFit.cover,
-                                      key: ValueKey('profile_image_$_imageVersion'),
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return _buildIconePadrao();
-                                      },
+                                      key: ValueKey(
+                                        'profile_image_$_imageVersion',
+                                      ),
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                            return _buildIconePadrao();
+                                          },
                                     )
                                   : _buildIconePadrao(),
                             ),
@@ -585,7 +625,9 @@ class _PerfilPageState extends State<PerfilPage> {
                             _buildInfoItem(
                               _getIdentificadorLabel(),
                               _getIdentificadorValor(),
-                              _isProfessor ? Icons.email_outlined : Icons.numbers_outlined,
+                              _isProfessor
+                                  ? Icons.email_outlined
+                                  : Icons.numbers_outlined,
                             ),
                             const SizedBox(height: 24),
                             SizedBox(
@@ -597,7 +639,9 @@ class _PerfilPageState extends State<PerfilPage> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.blue.shade50,
                                   foregroundColor: Colors.blue.shade700,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -664,12 +708,17 @@ class _PerfilPageState extends State<PerfilPage> {
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
-                                  icon: const Icon(Icons.delete_outline, size: 20),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 20,
+                                  ),
                                   label: const Text('Remover Imagem'),
                                   onPressed: _removerImagem,
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.red.shade600,
-                                    side: BorderSide(color: Colors.red.shade300),
+                                    side: BorderSide(
+                                      color: Colors.red.shade300,
+                                    ),
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 12,
                                     ),
@@ -743,7 +792,9 @@ class _PerfilPageState extends State<PerfilPage> {
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Colors.red.shade600,
                                   side: BorderSide(color: Colors.red.shade300),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
