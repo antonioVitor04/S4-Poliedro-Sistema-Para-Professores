@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:collection/collection.dart';
+import 'package:sistema_poliedro/src/components/alerta.dart';
 import 'package:sistema_poliedro/src/pages/professor/notas.dart';
 import 'dart:convert';
 import 'package:sistema_poliedro/src/services/auth_service.dart';
@@ -41,10 +42,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   String? selectedDisciplineId;
   String? token;
   String? userType;
-  bool _mostrarAlerta = false;
-  String _mensagemAlerta = '';
-  bool _alertaSucesso = false;
-  Timer? _timerAlerta;
 
   static const String apiBaseUrl = '/api';
   static const String cardsDisciplinasPath = '/cardsDisciplinas';
@@ -76,47 +73,36 @@ class _AdministracaoPageState extends State<AdministracaoPage>
 
   @override
   void dispose() {
-    _timerAlerta?.cancel();
     super.dispose();
   }
 
-  // MÉTODOS PARA CONTROLE DE ALERTAS
-  void _mostrarAlertaCustom(String mensagem, bool sucesso) {
-    // Cancela alerta anterior se existir
-    _timerAlerta?.cancel();
+  void mostrarAlerta(String mensagem, bool sucesso) {
+    // Check if the widget is still mounted before showing dialog
+    if (!mounted) return;
 
-    setState(() {
-      _mostrarAlerta = true;
-      _mensagemAlerta = mensagem;
-      _alertaSucesso = sucesso;
-    });
-
-    // Configura timer para esconder o alerta após 3 segundos
-    _timerAlerta = Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          _mostrarAlerta = false;
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: true,
+      builder: (context) {
+        // Use a timer instead of Future.delayed to avoid context issues
+        Timer(const Duration(seconds: 2), () {
+          if (Navigator.of(context, rootNavigator: true).canPop()) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
         });
-      }
-    });
+
+        return AlertaWidget(mensagem: mensagem, sucesso: sucesso);
+      },
+    );
   }
 
-  void _esconderAlerta() {
-    _timerAlerta?.cancel();
-    if (mounted) {
-      setState(() {
-        _mostrarAlerta = false;
-      });
-    }
-  }
-
-  // SUBSTITUA OS MÉTODOS EXISTENTES _showSuccess E _showError
   void _showSuccess(String message) {
-    _mostrarAlertaCustom(message, true);
+    mostrarAlerta(message, true);
   }
 
   void _showError(String message) {
-    _mostrarAlertaCustom(message, false);
+    mostrarAlerta(message, false);
   }
 
   Future<void> _initializeTokenAndUserType() async {
@@ -763,6 +749,38 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     return filtradas;
   }
 
+  String _tratarMensagemErro(int statusCode, String errorMessage) {
+    switch (statusCode) {
+      case 400:
+        if (errorMessage.toLowerCase().contains('email')) {
+          return 'Email inválido. Use apenas emails @sistemapoliedro.br';
+        }
+        if (errorMessage.toLowerCase().contains('já existe') ||
+            errorMessage.toLowerCase().contains('already exists')) {
+          return 'Este usuário já está cadastrado no sistema';
+        }
+        if (errorMessage.toLowerCase().contains('ra')) {
+          return 'RA inválido ou já em uso';
+        }
+        return 'Dados inválidos. Verifique as informações e tente novamente.';
+
+      case 401:
+        return 'Acesso não autorizado. Faça login novamente.';
+
+      case 403:
+        return 'Você não tem permissão para realizar esta ação.';
+
+      case 404:
+        return 'Recurso não encontrado.';
+
+      case 500:
+        return 'Erro interno do servidor. Tente novamente mais tarde.';
+
+      default:
+        return 'Erro: $errorMessage';
+    }
+  }
+
   void _showUserDialog({Usuario? usuario}) async {
     final bool isEdit = usuario != null;
     final bool isAluno = usuario?.tipo == 'aluno' || mostrarAlunos;
@@ -827,9 +845,17 @@ class _AdministracaoPageState extends State<AdministracaoPage>
             }
             _showSuccess('${isEdit ? 'Editado' : 'Adicionado'} com sucesso!');
           } else {
-            throw Exception(
-              'Falha ao atualizar: ${response.statusCode} - ${response.body}',
+            // CORREÇÃO AQUI: Tratar erro da resposta
+            final errorResponse = json.decode(response.body);
+            final errorMessage =
+                errorResponse['message'] ??
+                errorResponse['error'] ??
+                'Erro desconhecido';
+            final mensagemTratada = _tratarMensagemErro(
+              response.statusCode,
+              errorMessage,
             );
+            _showError(mensagemTratada);
           }
         } else {
           String endpoint = isAluno
@@ -868,13 +894,30 @@ class _AdministracaoPageState extends State<AdministracaoPage>
               'Adicionado com sucesso! Senha inicial enviada por e-mail.',
             );
           } else {
-            throw Exception(
-              'Falha ao adicionar: ${response.statusCode} - ${response.body}',
+            // CORREÇÃO AQUI: Tratar erro da resposta
+            final errorResponse = json.decode(response.body);
+            final errorMessage =
+                errorResponse['message'] ??
+                errorResponse['error'] ??
+                'Erro desconhecido';
+            final mensagemTratada = _tratarMensagemErro(
+              response.statusCode,
+              errorMessage,
             );
+            _showError(mensagemTratada);
           }
         }
       } catch (e) {
-        _showError('Erro ao salvar: $e');
+        // CORREÇÃO AQUI: Tratar erros de rede/exceções
+        if (e is http.ClientException) {
+          _showError('Erro de conexão. Verifique sua internet.');
+        } else if (e is FormatException) {
+          _showError('Erro no formato dos dados. Tente novamente.');
+        } else {
+          _showError(
+            'Erro ao salvar: ${e.toString().replaceAll('Exception: ', '')}',
+          );
+        }
       }
     }
   }
@@ -1004,70 +1047,6 @@ class _AdministracaoPageState extends State<AdministracaoPage>
                 : _buildUsuariosBody(primaryColor, isMobile, isTablet),
           ),
         ),
-
-        // SISTEMA DE ALERTAS NO CANTO SUPERIOR DIREITO
-        if (_mostrarAlerta)
-          Positioned(
-            top: 0,
-            right: 0,
-            left: 0,
-            child: SafeArea(
-              child: Align(
-                alignment: Alignment.topRight,
-                child: Container(
-                  margin: EdgeInsets.all(isMobile ? 12 : 16),
-                  padding: EdgeInsets.all(isMobile ? 16 : 20),
-                  decoration: BoxDecoration(
-                    color: _alertaSucesso
-                        ? AppColors.verdeConfirmacao
-                        : AppColors.vermelhoErro,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 15,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _alertaSucesso ? Icons.check_circle : Icons.error,
-                        color: Colors.white,
-                        size: isMobile ? 20 : 24,
-                      ),
-                      SizedBox(width: isMobile ? 12 : 16),
-                      Expanded(
-                        child: Text(
-                          _mensagemAlerta,
-                          style: AppTextStyles.fonteUbuntu.copyWith(
-                            color: Colors.white,
-                            fontSize: isMobile ? 14 : 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      SizedBox(width: isMobile ? 8 : 12),
-                      GestureDetector(
-                        onTap: _esconderAlerta,
-                        child: Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: isMobile ? 18 : 20,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }

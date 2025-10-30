@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:sistema_poliedro/src/components/alerta.dart';
 import '../styles/cores.dart';
 import '../styles/fontes.dart';
 import '../models/modelo_usuario.dart';
@@ -772,6 +775,7 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                 children: [
                   TextFormField(
                     cursorColor: AppColors.azulClaro,
+
                     controller: _nomeController,
                     style: AppTextStyles.fonteUbuntuSans.copyWith(
                       fontSize: isMobile ? 14 : 16,
@@ -781,6 +785,11 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                       labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                         fontWeight: FontWeight.w600,
                         fontSize: isMobile ? 14 : 16,
+                      ),
+                      floatingLabelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
+                        color: AppColors.azulClaro,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -807,6 +816,8 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                   ),
                   SizedBox(height: isMobile ? 16 : 20),
                   DropdownButtonFormField<String>(
+                    dropdownColor: Colors.white,
+
                     value: _tipo,
                     style: AppTextStyles.fonteUbuntuSans.copyWith(
                       fontSize: isMobile ? 14 : 16,
@@ -816,6 +827,11 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                       labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                         fontWeight: FontWeight.w600,
                         fontSize: isMobile ? 14 : 16,
+                      ),
+                      floatingLabelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
+                        color: AppColors.azulClaro,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -893,6 +909,11 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                       labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                         fontWeight: FontWeight.w600,
                         fontSize: isMobile ? 14 : 16,
+                      ),
+                      floatingLabelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
+                        color: AppColors.azulClaro,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -980,6 +1001,20 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                           ),
                           side: BorderSide(color: Colors.grey[400]!),
                           minimumSize: const Size(double.infinity, 50),
+                          // ADICIONE O OVERLAY COLOR NO MOBILE TAMBÉM:
+                          overlayColor: WidgetStateColor.resolveWith((
+                            Set<WidgetState> states,
+                          ) {
+                            if (states.contains(WidgetState.hovered)) {
+                              return Colors.grey[100]!; // Cor do hover
+                            }
+                            if (states.contains(WidgetState.pressed)) {
+                              return Colors
+                                  .grey[200]!; // Cor quando pressionado
+                            }
+                            return Colors
+                                .transparent; // Cor padrão para outros estados
+                          }),
                         ),
                         child: Text(
                           'Cancelar',
@@ -1003,6 +1038,20 @@ class _AddGlobalAvaliacaoDialogState extends State<AddGlobalAvaliacaoDialog> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             side: BorderSide(color: Colors.grey[400]!),
+                            // JÁ EXISTE - MANTENHA:
+                            overlayColor: WidgetStateColor.resolveWith((
+                              Set<WidgetState> states,
+                            ) {
+                              if (states.contains(WidgetState.hovered)) {
+                                return Colors.grey[100]!; // Cor do hover
+                              }
+                              if (states.contains(WidgetState.pressed)) {
+                                return Colors
+                                    .grey[200]!; // Cor quando pressionado
+                              }
+                              return Colors
+                                  .transparent; // Cor padrão para outros estados
+                            }),
                           ),
                           child: Text(
                             'Cancelar',
@@ -1184,6 +1233,11 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                         fontWeight: FontWeight.w600,
                         fontSize: isMobile ? 14 : 16,
                       ),
+                      floatingLabelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
+                        color: AppColors.azulClaro,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: Colors.grey[400]!),
@@ -1209,6 +1263,7 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                   ),
                   SizedBox(height: isMobile ? 16 : 20),
                   DropdownButtonFormField<String>(
+                    dropdownColor: Colors.white,
                     value: _tipo,
                     style: AppTextStyles.fonteUbuntuSans.copyWith(
                       fontSize: isMobile ? 14 : 16,
@@ -1218,6 +1273,11 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                       labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                         fontWeight: FontWeight.w600,
                         fontSize: isMobile ? 14 : 16,
+                      ),
+                      floatingLabelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
+                        color: AppColors.azulClaro,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -1295,6 +1355,11 @@ class _EditAvaliacaoGlobalDialogState extends State<EditAvaliacaoGlobalDialog> {
                       labelStyle: AppTextStyles.fonteUbuntu.copyWith(
                         fontWeight: FontWeight.w600,
                         fontSize: isMobile ? 14 : 16,
+                      ),
+                      floatingLabelStyle: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 14 : 16,
+                        color: AppColors.azulClaro,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -1516,6 +1581,25 @@ class _NotaDialogState extends State<NotaDialog> {
     _tipoController.text = 'prova';
   }
 
+  // Método para mostrar alertas igual ao da LoginPage
+  void _mostrarAlerta(BuildContext context, String mensagem, bool sucesso) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: true,
+      builder: (context) {
+        // Use a timer instead of Future.delayed to avoid context issues
+        Timer(const Duration(seconds: 2), () {
+          if (Navigator.of(context, rootNavigator: true).canPop()) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
+
+        return AlertaWidget(mensagem: mensagem, sucesso: sucesso);
+      },
+    );
+  }
+
   @override
   void dispose() {
     _nomeController.dispose();
@@ -1689,6 +1773,12 @@ class _NotaDialogState extends State<NotaDialog> {
                               color: Colors.grey[600],
                               fontSize: isMobile ? 14 : 16,
                             ),
+                            floatingLabelStyle: AppTextStyles.fonteUbuntu
+                                .copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: isMobile ? 14 : 16,
+                                  color: AppColors.azulClaro,
+                                ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(color: Colors.grey[300]!),
@@ -1920,6 +2010,7 @@ class _NotaDialogState extends State<NotaDialog> {
                             final index = entry.key;
                             final av = entry.value;
                             return Card(
+                              color: AppColors.branco,
                               margin: EdgeInsets.only(
                                 bottom: isMobile ? 8 : 12,
                               ),
@@ -1999,13 +2090,10 @@ class _NotaDialogState extends State<NotaDialog> {
                                 (_avaliacoes.isNotEmpty || isEdit)) {
                               Navigator.pop(context, novaNota);
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Adicione pelo menos uma avaliação',
-                                  ),
-                                  backgroundColor: AppColors.vermelhoErro,
-                                ),
+                              _mostrarAlerta(
+                                context,
+                                'Adicione pelo menos uma avaliação',
+                                false,
                               );
                             }
                           },
@@ -2484,6 +2572,7 @@ class ManageAvaliacoesDialog extends StatelessWidget {
     );
   }
 
+  // Diálogo de confirmação de exclusão interno - RESPONSIVO
   // Diálogo de confirmação de exclusão interno - RESPONSIVO
   Widget _buildConfirmDeleteDialog(
     BuildContext dialogContext,
