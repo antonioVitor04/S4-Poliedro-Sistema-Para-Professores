@@ -402,59 +402,103 @@ router.get("/image/:id", async (req, res) => {
   }
 });
 
-// Rota para upload de imagem via base64
+// Rota para upload de imagem via base64 - PROFESSOR (COM DEPURAÇÃO)
 router.put(
   "/update-image-base64",
   auth(["professor", "admin"]),
   async (req, res) => {
-    // MUDANÇA: Permite admin
     try {
-      console.log("=== UPLOAD VIA BASE64 ===");
+      console.log("=== UPLOAD VIA BASE64 - PROFESSOR ===");
+      console.log("Headers:", req.headers);
+      console.log("Content-Type:", req.headers["content-type"]);
+      console.log("Content-Length:", req.headers["content-length"]);
+
       const { imagem, filename, contentType } = req.body;
 
+      // DEPURAÇÃO
+      console.log("Dados recebidos:", {
+        hasImagem: !!imagem,
+        imagemLength: imagem ? imagem.length : 0,
+        filename: filename,
+        contentType: contentType,
+      });
+
       if (!imagem) {
+        console.log("ERRO: Nenhuma imagem enviada");
         return res.status(400).json({ msg: "Nenhuma imagem enviada" });
       }
 
-      // Validar se é base64 válido
+      // Validar tamanho
+      const base64Size = Math.ceil((imagem.length * 3) / 4);
+      console.log("Tamanho estimado da imagem:", base64Size, "bytes");
+
+      if (base64Size > 5 * 1024 * 1024) {
+        console.log("ERRO: Imagem muito grande:", base64Size, "bytes");
+        return res.status(400).json({
+          msg: "Imagem muito grande. Tamanho máximo: 5MB",
+        });
+      }
+
       if (!imagem.startsWith("data:image/")) {
+        console.log("ERRO: Formato inválido");
         return res.status(400).json({ msg: "Formato de imagem inválido" });
       }
 
       const prof = await Professor.findById(req.user.id);
-      if (!prof)
+      if (!prof) {
+        console.log("ERRO: Professor não encontrado - ID:", req.user.id);
         return res.status(404).json({ msg: "Professor não encontrado" });
+      }
 
-      // Extrair dados da string base64
       const matches = imagem.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
       if (!matches || matches.length !== 3) {
+        console.log("ERRO: String base64 inválida");
         return res.status(400).json({ msg: "String base64 inválida" });
       }
 
-      const imageBuffer = Buffer.from(matches[2], "base64");
+      try {
+        const imageBuffer = Buffer.from(matches[2], "base64");
+        console.log("Buffer criado. Tamanho:", imageBuffer.length, "bytes");
 
-      prof.imagem = {
-        data: matches[2], // Apenas a parte base64 sem o prefixo
-        contentType: matches[1] || contentType || "image/jpeg",
-        filename: filename || "imagem.jpg",
-        size: imageBuffer.length,
-      };
+        prof.imagem = {
+          data: matches[2],
+          contentType: matches[1] || contentType || "image/jpeg",
+          filename: filename || "imagem.jpg",
+          size: imageBuffer.length,
+        };
 
-      await prof.save();
+        await prof.save();
+        console.log("Imagem salva no banco com sucesso");
 
-      console.log("Imagem atualizada via base64 com sucesso");
-
-      res.json({
-        msg: "Imagem atualizada com sucesso",
-        imagem: {
-          contentType: prof.imagem.contentType,
-          filename: prof.imagem.filename,
-          size: prof.imagem.size,
-        },
-      });
+        res.json({
+          msg: "Imagem atualizada com sucesso",
+          imagem: {
+            contentType: prof.imagem.contentType,
+            filename: prof.imagem.filename,
+            size: prof.imagem.size,
+          },
+        });
+      } catch (bufferError) {
+        console.error("ERRO ao criar buffer:", bufferError);
+        return res.status(400).json({
+          msg: "Erro ao processar imagem: dados base64 inválidos",
+        });
+      }
     } catch (err) {
-      console.error("Erro no upload base64:", err);
-      res.status(500).json({ error: err.message });
+      console.error("ERRO GERAL no upload base64:", err);
+      console.error("Stack:", err.stack);
+
+      if (err.name === "PayloadTooLargeError") {
+        return res.status(413).json({
+          msg: "Arquivo muito grande. Tamanho máximo: 5MB",
+        });
+      }
+
+      res.status(500).json({
+        msg: "Erro interno no servidor",
+        error:
+          process.env.NODE_ENV === "development" ? err.message : "Erro interno",
+      });
     }
   }
 );
