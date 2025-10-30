@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -199,7 +200,6 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // Update Professor (self-update)
 router.put(
@@ -422,29 +422,30 @@ router.get("/", auth(["professor", "admin"]), async (req, res) => {
   }
 });
 
-
 // GET: Buscar professores por email
 router.get("/buscar", auth(["admin", "professor"]), async (req, res) => {
   try {
     const { email } = req.query;
-    
+
     if (!email) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Parâmetro 'email' é obrigatório" 
+      return res.status(400).json({
+        success: false,
+        error: "Parâmetro 'email' é obrigatório",
       });
     }
 
     const professores = await Professor.find({
-      email: { $regex: email, $options: 'i' }
-    }).select('_id nome email').limit(10);
+      email: { $regex: email, $options: "i" },
+    })
+      .select("_id nome email")
+      .limit(10);
 
     res.json(professores);
   } catch (err) {
     console.error("Erro ao buscar professores:", err);
-    res.status(500).json({ 
-      success: false, 
-      error: "Erro interno do servidor ao buscar professores" 
+    res.status(500).json({
+      success: false,
+      error: "Erro interno do servidor ao buscar professores",
     });
   }
 });
@@ -482,47 +483,137 @@ router.get("/list", auth(["professor", "admin"]), async (req, res) => {
 
 // Atualizar professor por ID (PUT /:id)
 router.put("/:id", auth(["professor", "admin"]), async (req, res) => {
-  // MUDANÇA: Permite admin
   try {
-    console.log("=== ROTA UPDATE PROFESSOR POR ID CHAMADA ==="); // Log para debug
+    console.log("=== ROTA UPDATE PROFESSOR POR ID CHAMADA ===");
     console.log("User role:", req.user.role);
     const { id } = req.params;
-    const { nome, email, tipo } = req.body; // MUDANÇA: Aceitar 'tipo'
+    const { nome, email, tipo } = req.body;
+
+    // VALIDAÇÃO: Verificar se o ID é válido
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ msg: "ID do professor inválido" });
+    }
+
     const prof = await Professor.findById(id);
     if (!prof) {
       return res.status(404).json({ msg: "Professor não encontrado" });
     }
 
-    // Validar tipo se fornecido
-    if (tipo && !["admin", "professor"].includes(tipo)) {
-      return res.status(400).json({ msg: "Tipo inválido." });
-    }
-    // Opcional: Só permitir mudar para admin se atual for admin
-    if (tipo === "admin" && req.user.role !== "admin") {
+    // VALIDAÇÃO: Campos obrigatórios
+    if (!nome && !email && !tipo) {
       return res
-        .status(403)
-        .json({ msg: "Apenas administradores podem ser promovidos." });
+        .status(400)
+        .json({ msg: "Nenhum dado fornecido para atualização" });
     }
 
+    // VALIDAÇÃO: Nome
+    if (nome && (typeof nome !== "string" || nome.trim().length === 0)) {
+      return res.status(400).json({ msg: "Nome inválido" });
+    }
+
+    // VALIDAÇÃO: Email - ADICIONE ESTA VALIDAÇÃO
+    if (email) {
+      if (typeof email !== "string" || email.trim().length === 0) {
+        return res.status(400).json({ msg: "Email inválido" });
+      }
+
+      // VALIDAÇÃO DO DOMÍNIO DO EMAIL - IMPORTANTE!
+      if (!email.endsWith("@sistemapoliedro.br")) {
+        return res.status(400).json({
+          msg: "Email deve pertencer ao domínio @sistemapoliedro.br",
+        });
+      }
+
+      // VERIFICAR SE EMAIL JÁ EXISTE EM OUTRO USUÁRIO
+      const existingProfessor = await Professor.findOne({
+        email: email.trim().toLowerCase(),
+        _id: { $ne: id }, // Excluir o próprio professor
+      });
+
+      if (existingProfessor) {
+        return res
+          .status(400)
+          .json({ msg: "Este email já está em uso por outro professor" });
+      }
+    }
+
+    // VALIDAÇÃO: Tipo
+    if (tipo && !["admin", "professor"].includes(tipo)) {
+      return res
+        .status(400)
+        .json({ msg: "Tipo inválido. Use 'admin' ou 'professor'" });
+    }
+
+    // VALIDAÇÃO: Permissão para promover para admin
+    if (tipo === "admin" && req.user.role !== "admin") {
+      return res.status(403).json({
+        msg: "Apenas administradores podem promover para admin.",
+      });
+    }
+
+    // VALIDAÇÃO: Impedir que não-admins alterem o tipo de outros professores
+    if (
+      tipo &&
+      req.user.role !== "admin" &&
+      prof._id.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        msg: "Você só pode alterar seu próprio tipo de usuário",
+      });
+    }
+
+    // ATUALIZAR CAMPOS
     if (nome) prof.nome = nome.trim();
-    if (email) prof.email = email.trim();
-    if (tipo) prof.tipo = tipo; // MUDANÇA: Atualizar tipo
+    if (email) prof.email = email.trim().toLowerCase();
+    if (tipo) prof.tipo = tipo;
+
+    // VALIDAÇÃO DO MODELO ANTES DE SALVAR
+    try {
+      await prof.validate(); // Valida as regras do mongoose schema
+    } catch (validationError) {
+      return res.status(400).json({
+        msg: "Dados inválidos",
+        error: validationError.message,
+      });
+    }
+
     await prof.save();
-    const host = getHost(req); // MUDANÇA: Usar host correto
+
+    const host = getHost(req);
     const formatted = {
       id: prof._id.toString(),
       nome: prof.nome,
       email: prof.email,
       ra: null,
-      tipo: prof.tipo, // MUDANÇA: Usar tipo real
+      tipo: prof.tipo,
       fotoUrl: prof.imagem
         ? `${req.protocol}://${host}/api/professores/image/${prof._id}`
         : null,
     };
+
     res.json({ msg: "Professor atualizado com sucesso", professor: formatted });
   } catch (err) {
-    console.error("Erro ao atualizar professor:", err); // Log para debug
-    res.status(500).json({ error: err.message });
+    console.error("Erro ao atualizar professor:", err);
+
+    // TRATAMENTO ESPECÍFICO DE ERROS
+    if (err.name === "CastError") {
+      return res.status(400).json({ msg: "ID do professor inválido" });
+    }
+    if (err.name === "ValidationError") {
+      return res.status(400).json({
+        msg: "Dados de validação inválidos",
+        error: err.message,
+      });
+    }
+    if (err.code === 11000) {
+      return res.status(400).json({ msg: "Email já está em uso" });
+    }
+
+    res.status(500).json({
+      msg: "Erro interno do servidor ao atualizar professor",
+      error:
+        process.env.NODE_ENV === "development" ? err.message : "Erro interno",
+    });
   }
 });
 
