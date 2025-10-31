@@ -139,7 +139,7 @@ class _NotificacaoItemState extends State<NotificacaoItem> {
                       widget.mensagem.materia,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: AppColors.azulClaro,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -363,7 +363,7 @@ class VisualizadorMensagem extends StatelessWidget {
                           safeMateria,
                           style: TextStyle(
                             fontSize: 14,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: AppColors.azulClaro,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -422,7 +422,8 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
   bool _isLoading = true;
   String? _errorMessage;
 
-  // ====== NOVO: para comparar e disparar popup quando chegarem novas ======
+  bool _isViewingMessage = false;
+
   int _lastUnread = 0;
   OverlayEntry? _overlayEntry;
 
@@ -512,10 +513,14 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
         _mensagemSelecionada = mensagem;
         if (mensagem.isUnread) {
           mensagem.isUnread = false;
-          // ====== NOVO: decrementa contador global
           notificationsUnreadCount.value = (notificationsUnreadCount.value - 1)
               .clamp(0, 999);
           _lastUnread = notificationsUnreadCount.value;
+        }
+
+        final screenWidth = MediaQuery.of(context).size.width;
+        if (screenWidth < 800) {
+          _isViewingMessage = true;
         }
       });
     } catch (e) {
@@ -523,6 +528,13 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
         _errorMessage = 'Erro ao marcar mensagem como lida: $e';
       });
     }
+  }
+
+  // ====== NOVO: Método para voltar da visualização no mobile ======
+  void _voltarParaLista() {
+    setState(() {
+      _isViewingMessage = false;
+    });
   }
 
   void _toggleFavorita(Mensagem mensagem) async {
@@ -670,8 +682,66 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
     );
   }
 
+  Widget _buildMobileMessageViewer(BuildContext context) {
+    return Column(
+      children: [
+        // Header com botão voltar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: _voltarParaLista,
+                padding: const EdgeInsets.all(8),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _mensagemSelecionada!.remetente,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      _mensagemSelecionada!.materia,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Visualizador da mensagem
+        Expanded(child: VisualizadorMensagem(mensagem: _mensagemSelecionada)),
+      ],
+    );
+  }
+
   Widget _buildNarrowScreenLayout(BuildContext context) {
-    return _buildMessageList();
+    // ====== CORREÇÃO: Alterna entre lista e visualizador no mobile ======
+    if (_isViewingMessage && _mensagemSelecionada != null) {
+      return _buildMobileMessageViewer(context);
+    } else {
+      return _buildMessageList();
+    }
   }
 
   Widget _buildMessageList() {
@@ -952,8 +1022,9 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Header com filtros
-          _buildHeaderSection(screenWidth, isWideScreen),
+          // ====== CORREÇÃO: Só mostra o header se não estiver visualizando mensagem no mobile ======
+          if (!_isViewingMessage || isWideScreen)
+            _buildHeaderSection(screenWidth, isWideScreen),
 
           // Conteúdo principal
           Expanded(
@@ -964,7 +1035,7 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          CircularProgressIndicator(),
+                          CircularProgressIndicator(color: AppColors.azulClaro),
                           SizedBox(height: 16),
                           Text(
                             'Carregando notificações...',

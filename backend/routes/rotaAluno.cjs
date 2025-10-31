@@ -7,24 +7,10 @@ const auth = require("../middleware/auth.cjs");
 const multer = require("multer");
 const Nota = require("../models/nota.cjs");
 const CardDisciplina = require("../models/cardDisciplina.cjs");
+const path = require("path");
 const router = express.Router();
 
 // Configuração do Multer para memória (não salva arquivo)
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
-      cb(null, true);
-    } else {
-      cb(new Error("Apenas arquivos de imagem são permitidos!"), false);
-    }
-  },
-});
-
-// Middleware para tratar erros do multer
 const handleMulterError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
@@ -35,12 +21,72 @@ const handleMulterError = (err, req, res, next) => {
     if (err.code === "LIMIT_UNEXPECTED_FILE") {
       return res.status(400).json({ msg: "Campo de arquivo inesperado" });
     }
+    if (err.code === "LIMIT_FILE_COUNT") {
+      return res
+        .status(400)
+        .json({ msg: "Número máximo de arquivos excedido" });
+    }
+    if (err.code === "LIMIT_PART_COUNT") {
+      return res.status(400).json({ msg: "Muitas partes no formulário" });
+    }
     return res.status(400).json({ msg: `Erro no upload: ${err.message}` });
   } else if (err) {
+    // Erro de tipo de arquivo personalizado
+    if (err.message === "Tipo de arquivo não permitido") {
+      return res.status(400).json({
+        msg: "Tipo de arquivo não suportado. Use apenas: JPG, JPEG, PNG, GIF, WEBP",
+      });
+    }
     return res.status(400).json({ msg: err.message });
   }
   next();
 };
+
+// Configuração do Multer com validação de tipos de arquivo CORRIGIDA
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    console.log("🔍 Validando arquivo (modo estrito):", {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+    });
+
+    // Apenas imagens são permitidas - validação mais rigorosa
+    if (!file.mimetype.startsWith("image/")) {
+      console.log("❌ Rejeitado - Não é uma imagem");
+      return cb(new Error("Tipo de arquivo não permitido"), false);
+    }
+
+    // Lista explícita de tipos permitidos
+    const allowedImageTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+
+    if (!allowedImageTypes.includes(file.mimetype)) {
+      console.log("❌ Rejeitado - Tipo de imagem não suportado");
+      return cb(new Error("Tipo de arquivo não permitido"), false);
+    }
+
+    // Verificar extensão também
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+
+    if (!allowedExtensions.includes(fileExtension)) {
+      console.log("❌ Rejeitado - Extensão não permitida");
+      return cb(new Error("Tipo de arquivo não permitido"), false);
+    }
+
+    console.log("✅ Arquivo aceito - É uma imagem válida");
+    cb(null, true);
+  },
+});
 
 // Função auxiliar para host correto (para dev com IP)
 const getHost = (req) => {
@@ -342,72 +388,180 @@ router.get("/image/:id", async (req, res) => {
   }
 });
 
-// Rota para upload de imagem via base64 - ALUNO (COM DEPURAÇÃO)
+const validarImagemBase64 = (base64String, filename) => {
+  console.log("🔍 Validando imagem Base64...");
+
+  // Validar formato data URL - DEVE começar com data:image/
+  if (!base64String.startsWith("data:image/")) {
+    console.log("❌ Não é uma data URL de imagem válida");
+    return { isValid: false, error: "Formato de imagem inválido" };
+  }
+
+  // Extrair MIME type
+  const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+  if (!matches || matches.length !== 3) {
+    console.log("❌ String base64 inválida");
+    return { isValid: false, error: "String base64 inválida" };
+  }
+
+  const mimeType = matches[1];
+  console.log("📄 MIME Type detectado:", mimeType);
+
+  // Lista de tipos MIME permitidos - APENAS IMAGENS
+  const allowedMimeTypes = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+  ];
+
+  // VALIDAÇÃO CRÍTICA: Verificar se é realmente uma imagem
+  if (!mimeType.startsWith("image/")) {
+    console.log("❌ MIME type não é uma imagem:", mimeType);
+    return {
+      isValid: false,
+      error:
+        "Tipo de arquivo não suportado. Use apenas: JPG, JPEG, PNG, GIF, WEBP",
+    };
+  }
+
+  // VALIDAÇÃO CRÍTICA: Verificar se está na lista permitida
+  if (!allowedMimeTypes.includes(mimeType)) {
+    console.log("❌ MIME type não permitido:", mimeType);
+    return {
+      isValid: false,
+      error:
+        "Tipo de arquivo não suportado. Use apenas: JPG, JPEG, PNG, GIF, WEBP",
+    };
+  }
+
+  // Validar extensão do arquivo se fornecida
+  if (filename) {
+    const fileExtension = path.extname(filename).toLowerCase();
+    const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+
+    // BLOQUEAR ESPECIFICAMENTE PDF E OUTROS ARQUIVOS
+    const blockedExtensions = [".pdf", ".doc", ".docx", ".txt", ".zip", ".rar"];
+    if (blockedExtensions.includes(fileExtension)) {
+      console.log("❌ Extensão bloqueada:", fileExtension);
+      return {
+        isValid: false,
+        error:
+          "Extensão de arquivo não permitida. Use apenas imagens: .jpg, .jpeg, .png, .gif, .webp",
+      };
+    }
+
+    if (!allowedExtensions.includes(fileExtension)) {
+      console.log("❌ Extensão não permitida:", fileExtension);
+      return {
+        isValid: false,
+        error:
+          "Extensão de arquivo não suportada. Use apenas: .jpg, .jpeg, .png, .gif, .webp",
+      };
+    }
+  }
+
+  // Validar tamanho (estimativa)
+  const base64Data = matches[2];
+  const estimatedSize = Math.ceil((base64Data.length * 3) / 4);
+  console.log("📏 Tamanho estimado:", estimatedSize, "bytes");
+
+  if (estimatedSize > 5 * 1024 * 1024) {
+    console.log("❌ Imagem muito grande:", estimatedSize, "bytes");
+    return {
+      isValid: false,
+      error: "Imagem muito grande. Tamanho máximo: 5MB",
+    };
+  }
+
+  // VALIDAÇÃO EXTRA: Tentar decodificar para verificar se é realmente uma imagem
+  try {
+    const buffer = Buffer.from(base64Data, "base64");
+
+    // Verificar se o buffer tem tamanho mínimo para ser uma imagem
+    if (buffer.length < 100) {
+      console.log("❌ Arquivo muito pequeno para ser uma imagem válida");
+      return {
+        isValid: false,
+        error: "Arquivo muito pequeno para ser uma imagem válida",
+      };
+    }
+
+    // Verificar assinatura de arquivo (magic numbers)
+    const fileSignature = buffer.slice(0, 8).toString("hex").toUpperCase();
+    console.log("🔍 Assinatura do arquivo:", fileSignature);
+
+    // Assinaturas conhecidas de imagens
+    const imageSignatures = {
+      FFD8FF: "JPEG",
+      "89504E470D0A1A0A": "PNG",
+      474946383761: "GIF87a",
+      474946383961: "GIF89a",
+      52494646: "WEBP", // RIFF header
+    };
+
+    let isValidSignature = false;
+    for (const signature in imageSignatures) {
+      if (fileSignature.startsWith(signature)) {
+        console.log("✅ Assinatura válida:", imageSignatures[signature]);
+        isValidSignature = true;
+        break;
+      }
+    }
+
+    if (!isValidSignature) {
+      console.log("❌ Assinatura de arquivo não reconhecida como imagem");
+      return {
+        isValid: false,
+        error: "Arquivo não é uma imagem válida",
+      };
+    }
+  } catch (bufferError) {
+    console.log("❌ Erro ao decodificar Base64:", bufferError);
+    return {
+      isValid: false,
+      error: "Dados Base64 inválidos",
+    };
+  }
+
+  console.log("✅ Imagem Base64 validada com sucesso");
+  return {
+    isValid: true,
+    mimeType: mimeType,
+    base64Data: base64Data,
+    size: estimatedSize,
+  };
+};
+
+// Rota para upload de imagem via base64
 router.put("/update-image-base64", auth("aluno"), async (req, res) => {
   try {
-    console.log("=== UPLOAD VIA BASE64 - ALUNO ===");
-    console.log("Headers:", req.headers);
-    console.log("Content-Type:", req.headers["content-type"]);
-    console.log("Content-Length:", req.headers["content-length"]);
-
     const { imagem, filename, contentType } = req.body;
 
-    // DEPURAÇÃO: Log do que foi recebido
-    console.log("Dados recebidos:", {
-      hasImagem: !!imagem,
-      imagemLength: imagem ? imagem.length : 0,
-      filename: filename,
-      contentType: contentType,
-    });
-
     if (!imagem) {
-      console.log("ERRO: Nenhuma imagem enviada");
       return res.status(400).json({ msg: "Nenhuma imagem enviada" });
     }
 
-    // Validar tamanho da string base64 (aproximadamente)
-    const base64Size = Math.ceil((imagem.length * 3) / 4); // Estimativa em bytes
-    console.log("Tamanho estimado da imagem:", base64Size, "bytes");
-
-    if (base64Size > 5 * 1024 * 1024) {
-      // 5MB
-      console.log("ERRO: Imagem muito grande:", base64Size, "bytes");
-      return res.status(400).json({
-        msg: "Imagem muito grande. Tamanho máximo: 5MB",
-      });
-    }
-
-    // Validar se é base64 válido
-    if (!imagem.startsWith("data:image/")) {
-      console.log("ERRO: Formato inválido - não começa com data:image/");
-      return res.status(400).json({ msg: "Formato de imagem inválido" });
+    // ✅ VALIDAÇÃO CRÍTICA: Validar a imagem Base64
+    const validacao = validarImagemBase64(imagem, filename);
+    if (!validacao.isValid) {
+      return res.status(400).json({ msg: validacao.error });
     }
 
     const aluno = await Aluno.findById(req.user.id);
     if (!aluno) {
-      console.log("ERRO: Aluno não encontrado - ID:", req.user.id);
       return res.status(404).json({ msg: "Aluno não encontrado" });
     }
 
-    // Extrair dados da string base64
-    const matches = imagem.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-      console.log("ERRO: String base64 inválida - regex não match");
-      return res.status(400).json({ msg: "String base64 inválida" });
-    }
-
     try {
-      const imageBuffer = Buffer.from(matches[2], "base64");
-      console.log(
-        "Buffer criado com sucesso. Tamanho:",
-        imageBuffer.length,
-        "bytes"
-      );
+      // Usar os dados validados
+      const imageBuffer = Buffer.from(validacao.base64Data, "base64");
 
       aluno.imagem = {
-        data: matches[2],
-        contentType: matches[1] || contentType || "image/jpeg",
-        filename: filename || "imagem.jpg",
+        data: validacao.base64Data,
+        contentType: validacao.mimeType,
+        filename: filename || `imagem.${validacao.mimeType.split("/")[1]}`,
         size: imageBuffer.length,
       };
 
@@ -453,6 +607,7 @@ router.put("/update-image-base64", auth("aluno"), async (req, res) => {
     });
   }
 });
+
 // Remover imagem do perfil
 router.delete("/remove-image", auth("aluno"), async (req, res) => {
   try {

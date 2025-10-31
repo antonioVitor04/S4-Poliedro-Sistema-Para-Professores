@@ -34,10 +34,7 @@ class _NotasPageState extends State<NotasPage>
     super.initState();
     notasService = NotasService(widget.token);
 
-    _tabController = TabController(
-      length: 2,
-      vsync: this,
-    ); // Apenas 2 abas agora
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabSelection);
 
     _scrollController.addListener(() {
@@ -81,7 +78,7 @@ class _NotasPageState extends State<NotasPage>
             detalhe,
           ) {
             return {
-              "nome": detalhe['nome'], // USA DIRETAMENTE O NOME DO BACKEND
+              "nome": detalhe['nome'],
               "tipo": detalhe['tipo'],
               "nota": detalhe['nota']?.toDouble(),
               "peso": detalhe['peso']?.toDouble(),
@@ -226,80 +223,16 @@ class _NotasPageState extends State<NotasPage>
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.azulEscuro,
+              foregroundColor: Colors.white,
+            ),
             onPressed: _carregarNotas,
             icon: const Icon(Icons.refresh),
             label: const Text('Recarregar'),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildContent() {
-    if (disciplinas.isEmpty) {
-      return _buildEmptyState();
-    }
-
-    return Column(
-      children: [
-        // Indicadores rápidos com fundo branco
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: _buildQuickStats(),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Abas de visualização
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: TabBar(
-            controller: _tabController,
-            indicator: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppColors.azulEscuro, width: 3.0),
-              ),
-            ),
-            labelColor: AppColors.azulEscuro,
-            unselectedLabelColor: Colors.grey[600],
-            tabs: const [
-              Tab(icon: Icon(Icons.list_alt), text: 'Lista'),
-              Tab(icon: Icon(Icons.bar_chart), text: 'Gráficos'),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Conteúdo baseado na aba selecionada
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [_buildListView(), _buildChartsView()],
-          ),
-        ),
-      ],
     );
   }
 
@@ -314,28 +247,44 @@ class _NotasPageState extends State<NotasPage>
         .length;
     final abaixoMedia = disciplinas.length - acimaMedia;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _buildStatItem(
-          'Média Geral',
-          mediaGeral.toStringAsFixed(1),
-          Icons.school,
-          AppColors.azulEscuro,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildStatItem(
+              'Média Geral',
+              mediaGeral.toStringAsFixed(1),
+              Icons.school,
+              AppColors.azulEscuro,
+            ),
+            _buildStatItem(
+              'Acima da Média',
+              acimaMedia.toString(),
+              Icons.thumb_up,
+              Colors.green,
+            ),
+            _buildStatItem(
+              'Atenção',
+              abaixoMedia.toString(),
+              Icons.warning,
+              Colors.orange,
+            ),
+          ],
         ),
-        _buildStatItem(
-          'Acima da Média',
-          acimaMedia.toString(),
-          Icons.thumb_up,
-          Colors.green,
-        ),
-        _buildStatItem(
-          'Atenção',
-          abaixoMedia.toString(),
-          Icons.warning,
-          Colors.orange,
-        ),
-      ],
+      ),
     );
   }
 
@@ -370,173 +319,261 @@ class _NotasPageState extends State<NotasPage>
     );
   }
 
+  Widget _buildTabBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: TabBar(
+        controller: _tabController,
+        indicator: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: AppColors.azulEscuro, width: 3.0),
+          ),
+        ),
+        labelColor: AppColors.azulEscuro,
+        unselectedLabelColor: Colors.grey[600],
+        tabs: const [
+          Tab(icon: Icon(Icons.list_alt), text: 'Lista'),
+          Tab(icon: Icon(Icons.bar_chart), text: 'Gráficos'),
+        ],
+      ),
+    );
+  }
+
   Widget _buildListView() {
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
+    final double horizontalPadding = isMobile ? 12.0 : 24.0;
+
     return RefreshIndicator(
       onRefresh: _carregarNotas,
-      child: ListaDisciplinas(disciplinas: disciplinas, searchText: searchText),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+        child: ListaDisciplinas(
+          disciplinas: disciplinas,
+          searchText: searchText,
+          isNestedScroll: true, // Nova propriedade para ajustar o layout
+        ),
+      ),
     );
   }
 
   Widget _buildChartsView() {
     final disciplinasFiltradas = _filtrarDisciplinas();
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
+    final double horizontalPadding = isMobile ? 12.0 : 24.0;
 
     return SingleChildScrollView(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: 16,
+      ),
       child: Column(
         children: [
           // Gráfico de barras - Médias por disciplina
-          _buildBarChart(disciplinasFiltradas),
-          const SizedBox(height: 24),
-
-          // Gráfico de pizza - Distribuição de status
-          _buildPieChart(disciplinasFiltradas),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBarChart(List<Map<String, dynamic>> disciplinas) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.bar_chart, color: AppColors.azulEscuro),
-                const SizedBox(width: 8),
-                const Text(
-                  'Médias por Disciplina',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          Container(
+            width: double.infinity,
+            height: isMobile ? 400 : 500,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Desempenho em cada disciplina',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 300,
-              child: SfCartesianChart(
-                plotAreaBackgroundColor: Colors.white,
-                primaryXAxis: CategoryAxis(
-                  labelRotation: disciplinas.length > 3 ? -45 : 0,
-                ),
-                primaryYAxis: NumericAxis(minimum: 0, maximum: 10, interval: 2),
-                series: <CartesianSeries>[
-                  ColumnSeries<Map<String, dynamic>, String>(
-                    dataSource: disciplinas,
-                    xValueMapper: (disciplina, _) => disciplina['disciplina'],
-                    yValueMapper: (disciplina, _) => disciplina['media'],
-                    pointColorMapper: (disciplina, _) {
-                      final media = disciplina['media'] as double;
-                      return media >= 6.0 ? Colors.green : Colors.orange;
-                    },
-                    dataLabelSettings: const DataLabelSettings(
-                      isVisible: true,
-                      labelAlignment: ChartDataLabelAlignment.auto,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.bar_chart,
+                        size: 24,
+                        color: AppColors.azulEscuro,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Médias por Disciplina',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Desempenho em cada disciplina',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: SfCartesianChart(
+                      plotAreaBackgroundColor: Colors.transparent,
+                      primaryXAxis: CategoryAxis(
+                        labelRotation: disciplinasFiltradas.length > 4
+                            ? -45
+                            : 0,
+                        labelStyle: const TextStyle(fontSize: 12),
+                        majorGridLines: const MajorGridLines(width: 0),
+                      ),
+                      primaryYAxis: NumericAxis(
+                        minimum: 0,
+                        maximum: 10,
+                        interval: 2,
+                        labelStyle: const TextStyle(fontSize: 12),
+                        majorGridLines: const MajorGridLines(
+                          width: 1,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      series: <CartesianSeries>[
+                        ColumnSeries<Map<String, dynamic>, String>(
+                          dataSource: disciplinasFiltradas,
+                          xValueMapper: (disciplina, _) {
+                            final nome = disciplina['disciplina'] as String;
+                            if (isMobile && nome.length > 15) {
+                              return '${nome.substring(0, 15)}...';
+                            }
+                            return nome;
+                          },
+                          yValueMapper: (disciplina, _) => disciplina['media'],
+                          pointColorMapper: (disciplina, _) {
+                            final media = disciplina['media'] as double;
+                            return media >= 6.0 ? Colors.green : Colors.orange;
+                          },
+                          dataLabelSettings: const DataLabelSettings(
+                            isVisible: true,
+                            labelAlignment: ChartDataLabelAlignment.auto,
+                            textStyle: TextStyle(fontSize: 12),
+                          ),
+                          animationDuration: 1000,
+                          width: 0.6,
+                        ),
+                      ],
+                      tooltipBehavior: TooltipBehavior(
+                        enable: true,
+                        header: 'Disciplina',
+                        format: 'point.x : point.y',
+                      ),
                     ),
-                    animationDuration: 1000,
                   ),
                 ],
-                tooltipBehavior: TooltipBehavior(
-                  enable: true,
-                  format: 'point.x : point.y',
-                ),
               ),
             ),
-          ],
-        ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Gráfico de pizza - Distribuição de status
+          Container(
+            width: double.infinity,
+            height: isMobile ? 400 : 500,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.pie_chart,
+                        size: 24,
+                        color: AppColors.azulEscuro,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Distribuição de Desempenho',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Visão geral do seu desempenho',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: SfCircularChart(
+                      palette: [Colors.green, Colors.orange],
+                      legend: Legend(
+                        isVisible: true,
+                        position: isMobile
+                            ? LegendPosition.bottom
+                            : LegendPosition.right,
+                        overflowMode: LegendItemOverflowMode.wrap,
+                        textStyle: const TextStyle(fontSize: 14),
+                      ),
+                      series: <CircularSeries>[
+                        DoughnutSeries<_ChartData, String>(
+                          dataSource: _preparePieChartData(
+                            disciplinasFiltradas,
+                          ),
+                          xValueMapper: (_ChartData data, _) => data.label,
+                          yValueMapper: (_ChartData data, _) => data.value,
+                          dataLabelSettings: const DataLabelSettings(
+                            isVisible: true,
+                            labelPosition: ChartDataLabelPosition.outside,
+                            textStyle: TextStyle(fontSize: 12),
+                          ),
+                          animationDuration: 1000,
+                          radius: isMobile ? '70%' : '80%',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 40),
+        ],
       ),
     );
   }
 
-  Widget _buildPieChart(List<Map<String, dynamic>> disciplinas) {
+  List<_ChartData> _preparePieChartData(
+    List<Map<String, dynamic>> disciplinas,
+  ) {
     final acimaMedia = disciplinas
         .where((d) => (d['media'] as double) >= 6.0)
         .length;
     final abaixoMedia = disciplinas.length - acimaMedia;
 
-    final data = [
-      _ChartData('Acima da Média', acimaMedia, Colors.green),
-      _ChartData('Abaixo da Média', abaixoMedia, Colors.orange),
+    return [
+      _ChartData('Acima da Média\n($acimaMedia)', acimaMedia, Colors.green),
+      _ChartData('Abaixo da Média\n($abaixoMedia)', abaixoMedia, Colors.orange),
     ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.pie_chart, color: AppColors.azulEscuro),
-                const SizedBox(width: 8),
-                const Text(
-                  'Distribuição de Desempenho',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Visão geral do seu desempenho',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 300,
-              child: SfCircularChart(
-                palette: [Colors.green, Colors.orange],
-                legend: Legend(
-                  isVisible: true,
-                  position: LegendPosition.bottom,
-                  overflowMode: LegendItemOverflowMode.wrap,
-                ),
-                series: <CircularSeries>[
-                  DoughnutSeries<_ChartData, String>(
-                    dataSource: data,
-                    xValueMapper: (_ChartData data, _) => data.label,
-                    yValueMapper: (_ChartData data, _) => data.value,
-                    dataLabelSettings: const DataLabelSettings(
-                      isVisible: true,
-                      labelPosition: ChartDataLabelPosition.outside,
-                    ),
-                    animationDuration: 1000,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   List<Map<String, dynamic>> _filtrarDisciplinas() {
@@ -549,43 +586,104 @@ class _NotasPageState extends State<NotasPage>
     }).toList();
   }
 
+  Widget _buildSearchBar(bool isMobile) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 600, minWidth: 300),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (value) => setState(() => searchText = value.toLowerCase()),
+        decoration: InputDecoration(
+          prefixIcon: const Icon(Icons.search),
+          hintText: "Pesquisar disciplina...",
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 16,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          suffixIcon: searchText.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => searchText = '');
+                  },
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
+    final double padding = isMobile ? 12.0 : 24.0;
+
     return Scaffold(
       backgroundColor: AppColors.branco,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final bool isMobile = constraints.maxWidth < 600;
-            final double padding = isMobile ? 12.0 : 24.0;
+        child: isLoading
+            ? Padding(
+                padding: EdgeInsets.all(padding),
+                child: _buildLoadingState(),
+              )
+            : errorMessage.isNotEmpty
+            ? Padding(
+                padding: EdgeInsets.all(padding),
+                child: _buildErrorState(),
+              )
+            : disciplinas.isEmpty
+            ? Padding(
+                padding: EdgeInsets.all(padding),
+                child: _buildEmptyState(),
+              )
+            : NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) {
+                  return [
+                    // Sliver com header fixo (título e barra de pesquisa)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.all(padding),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeader(isMobile),
+                            SizedBox(height: isMobile ? 12 : 20),
+                            _buildSearchBar(isMobile),
+                          ],
+                        ),
+                      ),
+                    ),
 
-            return Padding(
-              padding: EdgeInsets.all(padding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(isMobile),
-                  SizedBox(height: isMobile ? 12 : 20),
-
-                  // Barra de pesquisa
-                  if (!isLoading && errorMessage.isEmpty)
-                    _buildSearchBar(isMobile),
-
-                  SizedBox(height: isMobile ? 12 : 16),
-
-                  // Conteúdo principal
-                  Expanded(
-                    child: isLoading
-                        ? _buildLoadingState()
-                        : errorMessage.isNotEmpty
-                        ? _buildErrorState()
-                        : _buildContent(),
-                  ),
-                ],
+                    // Sliver com indicadores e abas que rolam
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: padding,
+                          vertical: 8,
+                        ),
+                        child: Column(
+                          children: [
+                            _buildQuickStats(),
+                            const SizedBox(height: 16),
+                            _buildTabBar(),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ];
+                },
+                body: TabBarView(
+                  controller: _tabController,
+                  children: [_buildListView(), _buildChartsView()],
+                ),
               ),
-            );
-          },
-        ),
       ),
       floatingActionButton: _showScrollToTop
           ? FloatingActionButton(
@@ -617,7 +715,7 @@ class _NotasPageState extends State<NotasPage>
             "Acompanhe seu desempenho acadêmico",
             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
-        if (isMobile && !isLoading && errorMessage.isEmpty) ...[
+        if (isMobile) ...[
           const SizedBox(height: 8),
           Text(
             "${disciplinas.length} disciplina${disciplinas.length != 1 ? 's' : ''}",
@@ -625,41 +723,6 @@ class _NotasPageState extends State<NotasPage>
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildSearchBar(bool isMobile) {
-    return ConstrainedBox(
-      //sombra na borda do search
-      constraints: const BoxConstraints(maxWidth: 600, minWidth: 300),
-      child: TextField(
-        //sombra na borda do search
-        controller: _searchController,
-        onChanged: (value) => setState(() => searchText = value.toLowerCase()),
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search),
-          hintText: "Pesquisar disciplina...",
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 12,
-            horizontal: 16,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          suffixIcon: searchText.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => searchText = '');
-                  },
-                )
-              : null,
-        ),
-      ),
     );
   }
 }
