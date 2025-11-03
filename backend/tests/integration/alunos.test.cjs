@@ -1,8 +1,10 @@
+// tests/integration/alunos.test.cjs
 const request = require("supertest");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const app = require("../../server.cjs");
+const { executeWithTestFallback } = require('../helpers/transactionHelper.cjs');
 const Aluno = require("../../models/aluno.cjs");
 const Professor = require("../../models/professor.cjs");
 
@@ -234,8 +236,15 @@ describe("Aluno Routes", () => {
         .delete(`/api/alunos/${alunoCriado._id}`)
         .set("Authorization", `Bearer ${professorToken}`);
 
+      console.log("DELETE Aluno Response:", response.status, response.body);
+
+      // Verifica se a operação foi bem sucedida
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty("msg", "Aluno deletado com sucesso");
+      expect(response.body).toHaveProperty("success", true);
+      expect(response.body).toHaveProperty("message", "Aluno e todos os dados associados foram deletados com sucesso");
+
+      // Verifica se o aluno foi realmente deletado do banco
+      const alunoExists = await Aluno.findById(alunoCriado._id);
+      expect(alunoExists).toBeNull();
     });
-  });
-});
+  });});

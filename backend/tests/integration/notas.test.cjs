@@ -367,7 +367,7 @@ describe("Notas Routes", () => {
 
       expect(response.status).toBe(404);
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain("Nota não encontrada");
+      expect(response.body.message).toContain("Nota não encontrada");
     });
 
     test("should return 401 without authentication", async () => {
@@ -423,7 +423,7 @@ describe("Notas Routes", () => {
 
       expect(response.status).toBe(404);
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain("Nota não encontrada");
+      expect(response.body.message).toContain("Nota não encontrada");
     });
 
     test("should return 401 without authentication", async () => {

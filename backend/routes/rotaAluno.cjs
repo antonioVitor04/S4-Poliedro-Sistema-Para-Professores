@@ -745,91 +745,154 @@ router.put("/:id", auth(["admin", "professor"]), async (req, res) => {
 });
 
 // Deletar aluno por ID (DELETE /:id) - Permite admin e professor
-// Deletar aluno por ID (DELETE /:id) - Permite admin e professor
 router.delete("/:id", auth(["admin", "professor"]), async (req, res) => {
-  let session;
-  try {
-    console.log("=== ROTA DELETE ALUNO POR ID CHAMADA ===");
-    console.log("User role:", req.user.role);
-    console.log("User ID:", req.user.id);
-    console.log("Aluno ID a ser deletado:", req.params.id);
+  if (process.env.NODE_ENV === 'test') {
+    console.log('🔧 TEST: Executando DELETE aluno sem transação');
+    try {
+      const { id } = req.params;
 
-    const { id } = req.params;
+      console.log("=== ROTA DELETE ALUNO POR ID CHAMADA ===");
+      console.log("User role:", req.user.role);
+      console.log("User ID:", req.user.id);
+      console.log("Aluno ID a ser deletado:", id);
 
-    // Verificar se o aluno existe
-    const aluno = await Aluno.findById(id);
-    if (!aluno) {
-      return res.status(404).json({
-        success: false,
-        error: "Aluno não encontrado",
-      });
-    }
+      // Verificar se o aluno existe
+      const aluno = await Aluno.findById(id);
+      if (!aluno) {
+        return res.status(404).json({
+          success: false,
+          error: "Aluno não encontrado",
+        });
+      }
 
-    // Iniciar transação para operação atômica
-    session = await mongoose.startSession();
-    session.startTransaction();
+      // 1. Deletar todas as notas do aluno (sem session)
+      const resultadoNotas = await Nota.deleteMany({ aluno: id });
+      console.log(`Notas deletadas: ${resultadoNotas.deletedCount}`);
 
-    // Importar modelos necessários
+      // 2. Remover o aluno de todas as disciplinas (sem session)
+      const resultadoDisciplinas = await CardDisciplina.updateMany(
+        { alunos: id },
+        { $pull: { alunos: id } }
+      );
+      console.log(`Disciplinas atualizadas: ${resultadoDisciplinas.modifiedCount}`);
 
-    // 1. Deletar todas as notas do aluno
-    const resultadoNotas = await Nota.deleteMany({ aluno: id }).session(
-      session
-    );
-    console.log(`Notas deletadas: ${resultadoNotas.deletedCount}`);
+      // 3. Deletar o aluno (sem session)
+      await Aluno.findByIdAndDelete(id);
 
-    // 2. Remover o aluno de todas as disciplinas
-    const resultadoDisciplinas = await CardDisciplina.updateMany(
-      { alunos: id },
-      { $pull: { alunos: id } },
-      { session }
-    );
-    console.log(
-      `Disciplinas atualizadas: ${resultadoDisciplinas.modifiedCount}`
-    );
+      console.log(`Aluno "${aluno.nome}" deletado com sucesso`);
 
-    // 3. Deletar o aluno
-    await Aluno.findByIdAndDelete(id).session(session);
-
-    // Confirmar a transação
-    await session.commitTransaction();
-    session.endSession();
-
-    console.log(`Aluno "${aluno.nome}" deletado com sucesso`);
-
-    res.json({
-      success: true,
-      message: "Aluno e todos os dados associados foram deletados com sucesso",
-      data: {
-        _id: aluno._id,
-        nome: aluno.nome,
-        email: aluno.email,
-        estatisticas: {
-          notasDeletadas: resultadoNotas.deletedCount,
-          disciplinasAtualizadas: resultadoDisciplinas.modifiedCount,
+      res.json({
+        success: true,
+        message: "Aluno e todos os dados associados foram deletados com sucesso",
+        data: {
+          _id: aluno._id,
+          nome: aluno.nome,
+          email: aluno.email,
+          estatisticas: {
+            notasDeletadas: resultadoNotas.deletedCount,
+            disciplinasAtualizadas: resultadoDisciplinas.modifiedCount,
+          },
         },
-      },
-    });
-  } catch (err) {
-    // Reverter a transação em caso de erro
-    if (session) {
-      await session.abortTransaction();
-      session.endSession();
-    }
+      });
+    } catch (err) {
+      console.error("Erro ao deletar aluno:", err);
 
-    console.error("Erro ao deletar aluno:", err);
+      if (err.name === "CastError") {
+        return res.status(400).json({
+          success: false,
+          error: "ID inválido",
+        });
+      }
 
-    if (err.name === "CastError") {
-      return res.status(400).json({
+      res.status(500).json({
         success: false,
-        error: "ID inválido",
+        error: "Erro interno do servidor ao deletar o aluno",
+        details: process.env.NODE_ENV === "development" ? err.message : undefined,
       });
     }
+  } else {
+    let session;
+    try {
+      console.log("=== ROTA DELETE ALUNO POR ID CHAMADA ===");
+      console.log("User role:", req.user.role);
+      console.log("User ID:", req.user.id);
+      console.log("Aluno ID a ser deletado:", req.params.id);
 
-    res.status(500).json({
-      success: false,
-      error: "Erro interno do servidor ao deletar o aluno",
-      details: process.env.NODE_ENV === "development" ? err.message : undefined,
-    });
+      const { id } = req.params;
+
+      // Verificar se o aluno existe
+      const aluno = await Aluno.findById(id);
+      if (!aluno) {
+        return res.status(404).json({
+          success: false,
+          error: "Aluno não encontrado",
+        });
+      }
+
+      // Iniciar transação para operação atômica
+      session = await mongoose.startSession();
+      session.startTransaction();
+
+      // 1. Deletar todas as notas do aluno
+      const resultadoNotas = await Nota.deleteMany({ aluno: id }).session(
+        session
+      );
+      console.log(`Notas deletadas: ${resultadoNotas.deletedCount}`);
+
+      // 2. Remover o aluno de todas as disciplinas
+      const resultadoDisciplinas = await CardDisciplina.updateMany(
+        { alunos: id },
+        { $pull: { alunos: id } },
+        { session }
+      );
+      console.log(
+        `Disciplinas atualizadas: ${resultadoDisciplinas.modifiedCount}`
+      );
+
+      // 3. Deletar o aluno
+      await Aluno.findByIdAndDelete(id).session(session);
+
+      // Confirmar a transação
+      await session.commitTransaction();
+      session.endSession();
+
+      console.log(`Aluno "${aluno.nome}" deletado com sucesso`);
+
+      res.json({
+        success: true,
+        message: "Aluno e todos os dados associados foram deletados com sucesso",
+        data: {
+          _id: aluno._id,
+          nome: aluno.nome,
+          email: aluno.email,
+          estatisticas: {
+            notasDeletadas: resultadoNotas.deletedCount,
+            disciplinasAtualizadas: resultadoDisciplinas.modifiedCount,
+          },
+        },
+      });
+    } catch (err) {
+      // Reverter a transação em caso de erro
+      if (session) {
+        await session.abortTransaction();
+        session.endSession();
+      }
+
+      console.error("Erro ao deletar aluno:", err);
+
+      if (err.name === "CastError") {
+        return res.status(400).json({
+          success: false,
+          error: "ID inválido",
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: "Erro interno do servidor ao deletar o aluno",
+        details: process.env.NODE_ENV === "development" ? err.message : undefined,
+      });
+    }
   }
 });
 
