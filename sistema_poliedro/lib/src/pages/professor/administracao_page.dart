@@ -42,6 +42,8 @@ class _AdministracaoPageState extends State<AdministracaoPage>
   String? selectedDisciplineId;
   String? token;
   String? userType;
+  bool _notasHeaderVisible = true;
+  bool _usuariosHeaderVisible = true; // NOVA VARIÁVEL PARA USUÁRIOS
 
   static const String apiBaseUrl = '/api';
   static const String cardsDisciplinasPath = '/cardsDisciplinas';
@@ -1055,8 +1057,21 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     final usuariosFiltrados = _getUsuariosFiltrados();
     return Column(
       children: [
-        _buildUsuariosHeader(primaryColor, usuariosFiltrados.length, isMobile),
-        _buildSearchBar(isMobile),
+        if (_usuariosHeaderVisible) // CONDICIONAL: só mostra se visível
+          Column(
+            children: [
+              _buildUsuariosHeader(
+                primaryColor,
+                usuariosFiltrados.length,
+                isMobile,
+              ),
+              _buildSearchBar(
+                isMobile,
+              ), // BARRA DE PESQUISA DENTRO DO CONDICIONAL
+            ],
+          ),
+        // BOTÃO DE OCULTAR/MOSTRAR CABEÇALHO (sempre visível)
+        _buildToggleUsuariosHeaderButton(primaryColor, isMobile),
         Expanded(
           child: carregando
               ? _buildLoadingState()
@@ -1067,6 +1082,55 @@ class _AdministracaoPageState extends State<AdministracaoPage>
               : _buildDataTable(usuariosFiltrados, primaryColor, isTablet),
         ),
       ],
+    );
+  }
+
+  Widget _buildToggleUsuariosHeaderButton(Color primaryColor, bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _usuariosHeaderVisible = !_usuariosHeaderVisible;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: primaryColor.withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _usuariosHeaderVisible
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    size: 16,
+                    color: primaryColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _usuariosHeaderVisible
+                        ? 'Ocultar Cabeçalho'
+                        : 'Mostrar Cabeçalho',
+                    style: AppTextStyles.fonteUbuntuSans.copyWith(
+                      fontSize: 12,
+                      color: primaryColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1238,12 +1302,77 @@ class _AdministracaoPageState extends State<AdministracaoPage>
     );
   }
 
+  Widget _buildToggleNotasHeaderButton(Color primaryColor, bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _notasHeaderVisible = !_notasHeaderVisible;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: primaryColor.withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _notasHeaderVisible
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    size: 16,
+                    color: primaryColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _notasHeaderVisible
+                        ? 'Ocultar Cabeçalho'
+                        : 'Mostrar Cabeçalho',
+                    style: AppTextStyles.fonteUbuntuSans.copyWith(
+                      fontSize: 12,
+                      color: primaryColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildNotasBody(Color primaryColor, bool isMobile, bool isTablet) {
     final disciplinasFiltradas = _getDisciplinasFiltradas();
     return Column(
       children: [
-        _buildNotasHeader(primaryColor, disciplinasFiltradas.length, isMobile),
-        _buildSearchNotasBar(isMobile),
+        if (_notasHeaderVisible) // CONDICIONAL: só mostra se visível
+          Column(
+            children: [
+              _buildNotasHeader(
+                primaryColor,
+                disciplinasFiltradas.length,
+                isMobile,
+              ),
+              _buildSearchNotasBar(
+                isMobile,
+              ), // BARRA DE PESQUISA DENTRO DO CONDICIONAL
+            ],
+          ),
+        // BOTÃO DE OCULTAR/MOSTRAR CABEÇALHO (sempre visível)
+        _buildToggleNotasHeaderButton(
+          primaryColor,
+          isMobile,
+        ), // MÉTODO RENOMEADO
         Expanded(
           child: carregandoNotas
               ? _buildLoadingState()
@@ -1838,6 +1967,8 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           ],
         ),
         child: TextField(
+          cursorColor: AppColors.azulClaro,
+
           controller: _searchController,
           onChanged: _onSearchChanged,
           style: AppTextStyles.fonteUbuntuSans.copyWith(
@@ -1885,6 +2016,8 @@ class _AdministracaoPageState extends State<AdministracaoPage>
           ],
         ),
         child: TextField(
+          cursorColor: AppColors.azulClaro,
+
           controller: _searchNotasController,
           onChanged: _onSearchNotasChanged,
           style: AppTextStyles.fonteUbuntuSans.copyWith(
