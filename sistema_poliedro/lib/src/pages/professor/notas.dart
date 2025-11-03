@@ -547,7 +547,10 @@ class _NotasDataTableState extends State<NotasDataTable> {
               ? SizedBox(
                   width: isTablet ? 14 : 16,
                   height: isTablet ? 14 : 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.azulClaro,
+                  ),
                 )
               : Icon(Icons.save, size: isTablet ? 16 : 18),
           label: Text(
@@ -715,6 +718,7 @@ class _NotasDataTableState extends State<NotasDataTable> {
               border: Border.all(color: Colors.grey[400]!, width: 1),
             ),
             child: TextField(
+              cursorColor: AppColors.azulClaro,
               controller: _controllers[alunoId]![nome]!,
               textAlign: TextAlign.center,
               keyboardType: const TextInputType.numberWithOptions(
@@ -1004,6 +1008,8 @@ class _NotasDataTableState extends State<NotasDataTable> {
             border: Border.all(color: Colors.grey[400]!, width: 1.5),
           ),
           child: TextField(
+            cursorColor: AppColors.azulClaro,
+
             controller: _controllers[alunoId]![nome]!,
             textAlign: TextAlign.center,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
