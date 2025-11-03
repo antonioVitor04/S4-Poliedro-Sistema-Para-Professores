@@ -1,13 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:sistema_poliedro/src/pages/login/Recuperar_Senha.dart';
 import 'package:sistema_poliedro/src/services/auth_service.dart';
 import '../../models/modelo_usuario.dart';
 import 'package:sistema_poliedro/src/styles/cores.dart';
 import 'package:sistema_poliedro/src/styles/fontes.dart';
 import 'package:sistema_poliedro/src/components/alerta.dart';
-import 'dart:convert';
+import 'package:email_validator/email_validator.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -17,13 +19,23 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController senhaController = TextEditingController();
+  late final LoginBloc bloc;
   String paginaAtual = "aluno";
   bool _senhaVisivel = false;
 
+  @override
+  void initState() {
+    super.initState();
+    bloc = LoginBloc();
+  }
+
+  @override
+  void dispose() {
+    bloc.dispose();
+    super.dispose();
+  }
+
   void mostrarAlerta(String mensagem, bool sucesso) {
-    // Check if the widget is still mounted before showing dialog
     if (!mounted) return;
 
     showDialog(
@@ -31,7 +43,6 @@ class _LoginPageState extends State<LoginPage> {
       barrierColor: Colors.transparent,
       barrierDismissible: true,
       builder: (context) {
-        // Use a timer instead of Future.delayed to avoid context issues
         Timer(const Duration(seconds: 2), () {
           if (Navigator.of(context, rootNavigator: true).canPop()) {
             Navigator.of(context, rootNavigator: true).pop();
@@ -43,9 +54,19 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Future<void> login() async {
-    final emailOuRA = emailController.text.trim();
-    final senha = senhaController.text.trim();
+  Future<void> _login() async {
+    String emailOuRA;
+    try {
+      emailOuRA = bloc.currentField;
+    } catch (e) {
+      emailOuRA = '';
+    }
+    String senha;
+    try {
+      senha = bloc.currentPassword;
+    } catch (e) {
+      senha = '';
+    }
 
     if (emailOuRA.isEmpty || senha.isEmpty) {
       mostrarAlerta("Por favor, preencha todos os campos.", false);
@@ -55,7 +76,6 @@ class _LoginPageState extends State<LoginPage> {
     try {
       await AuthService.login(emailOuRA, senha, paginaAtual);
 
-      // Check if widget is still mounted before navigation
       if (!mounted) return;
 
       if (paginaAtual == "professor") {
@@ -68,7 +88,6 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
     } on Exception catch (e) {
-      // Check if widget is still mounted before showing alert
       if (!mounted) return;
 
       final mensagem = e.toString().replaceFirst('Exception: ', '');
@@ -94,7 +113,6 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildDesktopLayout() {
     return Row(
       children: [
-        // LADO ESQUERDO - LOGO E BRANDING
         Expanded(
           flex: 5,
           child: Container(
@@ -159,8 +177,6 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
-
-        // LADO DIREITO - FORMULÁRIO DE LOGIN
         Expanded(
           flex: 5,
           child: Container(
@@ -207,7 +223,6 @@ class _LoginPageState extends State<LoginPage> {
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // LOGO NO MOBILE (dentro do card)
           if (!isDesktop) ...[
             Column(
               children: [
@@ -216,7 +231,6 @@ class _LoginPageState extends State<LoginPage> {
               ],
             ),
           ],
-
           Text(
             "Bem-vindo!",
             style: AppTextStyles.fonteUbuntu.copyWith(
@@ -234,36 +248,37 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
           const SizedBox(height: 35),
-
-          // SELETOR DE TIPO DE USUÁRIO
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: AppColors.azulClaro.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Expanded(child: _tipoUsuarioBotaoModerno("Professor")),
-                Expanded(child: _tipoUsuarioBotaoModerno("Aluno")),
-              ],
-            ),
+          StreamBuilder<String>(
+            stream: bloc.userTypeStream,
+            builder: (context, snapshot) {
+              final userType = snapshot.data ?? 'aluno';
+              return Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: AppColors.azulClaro.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(child: _tipoUsuarioBotaoModerno("Professor", userType)),
+                    Expanded(child: _tipoUsuarioBotaoModerno("Aluno", userType)),
+                  ],
+                ),
+              );
+            },
           ),
-
           const SizedBox(height: 30),
           SizedBox(
             width: double.infinity,
-            child: _campoTexto(tipo: paginaAtual),
+            child: _campoTexto(paginaAtual),
           ),
           const SizedBox(height: 20),
           SizedBox(width: double.infinity, child: _campoSenha()),
           const SizedBox(height: 12),
-
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: () {
-                // Use push instead of pushReplacement to avoid disposing the current view immediately
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => Recuperar_Senha()),
@@ -279,30 +294,33 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
-
           const SizedBox(height: 25),
-
           SizedBox(
             width: double.infinity,
             height: 56,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.azulClaro,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: login,
-              child: Text(
-                "Entrar",
-                style: AppTextStyles.fonteUbuntu.copyWith(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
+            child: StreamBuilder<bool>(
+              stream: bloc.isFormValid,
+              builder: (context, snapshot) {
+                return ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.azulClaro,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: snapshot.hasData && snapshot.data == true ? _login : null,
+                  child: Text(
+                    "Entrar",
+                    style: AppTextStyles.fonteUbuntu.copyWith(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -310,13 +328,14 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _tipoUsuarioBotaoModerno(String tipo) {
+  Widget _tipoUsuarioBotaoModerno(String tipo, String userType) {
     final bool selecionado = paginaAtual.toLowerCase() == tipo.toLowerCase();
     return GestureDetector(
       onTap: () {
         setState(() {
           paginaAtual = tipo.toLowerCase();
         });
+        bloc.changeUserType(paginaAtual);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -341,76 +360,172 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _campoTexto({required String tipo}) {
-    return TextFormField(
-      controller: emailController,
-      cursorColor: AppColors.azulClaro,
-      style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
-      decoration: InputDecoration(
-        labelText: tipo == "professor" ? "Email*" : "RA*",
-        labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
-        hintStyle: AppTextStyles.fonteUbuntu.copyWith(
-          color: AppColors.preto.withOpacity(0.4),
-        ),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        prefixIcon: Icon(
-          tipo == "professor" ? Icons.email : Icons.badge,
-          color: AppColors.azulClaro,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 16,
-        ),
-      ),
+  Widget _campoTexto(String tipo) {
+    return StreamBuilder<String>(
+      stream: bloc.fieldStream,
+      builder: (context, snapshot) {
+        return TextFormField(
+          onChanged: bloc.changeField,
+          keyboardType: tipo == "professor" ? TextInputType.emailAddress : TextInputType.number,
+          cursorColor: AppColors.azulClaro,
+          style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+          decoration: InputDecoration(
+            labelText: tipo == "professor" ? "Email*" : "RA*",
+            labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+            hintStyle: AppTextStyles.fonteUbuntu.copyWith(
+              color: AppColors.preto.withOpacity(0.4),
+            ),
+            errorText: snapshot.hasError ? snapshot.error.toString() : null,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            prefixIcon: Icon(
+              tipo == "professor" ? Icons.email : Icons.badge,
+              color: AppColors.azulClaro,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 16,
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _campoSenha() {
-    return TextFormField(
-      controller: senhaController,
-      cursorColor: AppColors.azulClaro,
-      obscureText: !_senhaVisivel,
-      style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
-      decoration: InputDecoration(
-        labelText: 'Senha*',
-        labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
-        hintStyle: AppTextStyles.fonteUbuntu.copyWith(
-          color: AppColors.preto.withOpacity(0.4),
-        ),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        prefixIcon: Icon(Icons.lock, color: AppColors.azulClaro),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 16,
-        ),
-        suffixIcon: IconButton(
-          icon: Icon(
-            _senhaVisivel ? Icons.visibility : Icons.visibility_off,
-            color: AppColors.azulClaro,
+    return StreamBuilder<String>(
+      stream: bloc.passwordStream,
+      builder: (context, snapshot) {
+        return TextFormField(
+          onChanged: bloc.changePassword,
+          cursorColor: AppColors.azulClaro,
+          obscureText: !_senhaVisivel,
+          style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
+          decoration: InputDecoration(
+            labelText: 'Senha*',
+            labelStyle: AppTextStyles.fonteUbuntu.copyWith(color: Colors.black),
+            hintStyle: AppTextStyles.fonteUbuntu.copyWith(
+              color: AppColors.preto.withOpacity(0.4),
+            ),
+            errorText: snapshot.hasError ? snapshot.error.toString() : null,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            prefixIcon: const Icon(Icons.lock, color: AppColors.azulClaro),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: AppColors.azulClaro, width: 2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: AppColors.preto.withOpacity(0.1)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 16,
+            ),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _senhaVisivel ? Icons.visibility : Icons.visibility_off,
+                color: AppColors.azulClaro,
+              ),
+              onPressed: () {
+                setState(() {
+                  _senhaVisivel = !_senhaVisivel;
+                });
+              },
+            ),
           ),
-          onPressed: () {
-            setState(() {
-              _senhaVisivel = !_senhaVisivel;
-            });
-          },
-        ),
-      ),
+        );
+      },
     );
+  }
+}
+
+class LoginBloc {
+  final _fieldController = BehaviorSubject<String>();
+  final _passwordController = BehaviorSubject<String>();
+  final _userTypeController = BehaviorSubject<String>.seeded('aluno');
+
+  Stream<String> get fieldStream => Rx.combineLatest2(
+    _fieldController,
+    _userTypeController,
+    (String field, String userType) => (field, userType),
+  ).transform(
+    StreamTransformer.fromHandlers(
+      handleData: (pair, sink) {
+        final field = pair.$1.trim();
+        final userType = pair.$2;
+        if (field.isEmpty) {
+          sink.addError(
+            userType == 'professor' ? 'Por favor, insira o email.' : 'Por favor, insira o RA.',
+          );
+          return;
+        }
+        if (userType == 'professor' && !EmailValidator.validate(field)) {
+          sink.addError('E-mail inválido');
+          return;
+        }
+        sink.add(field);
+      },
+    ),
+  );
+
+  Stream<String> get passwordStream => _passwordController.transform(
+    StreamTransformer.fromHandlers(
+      handleData: (password, sink) {
+        final trimmed = password.trim();
+        if (trimmed.isEmpty) {
+          sink.addError('Por favor, insira a senha.');
+          return;
+        }
+        if (trimmed.length < 8) {
+          sink.addError('Senha deve ter, pelo menos, 8 caracteres');
+          return;
+        }
+        sink.add(trimmed);
+      },
+    ),
+  );
+
+  Stream<bool> get isFormValid => Rx.combineLatest2(
+    fieldStream,
+    passwordStream,
+    (f, p) => true,
+  );
+
+  Stream<String> get userTypeStream => _userTypeController.stream;
+
+  String get currentField {
+    try {
+      return _fieldController.value.trim();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  String get currentPassword {
+    try {
+      return _passwordController.value.trim();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  String get currentUserType => _userTypeController.value;
+
+  void changeField(String value) => _fieldController.add(value);
+  void changePassword(String value) => _passwordController.add(value);
+  void changeUserType(String value) => _userTypeController.add(value);
+
+  void dispose() {
+    _fieldController.close();
+    _passwordController.close();
+    _userTypeController.close();
   }
 }

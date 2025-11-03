@@ -995,12 +995,13 @@ class _DisciplinaDetailPageProfessorState extends State<DisciplinaDetailPageProf
                                         topicoId: topico.id,
                                       );
                                     }).toList(),
-                                    Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: _buildBotaoAdicionarMaterial(
-                                        topicoIndex: index,
+                                    if (topico.materiais.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: _buildBotaoAdicionarMaterial(
+                                          topicoIndex: index,
+                                        ),
                                       ),
-                                    ),
                                   ],
                                 ],
                               ),
