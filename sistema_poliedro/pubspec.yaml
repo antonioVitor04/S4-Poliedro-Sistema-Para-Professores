@@ -49,6 +49,7 @@ dependencies:
   cached_network_image: ^3.3.1
   flutter_charts: ^0.4.0
   syncfusion_flutter_charts: ^30.2.7
+  email_validator: ^2.1.17
 
 dev_dependencies:
   flutter_test:
