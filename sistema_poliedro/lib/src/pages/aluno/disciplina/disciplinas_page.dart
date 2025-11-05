@@ -206,7 +206,6 @@ class _DisciplinasPageState extends State<DisciplinasPage> {
           },
         ),
       ),
-      // Botão de adicionar removido
     );
   }
 

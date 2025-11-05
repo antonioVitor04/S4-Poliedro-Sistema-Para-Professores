@@ -105,10 +105,7 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
       context: context,
       barrierDismissible: barrierDismissible,
       barrierColor: barrierColor ?? Colors.transparent,
-      builder: (_) => AlertaWidget(
-        mensagem: mensagem,
-        sucesso: sucesso,
-      ),
+      builder: (_) => AlertaWidget(mensagem: mensagem, sucesso: sucesso),
     );
 
     await Future.delayed(autoClose);
@@ -245,10 +242,7 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
         );
       } catch (e) {
         _limparSnackbars();
-        await _mostrarAlerta(
-          'Erro ao excluir disciplina: $e',
-          sucesso: false,
-        );
+        await _mostrarAlerta('Erro ao excluir disciplina: $e', sucesso: false);
       }
     }
   }
@@ -373,7 +367,9 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
                             ElevatedButton.icon(
                               onPressed: _adicionarCard,
                               icon: const Icon(Icons.add),
-                              label: const Text('Adicionar Primeira Disciplina'),
+                              label: const Text(
+                                'Adicionar Primeira Disciplina',
+                              ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.azulClaro,
                                 foregroundColor: Colors.white,
@@ -452,6 +448,7 @@ class _DisciplinasPageProfessorState extends State<DisciplinasPageProfessor> {
           ? FloatingActionButton(
               onPressed: _adicionarCard,
               backgroundColor: AppColors.azulClaro,
+              
               child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
