@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -50,6 +51,10 @@ void showTopAlert(
     if (entry.mounted) entry.remove();
   });
 }
+
+enum _MobileView { material, comentarios }
+
+_MobileView _mobileView = _MobileView.material;
 
 class VisualizacaoMaterialPage extends StatefulWidget {
   final MaterialDisciplina material;
@@ -126,6 +131,100 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       print('=== DEBUG ERRO download mobile: $e ===');
       _showError('Erro ao salvar arquivo: $e');
     }
+  }
+
+  Widget _buildMobileTopButtons() {
+    final primary = AppColors.azulClaro;
+    final isComentarios = _mobileView == _MobileView.comentarios;
+    final isMaterial = _mobileView == _MobileView.material;
+
+    Widget pill({
+      required String text,
+      required bool active,
+      required VoidCallback onTap,
+    }) {
+      return Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: active ? primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: primary.withOpacity(active ? 0.0 : 0.3),
+              ),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                        color: primary.withOpacity(0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Center(
+              child: Text(
+                text,
+                style: AppTextStyles.fonteUbuntu.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  color: active ? AppColors.branco : Colors.grey[700],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          pill(
+            text: 'Material',
+            active: isMaterial,
+            onTap: () {
+              if (!isMaterial) {
+                setState(() {
+                  _mobileView = _MobileView.material;
+                  _chatController.setActive(false);
+                });
+              }
+            },
+          ),
+          const SizedBox(width: 6),
+          pill(
+            text: 'Comentários',
+            active: isComentarios,
+            onTap: () {
+              if (!isComentarios) {
+                setState(() {
+                  _mobileView = _MobileView.comentarios;
+                  _chatController.setActive(true);
+                  _chatController.markAllRead();
+                });
+              }
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   // Método específico para Android
@@ -397,6 +496,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
+    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
       backgroundColor: AppColors.branco,
@@ -531,61 +631,73 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth >= 960;
+                  final availableHeight = constraints.maxHeight;
 
                   if (!isWide) {
-                    // Layout empilhado para telas menores
+                    // Layout com abas (Material | Comentários) para mobile
                     return Column(
                       children: [
-                        Expanded(
-                          flex: 6,
-                          child: FutureBuilder<Uint8List?>(
-                            future: _fileBytesFuture,
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const CircularProgressIndicator(
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              AppColors.azulClaro,
-                                            ),
-                                      ),
-                                      SizedBox(height: isMobile ? 12 : 16),
-                                      Text(
-                                        'Carregando material...',
-                                        style: AppTextStyles.fonteUbuntuSans
-                                            .copyWith(
-                                              fontSize: isMobile ? 14 : 16,
-                                              color: AppColors.azulClaro,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
-                              if (snapshot.hasError) {
-                                return _buildErrorWidget(
-                                  'Erro ao carregar arquivo',
-                                );
-                              }
-                              final bytes = snapshot.data;
-                              return _buildConteudoMaterial(context, bytes);
-                            },
-                          ),
-                        ),
+                        _buildMobileTopButtons(),
                         const SizedBox(height: 12),
-                        SizedBox(
-                          height: 420,
-                          child: CommentsPanel(
-                            materialId: widget.material.id,
-                            topicoId: widget.topicoId,
-                            disciplinaId: widget.slug,
-                            title: 'Comentários',
-                            controller: _chatController,
-                            showHeaderBadge: false,
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            switchInCurve: Curves.easeIn,
+                            switchOutCurve: Curves.easeOut,
+                            child: _mobileView == _MobileView.material
+                                ? FutureBuilder<Uint8List?>(
+                                    key: const ValueKey('mobile-material'),
+                                    future: _fileBytesFuture,
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return Center(
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              const CircularProgressIndicator(
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(AppColors.azulClaro),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Text(
+                                                'Carregando material...',
+                                                style: AppTextStyles
+                                                    .fonteUbuntuSans
+                                                    .copyWith(
+                                                      fontSize: 14,
+                                                      color:
+                                                          AppColors.azulClaro,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                      if (snapshot.hasError) {
+                                        return _buildErrorWidget(
+                                          'Erro ao carregar arquivo',
+                                        );
+                                      }
+                                      final bytes = snapshot.data;
+                                      return _buildConteudoMaterial(
+                                        context,
+                                        bytes,
+                                      );
+                                    },
+                                  )
+                                : CommentsPanel(
+                                    key: const ValueKey('mobile-comentarios'),
+                                    materialId: widget.material.id,
+                                    topicoId: widget.topicoId,
+                                    disciplinaId: widget.slug,
+                                    title: 'Comentários',
+                                    controller: _chatController,
+                                    showHeaderBadge: false,
+                                  ),
                           ),
                         ),
                       ],
@@ -752,6 +864,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   Widget _buildImageContainer(Uint8List? bytes, String? url) {
     final isMobile = MediaQuery.of(context).size.width < 600;
+    final screenHeight = MediaQuery.of(context).size.height;
 
     Widget imageWidget;
     if (url != null && url.isNotEmpty) {
@@ -759,8 +872,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         url,
         fit: BoxFit.contain,
         height: isMobile
-            ? MediaQuery.of(context).size.height * 0.3
-            : MediaQuery.of(context).size.height * 0.4,
+            ? screenHeight *
+                  0.25 // Reduzido para mobile
+            : screenHeight * 0.4,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return const Center(
@@ -786,8 +900,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         bytes,
         fit: BoxFit.contain,
         height: isMobile
-            ? MediaQuery.of(context).size.height * 0.3
-            : MediaQuery.of(context).size.height * 0.4,
+            ? screenHeight *
+                  0.25 // Reduzido para mobile
+            : screenHeight * 0.4,
         errorBuilder: (context, error, stackTrace) {
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -820,9 +935,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
 
     return Container(
-      height: isMobile
-          ? MediaQuery.of(context).size.height * 0.6
-          : MediaQuery.of(context).size.height * 0.7,
+      // REMOVIDO height fixo - agora usa Expanded do pai
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -861,7 +974,12 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           ),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: isMobile ? 16.0 : 24.0),
+              padding: EdgeInsets.symmetric(
+                vertical: isMobile ? 12.0 : 24.0, // Reduzido no mobile
+                horizontal: isMobile
+                    ? 8.0
+                    : 16.0, // Padding horizontal reduzido
+              ),
               child: Material(
                 elevation: 4,
                 borderRadius: BorderRadius.circular(12),
@@ -873,26 +991,33 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.only(bottom: isMobile ? 12.0 : 16.0),
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.azulClaro,
-                side: const BorderSide(color: AppColors.azulClaro),
-                padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 16 : 20,
-                  vertical: isMobile ? 10 : 12,
+            padding: EdgeInsets.only(
+              bottom: isMobile ? 8.0 : 16.0, // Reduzido no mobile
+              left: isMobile ? 8.0 : 16.0,
+              right: isMobile ? 8.0 : 16.0,
+            ),
+            child: SizedBox(
+              width: double.infinity, // Botão ocupa toda largura no mobile
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.azulClaro,
+                  side: const BorderSide(color: AppColors.azulClaro),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 12 : 20, // Reduzido no mobile
+                    vertical: isMobile ? 8 : 12, // Reduzido no mobile
+                  ),
                 ),
-              ),
-              onPressed: () => _downloadImage(bytes, url),
-              icon: const Icon(
-                Icons.download,
-                color: AppColors.azulClaro,
-                size: 20,
-              ),
-              label: Text(
-                'Fazer Download',
-                style: AppTextStyles.fonteUbuntuSans.copyWith(
-                  fontSize: isMobile ? 14 : 16,
+                onPressed: () => _downloadImage(bytes, url),
+                icon: const Icon(
+                  Icons.download,
+                  color: AppColors.azulClaro,
+                  size: 20,
+                ),
+                label: Text(
+                  'Fazer Download',
+                  style: AppTextStyles.fonteUbuntuSans.copyWith(
+                    fontSize: isMobile ? 14 : 16,
+                  ),
                 ),
               ),
             ),
@@ -954,9 +1079,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     final corIcone = _getMaterialColor(widget.material.tipo);
 
     return Container(
-      height: isMobile
-          ? MediaQuery.of(context).size.height * 0.6
-          : MediaQuery.of(context).size.height * 0.7,
+      // REMOVIDO height fixo - agora usa Expanded do pai
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -1009,21 +1132,29 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           Expanded(
             child: Center(
               child: SingleChildScrollView(
-                padding: EdgeInsets.all(isMobile ? 16 : 24),
+                padding: EdgeInsets.all(
+                  isMobile ? 12 : 24,
+                ), // Reduzido no mobile
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.link, size: isMobile ? 48 : 64, color: corIcone),
-                    SizedBox(height: isMobile ? 12 : 16),
+                    Icon(
+                      Icons.link,
+                      size: isMobile ? 40 : 64, // Reduzido no mobile
+                      color: corIcone,
+                    ),
+                    SizedBox(height: isMobile ? 8 : 16), // Reduzido no mobile
                     Text(
                       'Link Externo',
                       style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: isMobile ? 18 : 20,
+                        fontSize: isMobile ? 16 : 20, // Reduzido no mobile
                       ),
                     ),
-                    SizedBox(height: isMobile ? 12 : 16),
+                    SizedBox(height: isMobile ? 8 : 16), // Reduzido no mobile
                     Container(
-                      padding: EdgeInsets.all(isMobile ? 12 : 16),
+                      padding: EdgeInsets.all(
+                        isMobile ? 8 : 16,
+                      ), // Reduzido no mobile
                       decoration: BoxDecoration(
                         color: Colors.grey[100],
                         borderRadius: BorderRadius.circular(12),
@@ -1031,53 +1162,67 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                       child: SelectableText(
                         url,
                         style: AppTextStyles.fonteUbuntuSans.copyWith(
-                          fontSize: isMobile ? 12 : 14,
+                          fontSize: isMobile ? 11 : 14, // Reduzido no mobile
                         ),
                       ),
                     ),
-                    SizedBox(height: isMobile ? 20 : 24),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.azulClaro,
-                        foregroundColor: AppColors.branco,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isMobile ? 16 : 20,
-                          vertical: isMobile ? 12 : 16,
+                    SizedBox(height: isMobile ? 16 : 24), // Reduzido no mobile
+                    SizedBox(
+                      width: isMobile
+                          ? double.infinity
+                          : null, // Largura total no mobile
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.azulClaro,
+                          foregroundColor: AppColors.branco,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isMobile
+                                ? 12
+                                : 20, // Reduzido no mobile
+                            vertical: isMobile ? 10 : 16, // Reduzido no mobile
+                          ),
                         ),
-                      ),
-                      onPressed: () => _openLinkInNewTab(url),
-                      icon: const Icon(
-                        Icons.open_in_new,
-                        size: 20,
-                        color: AppColors.branco,
-                      ),
-                      label: Text(
-                        'Abrir Link',
-                        style: AppTextStyles.fonteUbuntuSans.copyWith(
-                          fontSize: isMobile ? 14 : 16,
+                        onPressed: () => _openLinkInNewTab(url),
+                        icon: const Icon(
+                          Icons.open_in_new,
+                          size: 20,
+                          color: AppColors.branco,
+                        ),
+                        label: Text(
+                          'Abrir Link',
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: isMobile ? 14 : 16,
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.azulClaro,
-                        side: const BorderSide(color: AppColors.azulClaro),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isMobile ? 16 : 20,
-                          vertical: isMobile ? 10 : 12,
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: isMobile
+                          ? double.infinity
+                          : null, // Largura total no mobile
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.azulClaro,
+                          side: const BorderSide(color: AppColors.azulClaro),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isMobile
+                                ? 12
+                                : 20, // Reduzido no mobile
+                            vertical: isMobile ? 8 : 12, // Reduzido no mobile
+                          ),
                         ),
-                      ),
-                      onPressed: () => _copyLink(url),
-                      icon: const Icon(
-                        Icons.copy,
-                        size: 20,
-                        color: AppColors.azulClaro,
-                      ),
-                      label: Text(
-                        'Copiar Link',
-                        style: AppTextStyles.fonteUbuntuSans.copyWith(
-                          fontSize: isMobile ? 14 : 16,
+                        onPressed: () => _copyLink(url),
+                        icon: const Icon(
+                          Icons.copy,
+                          size: 20,
+                          color: AppColors.azulClaro,
+                        ),
+                        label: Text(
+                          'Copiar Link',
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            fontSize: isMobile ? 14 : 16,
+                          ),
                         ),
                       ),
                     ),
@@ -1282,7 +1427,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           : 'Abrir PDF em Nova Aba';
 
       return Container(
-        height: MediaQuery.of(context).size.height * 0.7,
+        // REMOVIDO height fixo - agora usa Expanded do pai
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey[300]!),
           borderRadius: BorderRadius.circular(8),
@@ -1295,11 +1440,15 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '$tipoDisplay: ${widget.material.titulo}',
-                    style: AppTextStyles.fonteUbuntu.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  Expanded(
+                    child: Text(
+                      '$tipoDisplay: ${widget.material.titulo}',
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Row(
@@ -1328,64 +1477,71 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
               ),
             ),
             Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _getMaterialIconData(widget.material.tipo),
-                      size: 64,
-                      color: corIcone,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '$tipoDisplay carregado com sucesso',
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 8,
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getMaterialIconData(widget.material.tipo),
+                        size: 64,
+                        color: corIcone,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Tamanho: ${(bytes.length / 1024).toStringAsFixed(1)} KB',
-                      style: AppTextStyles.fonteUbuntuSans.copyWith(
-                        color: Colors.grey,
-                        fontSize: 14,
+                      const SizedBox(height: 16),
+                      Text(
+                        '$tipoDisplay carregado com sucesso',
+                        style: AppTextStyles.fonteUbuntu.copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.azulClaro,
-                        foregroundColor: AppColors.branco,
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tamanho: ${(bytes.length / 1024).toStringAsFixed(1)} KB',
+                        style: AppTextStyles.fonteUbuntuSans.copyWith(
+                          color: Colors.grey,
+                          fontSize: 14,
+                        ),
                       ),
-                      onPressed: () => _openPdfInNewTab(bytes),
-                      icon: const Icon(
-                        Icons.open_in_new,
-                        color: AppColors.branco,
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.azulClaro,
+                          foregroundColor: AppColors.branco,
+                        ),
+                        onPressed: () => _openPdfInNewTab(bytes),
+                        icon: const Icon(
+                          Icons.open_in_new,
+                          color: AppColors.branco,
+                        ),
+                        label: Text(
+                          openText,
+                          style: AppTextStyles.fonteUbuntuSans,
+                        ),
                       ),
-                      label: Text(
-                        openText,
-                        style: AppTextStyles.fonteUbuntuSans,
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.azulClaro,
+                          side: const BorderSide(color: AppColors.azulClaro),
+                        ),
+                        onPressed: () => _downloadPdf(bytes),
+                        icon: const Icon(
+                          Icons.download,
+                          color: AppColors.azulClaro,
+                        ),
+                        label: Text(
+                          downloadText,
+                          style: AppTextStyles.fonteUbuntuSans,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.azulClaro,
-                        side: const BorderSide(color: AppColors.azulClaro),
-                      ),
-                      onPressed: () => _downloadPdf(bytes),
-                      icon: const Icon(
-                        Icons.download,
-                        color: AppColors.azulClaro,
-                      ),
-                      label: Text(
-                        downloadText,
-                        style: AppTextStyles.fonteUbuntuSans,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1404,7 +1560,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
+      // REMOVIDO height fixo - agora usa Expanded do pai
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -1415,7 +1571,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
             padding: EdgeInsets.all(isMobile ? 12 : 16),
             color: Colors.grey[100],
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
@@ -1432,7 +1587,8 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
             ),
           ),
           Expanded(
-            child: Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 16),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1731,7 +1887,7 @@ class _CommentsPanelState extends State<CommentsPanel> {
       );
 
       if (response.success && response.data != null) {
-        setState(() => _comments.insert(0, response.data!));
+        setState(() => _comments.add(response.data!));
         _controllerText.clear();
         _jumpToEnd();
         showTopAlert(context, 'Comentário enviado com sucesso!', sucesso: true);
@@ -1865,7 +2021,7 @@ class _CommentsPanelState extends State<CommentsPanel> {
               color: AppColors.branco,
               child: _loading
                   ? const Center(
-                      child: const CircularProgressIndicator(
+                      child: CircularProgressIndicator(
                         valueColor: AlwaysStoppedAnimation<Color>(
                           AppColors.azulClaro,
                         ),
@@ -2418,102 +2574,101 @@ class __CommentBubbleState extends State<_CommentBubble> {
     );
   }
 
-Widget _buildCommentContent() {
-  if (_isEditing) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: _editController,
-          focusNode: _editFocusNode,
-          maxLines: null,
-          style: AppTextStyles.fonteUbuntuSans.copyWith(
-            fontSize: 14,
-            color: Colors.black87,
-          ),
-          decoration: InputDecoration(
-            isDense: true,
-            contentPadding: const EdgeInsets.all(8),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: Color(0xFF2CA3AC), // 💠 azul turquesa
-                width: 1.5,
-              ),
+  Widget _buildCommentContent() {
+    if (_isEditing) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _editController,
+            focusNode: _editFocusNode,
+            maxLines: null,
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              fontSize: 14,
+              color: Colors.black87,
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: Color(0xFF2CA3AC), // borda quando não focado
-                width: 1.5,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: Color(0xFF2CA3AC), // borda quando focado (clicado)
-                width: 2,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _cancelEditing,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.grey,
-                  side: const BorderSide(color: Colors.grey),
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.all(8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(
+                  color: Color(0xFF2CA3AC), // 💠 azul turquesa
+                  width: 1.5,
                 ),
-                child: const Text('Cancelar', style: TextStyle(fontSize: 12)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(
+                  color: Color(0xFF2CA3AC), // borda quando não focado
+                  width: 1.5,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(
+                  color: Color(0xFF2CA3AC), // borda quando focado (clicado)
+                  width: 2,
+                ),
               ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _saveEditing,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.azulClaro,
-                  foregroundColor: AppColors.branco,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _cancelEditing,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey,
+                    side: const BorderSide(color: Colors.grey),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                  ),
+                  child: const Text('Cancelar', style: TextStyle(fontSize: 12)),
                 ),
-                child: const Text('Salvar', style: TextStyle(fontSize: 12)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _saveEditing,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.azulClaro,
+                    foregroundColor: AppColors.branco,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                  ),
+                  child: const Text('Salvar', style: TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    } else {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.comentario.texto,
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              fontSize: 14,
+              color: Colors.black87,
+            ),
+          ),
+          if (widget.comentario.editado) ...[
+            const SizedBox(height: 4),
+            Text(
+              'editado',
+              style: AppTextStyles.fonteUbuntuSans.copyWith(
+                color: Colors.grey[500],
+                fontSize: 10,
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],
-        ),
-      ],
-    );
-  } else {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.comentario.texto,
-          style: AppTextStyles.fonteUbuntuSans.copyWith(
-            fontSize: 14,
-            color: Colors.black87,
-          ),
-        ),
-        if (widget.comentario.editado) ...[
-          const SizedBox(height: 4),
-          Text(
-            'editado',
-            style: AppTextStyles.fonteUbuntuSans.copyWith(
-              color: Colors.grey[500],
-              fontSize: 10,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
         ],
-      ],
-    );
+      );
+    }
   }
-}
-
 
   Widget _buildRespostaBubble(Comentario resposta) {
     final respostaAutor = resposta.autor['nome']?.toString() ?? 'Usuário';
