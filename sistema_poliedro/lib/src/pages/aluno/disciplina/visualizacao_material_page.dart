@@ -3,6 +3,7 @@ import 'dart:async'; // <-- para o timer do alerta
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:math' as math; // <-- para calcular altura dinâmica no mobile
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -41,6 +42,11 @@ class VisualizacaoMaterialPage extends StatefulWidget {
       _VisualizacaoMaterialPageState();
 }
 
+// --- MOBILE TABS: Material | Comentários ---
+enum _MobileView { material, comentarios }
+
+_MobileView _mobileView = _MobileView.material;
+
 class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   late Future<Uint8List?> _fileBytesFuture;
   final CommentsController _chatController = CommentsController();
@@ -72,30 +78,118 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
+  Widget _buildMobileTopButtons() {
+    final primary = AppColors.azulClaro;
+    final isComentarios = _mobileView == _MobileView.comentarios;
+    final isMaterial = _mobileView == _MobileView.material;
+
+    Widget buildPill({
+      required String text,
+      required bool active,
+      required VoidCallback onTap,
+    }) {
+      return Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: active ? primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: primary.withOpacity(active ? 0.0 : 0.3),
+              ),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                        color: primary.withOpacity(0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Center(
+              child: Text(
+                text,
+                style: AppTextStyles.fonteUbuntu.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  color: active ? AppColors.branco : Colors.grey[700],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          buildPill(
+            text: 'Material',
+            active: isMaterial,
+            onTap: () {
+              if (!isMaterial) {
+                setState(() {
+                  _mobileView = _MobileView.material;
+                  _chatController.setActive(false); // saindo dos comentários
+                });
+              }
+            },
+          ),
+          const SizedBox(width: 6),
+          buildPill(
+            text: 'Comentários',
+            active: isComentarios,
+            onTap: () {
+              if (!isComentarios) {
+                setState(() {
+                  _mobileView = _MobileView.comentarios;
+                  _chatController.setActive(true); // entrando em comentários
+                  _chatController.markAllRead();
+                });
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   // =======================
   // ALERTA PADRONIZADO
   // =======================
   void _mostrarAlerta(String mensagem, bool sucesso) {
-    // cancela qualquer timer em andamento
     _alertaTimer?.cancel();
-
     setState(() {
       _alertaMensagem = mensagem;
       _alertaSucesso = sucesso;
     });
-
-    // auto-hide após 2.5s
     _alertaTimer = Timer(const Duration(milliseconds: 2500), () {
-      if (mounted) {
-        setState(() => _alertaMensagem = null);
-      }
+      if (mounted) setState(() => _alertaMensagem = null);
     });
   }
 
   Widget _buildAlertaOverlay() {
     if (_alertaMensagem == null) return const SizedBox.shrink();
     return IgnorePointer(
-      ignoring: true, // não bloqueia cliques
+      ignoring: true,
       child: AlertaWidget(mensagem: _alertaMensagem!, sucesso: _alertaSucesso),
     );
   }
@@ -175,7 +269,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           print(
             '=== DEBUG: Não foi possível abrir o arquivo automaticamente ===',
           );
-          // Mantemos o comportamento: apenas informa via alerta
         }
       } else {
         _mostrarAlerta(
@@ -541,62 +634,74 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                       final isWide = constraints.maxWidth >= 960;
 
                       if (!isWide) {
-                        // Layout empilhado para telas menores
+                        // Layout com abas (Material | Comentários) para mobile
                         return Column(
                           children: [
-                            Expanded(
-                              flex: 6,
-                              child: FutureBuilder<Uint8List?>(
-                                future: _fileBytesFuture,
-                                builder: (context, snapshot) {
-                                  if (snapshot.connectionState ==
-                                      ConnectionState.waiting) {
-                                    return Center(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const CircularProgressIndicator(
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  AppColors.azulClaro,
-                                                ),
-                                          ),
-                                          SizedBox(height: isMobile ? 12 : 16),
-                                          Text(
-                                            'Carregando material...',
-                                            style: AppTextStyles.fonteUbuntuSans
-                                                .copyWith(
-                                                  fontSize: isMobile ? 14 : 16,
-                                                  color: AppColors.azulClaro,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }
-                                  if (snapshot.hasError) {
-                                    return _buildErrorWidget(
-                                      'Erro ao carregar arquivo',
-                                    );
-                                  }
-                                  final bytes = snapshot.data;
-                                  return _buildConteudoMaterial(context, bytes);
-                                },
-                              ),
-                            ),
+                            _buildMobileTopButtons(),
                             const SizedBox(height: 12),
-                            SizedBox(
-                              height: 420,
-                              child: CommentsPanel(
-                                materialId: widget.material.id,
-                                topicoId: widget.topicoId,
-                                disciplinaId: widget.slug,
-                                title: 'Comentários',
-                                controller: _chatController,
-                                showHeaderBadge: false,
-                                onAlert:
-                                    _mostrarAlerta, // <-- alerta padronizado
+                            Expanded(
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                switchInCurve: Curves.easeIn,
+                                switchOutCurve: Curves.easeOut,
+                                child: _mobileView == _MobileView.material
+                                    ? FutureBuilder<Uint8List?>(
+                                        key: const ValueKey('mobile-material'),
+                                        future: _fileBytesFuture,
+                                        builder: (context, snapshot) {
+                                          if (snapshot.connectionState ==
+                                              ConnectionState.waiting) {
+                                            return Center(
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  const CircularProgressIndicator(
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(AppColors.azulClaro),
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  Text(
+                                                    'Carregando material...',
+                                                    style: AppTextStyles
+                                                        .fonteUbuntuSans
+                                                        .copyWith(
+                                                          fontSize: 14,
+                                                          color: AppColors
+                                                              .azulClaro,
+                                                        ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }
+                                          if (snapshot.hasError) {
+                                            return _buildErrorWidget(
+                                              'Erro ao carregar arquivo',
+                                            );
+                                          }
+                                          final bytes = snapshot.data;
+                                          return _buildConteudoMaterial(
+                                            context,
+                                            bytes,
+                                          );
+                                        },
+                                      )
+                                    : CommentsPanel(
+                                        key: const ValueKey(
+                                          'mobile-comentarios',
+                                        ),
+                                        materialId: widget.material.id,
+                                        topicoId: widget.topicoId,
+                                        disciplinaId: widget.slug,
+                                        title: 'Comentários',
+                                        controller: _chatController,
+                                        showHeaderBadge:
+                                            false, // header simplificado no mobile
+                                        onAlert: _mostrarAlerta,
+                                      ),
                               ),
                             ),
                           ],
@@ -656,7 +761,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                               disciplinaId: widget.slug,
                               title: 'Comentários',
                               controller: _chatController,
-                              onAlert: _mostrarAlerta, // <-- alerta padronizado
+                              onAlert: _mostrarAlerta,
                             ),
                           ),
                         ],
@@ -837,9 +942,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
 
     return Container(
-      height: isMobile
-          ? MediaQuery.of(context).size.height * 0.6
-          : MediaQuery.of(context).size.height * 0.7,
+      // sem height fixo (pai controla com Expanded)
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -959,7 +1062,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   Widget _buildLinkContainer(String? url) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-
     if (url == null || url.isEmpty) {
       return _buildErrorWidget('URL não disponível');
     }
@@ -967,9 +1069,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     final corIcone = _getMaterialColor(widget.material.tipo);
 
     return Container(
-      height: isMobile
-          ? MediaQuery.of(context).size.height * 0.6
-          : MediaQuery.of(context).size.height * 0.7,
+      // sem height fixo
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -1276,6 +1376,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
+  // =========================
+  // PDF (WEB) — RESPONSIVO
+  // =========================
   Widget _buildPdfIframe(Uint8List bytes) {
     try {
       final base64Pdf = base64.encode(bytes);
@@ -1291,7 +1394,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           : 'Abrir PDF em Nova Aba';
 
       return Container(
-        height: MediaQuery.of(context).size.height * 0.7,
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey[300]!),
           borderRadius: BorderRadius.circular(8),
@@ -1304,11 +1406,15 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '$tipoDisplay: ${widget.material.titulo}',
-                    style: AppTextStyles.fonteUbuntu.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  Expanded(
+                    child: Text(
+                      '$tipoDisplay: ${widget.material.titulo}',
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Row(
@@ -1337,64 +1443,71 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
               ),
             ),
             Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _getMaterialIconData(widget.material.tipo),
-                      size: 64,
-                      color: corIcone,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '$tipoDisplay carregado com sucesso',
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 8,
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getMaterialIconData(widget.material.tipo),
+                        size: 64,
+                        color: corIcone,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Tamanho: ${(bytes.length / 1024).toStringAsFixed(1)} KB',
-                      style: AppTextStyles.fonteUbuntuSans.copyWith(
-                        color: Colors.grey,
-                        fontSize: 14,
+                      const SizedBox(height: 16),
+                      Text(
+                        '$tipoDisplay carregado com sucesso',
+                        style: AppTextStyles.fonteUbuntu.copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.azulClaro,
-                        foregroundColor: AppColors.branco,
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tamanho: ${(bytes.length / 1024).toStringAsFixed(1)} KB',
+                        style: AppTextStyles.fonteUbuntuSans.copyWith(
+                          color: Colors.grey,
+                          fontSize: 14,
+                        ),
                       ),
-                      onPressed: () => _openPdfInNewTab(bytes),
-                      icon: const Icon(
-                        Icons.open_in_new,
-                        color: AppColors.branco,
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.azulClaro,
+                          foregroundColor: AppColors.branco,
+                        ),
+                        onPressed: () => _openPdfInNewTab(bytes),
+                        icon: const Icon(
+                          Icons.open_in_new,
+                          color: AppColors.branco,
+                        ),
+                        label: Text(
+                          openText,
+                          style: AppTextStyles.fonteUbuntuSans,
+                        ),
                       ),
-                      label: Text(
-                        openText,
-                        style: AppTextStyles.fonteUbuntuSans,
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.azulClaro,
+                          side: const BorderSide(color: AppColors.azulClaro),
+                        ),
+                        onPressed: () => _downloadPdf(bytes),
+                        icon: const Icon(
+                          Icons.download,
+                          color: AppColors.azulClaro,
+                        ),
+                        label: Text(
+                          downloadText,
+                          style: AppTextStyles.fonteUbuntuSans,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.azulClaro,
-                        side: const BorderSide(color: AppColors.azulClaro),
-                      ),
-                      onPressed: () => _downloadPdf(bytes),
-                      icon: const Icon(
-                        Icons.download,
-                        color: AppColors.azulClaro,
-                      ),
-                      label: Text(
-                        downloadText,
-                        style: AppTextStyles.fonteUbuntuSans,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1407,13 +1520,18 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
+  // Alias para chamadas antigas com i minúsculo (evita erro de método não encontrado)
+  Widget _buildPdfiframe(Uint8List bytes) => _buildPdfIframe(bytes);
+
+  // =========================
+  // PDF (MOBILE) — RESPONSIVO
+  // =========================
   Widget _buildPdfMobile(Uint8List bytes) {
     final corIcone = _getMaterialColor(widget.material.tipo);
     final tipoDisplay = _getTipoNome(widget.material.tipo);
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -1424,7 +1542,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
             padding: EdgeInsets.all(isMobile ? 12 : 16),
             color: Colors.grey[100],
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
@@ -1433,7 +1550,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                       fontWeight: FontWeight.bold,
                       fontSize: isMobile ? 14 : 16,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1441,7 +1558,8 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
             ),
           ),
           Expanded(
-            child: Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 16),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1573,7 +1691,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   @override
   void dispose() {
-    _alertaTimer?.cancel(); // limpa timer do alerta
+    _alertaTimer?.cancel();
     super.dispose();
   }
 }
@@ -1629,7 +1747,6 @@ class CommentsPanel extends StatefulWidget {
   final CommentsController? controller;
   final bool showHeaderBadge;
 
-  // <-- callback para exibir alerta padronizado do pai
   final void Function(String mensagem, bool sucesso)? onAlert;
 
   const CommentsPanel({
@@ -1891,7 +2008,7 @@ class _CommentsPanelState extends State<CommentsPanel> {
                           onDelete: () => _handleDeleteComment(comentario),
                           canEdit: _canEditComment(comentario),
                           canDelete: _canDeleteComment(comentario),
-                          onAlert: widget.onAlert, // <-- repassa alerta
+                          onAlert: widget.onAlert,
                         );
                       },
                     ),
@@ -2155,11 +2272,8 @@ class __CommentBubbleState extends State<_CommentBubble> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ATUALIZADO: Passa o autorData completo
             _buildUserAvatar(fotoUrl, initials, autor, widget.comentario.autor),
-
             const SizedBox(width: 10),
-
             Expanded(
               child: Container(
                 padding: const EdgeInsets.all(10),
@@ -2171,15 +2285,9 @@ class __CommentBubbleState extends State<_CommentBubble> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Cabeçalho com nome, tempo e ações
                     _buildCommentHeader(autor),
-
                     const SizedBox(height: 6),
-
-                    // Conteúdo do comentário (modo leitura ou edição)
                     _buildCommentContent(),
-
-                    // Mostrar respostas se houver
                     if (widget.comentario.respostas.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       ...widget.comentario.respostas.map((resposta) {
@@ -2202,19 +2310,15 @@ class __CommentBubbleState extends State<_CommentBubble> {
     String autor,
     Map<String, dynamic> autorData,
   ) {
-    // CORREÇÃO: Extrai o tipo corretamente do autorData
     final autorId = autorData['_id']?.toString() ?? autorData['id']?.toString();
 
-    // CORREÇÃO CRÍTICA: Detecta o tipo corretamente
-    String autorTipo = 'aluno'; // default
+    String autorTipo = 'aluno';
     if (autorData['tipo'] != null) {
       autorTipo = autorData['tipo'].toString();
     } else {
-      // Tenta inferir pelo contexto - se tem RA é aluno, senão é professor
       autorTipo = autorData['ra'] != null ? 'aluno' : 'professor';
     }
 
-    // DEBUG PARA VERIFICAR O TIPO REAL
     print('=== DEBUG AVATAR CORRIGIDO ===');
     print('Autor: $autor');
     print('Tipo detectado: $autorTipo');
@@ -2223,14 +2327,12 @@ class __CommentBubbleState extends State<_CommentBubble> {
     print('Dados completos do autor: $autorData');
     print('========================');
 
-    // SEMPRE gera a URL baseada no ID e tipo CORRETO
     final String tipoEndpoint = autorTipo == 'aluno' ? 'alunos' : 'professores';
     final String urlFinal =
         '${AuthService.baseUrl}/api/$tipoEndpoint/image/$autorId';
 
     print('=== URL Gerada: $urlFinal ===');
 
-    // Usa FutureBuilder para obter os headers
     return FutureBuilder<Map<String, String>>(
       future: _getImageHeaders(),
       builder: (context, snapshot) {
@@ -2255,8 +2357,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
             errorWidget: (context, url, error) {
               print('=== IMAGE LOAD ERROR: $error ===');
               print('=== TENTANDO THE URL ALTERNATIVA ===');
-
-              // Tenta a URL alternativa
               final String altUrlFinal =
                   '${AuthService.baseUrl}/api/$tipoEndpoint/$autorId/foto';
               print('=== URL Alternativa: $altUrlFinal ===');
@@ -2280,7 +2380,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
     );
   }
 
-  // Headers de autenticação (mantém como Future)
   Future<Map<String, String>> _getImageHeaders() async {
     try {
       final token = await AuthService.getToken();
@@ -2292,7 +2391,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
     }
   }
 
-  // Loading state simplificado
   Widget _buildLoadingAvatar() {
     return Container(
       width: 32,
@@ -2310,7 +2408,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
     );
   }
 
-  // Fallback para avatar com iniciais
   Widget _buildAvatarFallback(String initials, String autor) {
     return CircleAvatar(
       backgroundColor: _getColorFromName(autor),
@@ -2326,7 +2423,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
     );
   }
 
-  // Método para gerar cor consistente baseada no nome
   Color _getColorFromName(String name) {
     if (name.isEmpty) return AppColors.azulClaro;
 
@@ -2346,7 +2442,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
     return colors[index];
   }
 
-  // Método auxiliar para corrigir URL - VERSÃO CORRIGIDA
   Usuario _corrigirFotoUrl(Usuario user) {
     if (user.fotoUrl == null || user.fotoUrl!.isEmpty) {
       final String tipoEndpoint = user.tipo == 'aluno'
@@ -2406,14 +2501,10 @@ class __CommentBubbleState extends State<_CommentBubble> {
             ],
           ),
         ),
-
-        // Menu de ações (editar/excluir)
         if (widget.canEdit || widget.canDelete)
           PopupMenuButton<String>(
-            // ✅ fundo branco, sem tonalidade roxa do Material 3
             color: AppColors.branco,
             surfaceTintColor: Colors.transparent,
-
             icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
             itemBuilder: (context) => [
               if (widget.canEdit)
@@ -2461,101 +2552,101 @@ class __CommentBubbleState extends State<_CommentBubble> {
     );
   }
 
-Widget _buildCommentContent() {
-  if (_isEditing) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: _editController,
-          focusNode: _editFocusNode,
-          maxLines: null,
-          style: AppTextStyles.fonteUbuntuSans.copyWith(
-            fontSize: 14,
-            color: Colors.black87,
-          ),
-          decoration: InputDecoration(
-            isDense: true,
-            contentPadding: const EdgeInsets.all(8),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: Color(0xFF2CA3AC), // 💠 azul turquesa
-                width: 1.5,
-              ),
+  Widget _buildCommentContent() {
+    if (_isEditing) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _editController,
+            focusNode: _editFocusNode,
+            maxLines: null,
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              fontSize: 14,
+              color: Colors.black87,
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: Color(0xFF2CA3AC), // borda quando não focado
-                width: 1.5,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: Color(0xFF2CA3AC), // borda quando focado (clicado)
-                width: 2,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _cancelEditing,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.grey,
-                  side: const BorderSide(color: Colors.grey),
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.all(8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(
+                  color: Color(0xFF2CA3AC),
+                  width: 1.5,
                 ),
-                child: const Text('Cancelar', style: TextStyle(fontSize: 12)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(
+                  color: Color(0xFF2CA3AC),
+                  width: 1.5,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(
+                  color: Color(0xFF2CA3AC),
+                  width: 2,
+                ),
               ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _saveEditing,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.azulClaro,
-                  foregroundColor: AppColors.branco,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _cancelEditing,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey,
+                    side: const BorderSide(color: Colors.grey),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                  ),
+                  child: const Text('Cancelar', style: TextStyle(fontSize: 12)),
                 ),
-                child: const Text('Salvar', style: TextStyle(fontSize: 12)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _saveEditing,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.azulClaro,
+                    foregroundColor: AppColors.branco,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                  ),
+                  child: const Text('Salvar', style: TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    } else {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.comentario.texto,
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              fontSize: 14,
+              color: Colors.black87,
+            ),
+          ),
+          if (widget.comentario.editado) ...[
+            const SizedBox(height: 4),
+            Text(
+              'editado',
+              style: AppTextStyles.fonteUbuntuSans.copyWith(
+                color: Colors.grey[500],
+                fontSize: 10,
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],
-        ),
-      ],
-    );
-  } else {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.comentario.texto,
-          style: AppTextStyles.fonteUbuntuSans.copyWith(
-            fontSize: 14,
-            color: Colors.black87,
-          ),
-        ),
-        if (widget.comentario.editado) ...[
-          const SizedBox(height: 4),
-          Text(
-            'editado',
-            style: AppTextStyles.fonteUbuntuSans.copyWith(
-              color: Colors.grey[500],
-              fontSize: 10,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
         ],
-      ],
-    );
+      );
+    }
   }
-}
 
   Widget _buildRespostaBubble(Comentario resposta) {
     final respostaAutor = resposta.autor['nome']?.toString() ?? 'Usuário';
