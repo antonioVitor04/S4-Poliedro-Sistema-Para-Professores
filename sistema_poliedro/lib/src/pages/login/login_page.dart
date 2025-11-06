@@ -43,7 +43,7 @@ class _LoginPageState extends State<LoginPage> {
       barrierColor: Colors.transparent,
       barrierDismissible: true,
       builder: (context) {
-        Timer(const Duration(seconds: 2), () {
+        Future.delayed(const Duration(seconds: 2), () {
           if (Navigator.of(context, rootNavigator: true).canPop()) {
             Navigator.of(context, rootNavigator: true).pop();
           }

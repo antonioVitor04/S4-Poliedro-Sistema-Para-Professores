@@ -23,16 +23,22 @@ class _CodigoVerificacaoState extends State<CodigoVerificacao> {
   );
 
   void mostrarAlerta(String mensagem, bool sucesso) {
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierColor: Colors.transparent,
       barrierDismissible: true,
-      builder: (context) => AlertaWidget(mensagem: mensagem, sucesso: sucesso),
-    );
+      builder: (context) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (Navigator.of(context, rootNavigator: true).canPop()) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
 
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) Navigator.of(context).pop();
-    });
+        return AlertaWidget(mensagem: mensagem, sucesso: sucesso);
+      },
+    );
   }
 
   // Função para validar o código com o backend

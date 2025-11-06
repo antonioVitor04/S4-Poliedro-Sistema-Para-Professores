@@ -3,6 +3,7 @@ import '../models/modelo_card_disciplina.dart';
 import '../services/card_disciplina_service.dart';
 import '../styles/cores.dart';
 import '../styles/fontes.dart';
+import '../components/alerta.dart';
 
 class GerenciarRelacionamentosDialog extends StatefulWidget {
   final CardDisciplina card;
@@ -36,6 +37,24 @@ class _GerenciarRelacionamentosDialogState
   void initState() {
     super.initState();
     _carregarDadosIniciais();
+  }
+  void _mostrarAlerta(String mensagem, bool sucesso) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: true,
+      builder: (context) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (Navigator.of(context, rootNavigator: true).canPop()) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
+
+        return AlertaWidget(mensagem: mensagem, sucesso: sucesso);
+      },
+    );
   }
 
   Future<void> _carregarDadosIniciais() async {
@@ -87,7 +106,6 @@ class _GerenciarRelacionamentosDialogState
         }
       }
     } catch (e) {
-      print('Erro ao carregar dados iniciais: $e');
       // Fallback: usar dados básicos se a busca falhar
       _carregarDadosBasicos();
     } finally {
@@ -288,22 +306,11 @@ class _GerenciarRelacionamentosDialogState
       widget.onUpdated();
 
       if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Acessos atualizados com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _mostrarAlerta('Acessos atualizados com sucesso', true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao atualizar acessos: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+         _mostrarAlerta('Erro ao atualizar acessos', false);
       }
     } finally {
       if (mounted) {
