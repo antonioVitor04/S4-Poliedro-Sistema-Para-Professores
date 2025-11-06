@@ -366,6 +366,7 @@ class _LoginPageState extends State<LoginPage> {
       builder: (context, snapshot) {
         return TextFormField(
           onChanged: bloc.changeField,
+          onFieldSubmitted: (_) => _login(), // 👈 Enter no campo de email/RA
           keyboardType: tipo == "professor" ? TextInputType.emailAddress : TextInputType.number,
           cursorColor: AppColors.azulClaro,
           style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),
@@ -405,6 +406,7 @@ class _LoginPageState extends State<LoginPage> {
       builder: (context, snapshot) {
         return TextFormField(
           onChanged: bloc.changePassword,
+          onFieldSubmitted: (_) => _login(), // 👈 Enter no campo de senha
           cursorColor: AppColors.azulClaro,
           obscureText: !_senhaVisivel,
           style: AppTextStyles.fonteUbuntu.copyWith(fontSize: 16),

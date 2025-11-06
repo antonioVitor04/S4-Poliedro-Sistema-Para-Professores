@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sistema_poliedro/src/pages/professor/page_professor_controller.dart';
 import 'src/pages/login/login_page.dart';
 import 'src/pages/aluno/page_aluno_controller.dart';
@@ -9,6 +11,15 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); 
   await dotenv.load(fileName: "assets/.env");
+  
+  // Bloqueia orientação para retrato apenas em dispositivos móveis (não web)
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
+  
   runApp(const MyApp());
 }
 
@@ -31,8 +42,6 @@ class MyApp extends StatelessWidget {
             AuthGuard(child: const HomeProfessor()),
         '/recuperar_senha': (context) => Recuperar_Senha(),
 
-        // '/codigo_verificacao': (context) => const CodigoVerificacao(),
-        // '/nova_senha': (context) => const NovaSenha(),
       },
     );
   }
