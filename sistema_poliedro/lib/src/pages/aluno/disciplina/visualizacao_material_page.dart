@@ -2319,19 +2319,12 @@ class __CommentBubbleState extends State<_CommentBubble> {
       autorTipo = autorData['ra'] != null ? 'aluno' : 'professor';
     }
 
-    print('=== DEBUG AVATAR CORRIGIDO ===');
-    print('Autor: $autor');
-    print('Tipo detectado: $autorTipo');
-    print('ID: $autorId');
-    print('Tem RA: ${autorData['ra'] != null}');
-    print('Dados completos do autor: $autorData');
-    print('========================');
+   
 
     final String tipoEndpoint = autorTipo == 'aluno' ? 'alunos' : 'professores';
     final String urlFinal =
         '${AuthService.baseUrl}/api/$tipoEndpoint/image/$autorId';
 
-    print('=== URL Gerada: $urlFinal ===');
 
     return FutureBuilder<Map<String, String>>(
       future: _getImageHeaders(),

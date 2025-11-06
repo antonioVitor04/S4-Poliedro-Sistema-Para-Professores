@@ -17,6 +17,7 @@ class ComentarioService {
 
   static const String _apiPrefix = '/api/comentarios';
 
+
   // Lista local para armazenar comentários quando a API não estiver disponível
   static final Map<String, List<Comentario>> _comentariosLocais = {};
 
@@ -27,9 +28,7 @@ class ComentarioService {
     int limite = 20,
   }) async {
     try {
-      print(
-        '=== DEBUG ComentarioService: Buscando comentários do material $materialId ===',
-      );
+     
 
       final token = await AuthService.getToken();
       final headers = <String, String>{'Content-Type': 'application/json'};
