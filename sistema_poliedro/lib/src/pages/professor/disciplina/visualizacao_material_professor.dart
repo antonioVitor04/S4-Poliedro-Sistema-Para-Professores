@@ -1,8 +1,9 @@
 // pages/material/visualizacao_material_page.dart
+import 'dart:async'; // <-- para o timer do alerta
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:math' as math;
+import 'dart:math' as math; // <-- para calcular altura dinâmica no mobile
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,41 +21,7 @@ import '../../../models/modelo_usuario.dart'; // Import da classe Usuario
 import 'package:http/http.dart' as http; // Import para http
 import '../../../styles/cores.dart';
 import '../../../styles/fontes.dart';
-import '../../../components/alerta.dart';
-
-/// =====================================================
-/// ALERTA NO TOPO (Overlay) — usa seu AlertaWidget
-/// =====================================================
-void showTopAlert(
-  BuildContext context,
-  String mensagem, {
-  required bool sucesso,
-  Duration duration = const Duration(seconds: 3),
-}) {
-  final overlay = Overlay.of(context);
-  if (overlay == null) return;
-
-  final entry = OverlayEntry(
-    builder: (_) => SafeArea(
-      child: Align(
-        alignment: Alignment.topRight,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 16, right: 16),
-          child: AlertaWidget(mensagem: mensagem, sucesso: sucesso),
-        ),
-      ),
-    ),
-  );
-
-  overlay.insert(entry);
-  Future.delayed(duration, () {
-    if (entry.mounted) entry.remove();
-  });
-}
-
-enum _MobileView { material, comentarios }
-
-_MobileView _mobileView = _MobileView.material;
+import '../../../components/alerta.dart'; // <-- seu AlertaWidget
 
 class VisualizacaoMaterialPage extends StatefulWidget {
   final MaterialDisciplina material;
@@ -75,9 +42,19 @@ class VisualizacaoMaterialPage extends StatefulWidget {
       _VisualizacaoMaterialPageState();
 }
 
+// --- MOBILE TABS: Material | Comentários ---
+enum _MobileView { material, comentarios }
+
+_MobileView _mobileView = _MobileView.material;
+
 class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   late Future<Uint8List?> _fileBytesFuture;
   final CommentsController _chatController = CommentsController();
+
+  // --- estado do alerta padronizado ---
+  String? _alertaMensagem;
+  bool _alertaSucesso = false;
+  Timer? _alertaTimer;
 
   @override
   void initState() {
@@ -101,44 +78,12 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
-  // Métodos para PDF
-  Future<bool> _isPdfValid(Uint8List bytes) async {
-    try {
-      if (bytes.length < 10) return false;
-      final header = String.fromCharCodes(bytes.sublist(0, 8));
-      final hasValidHeader = header.contains('%PDF');
-      print(
-        '=== DEBUG PDF Validation: Header=$hasValidHeader, Size=${bytes.length} ===',
-      );
-      return hasValidHeader;
-    } catch (e) {
-      print('=== DEBUG ERRO validar PDF: $e ===');
-      return false;
-    }
-  }
-
-  // Método universal para download
-  Future<void> _downloadFileMobile(
-    Uint8List bytes,
-    String fileName,
-    String mimeType,
-  ) async {
-    try {
-      if (Platform.isAndroid) {
-        await _downloadAndroid(bytes, fileName, mimeType);
-      }
-    } catch (e) {
-      print('=== DEBUG ERRO download mobile: $e ===');
-      _showError('Erro ao salvar arquivo: $e');
-    }
-  }
-
   Widget _buildMobileTopButtons() {
     final primary = AppColors.azulClaro;
     final isComentarios = _mobileView == _MobileView.comentarios;
     final isMaterial = _mobileView == _MobileView.material;
 
-    Widget pill({
+    Widget buildPill({
       required String text,
       required bool active,
       required VoidCallback onTap,
@@ -196,27 +141,27 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
       child: Row(
         children: [
-          pill(
+          buildPill(
             text: 'Material',
             active: isMaterial,
             onTap: () {
               if (!isMaterial) {
                 setState(() {
                   _mobileView = _MobileView.material;
-                  _chatController.setActive(false);
+                  _chatController.setActive(false); // saindo dos comentários
                 });
               }
             },
           ),
           const SizedBox(width: 6),
-          pill(
+          buildPill(
             text: 'Comentários',
             active: isComentarios,
             onTap: () {
               if (!isComentarios) {
                 setState(() {
                   _mobileView = _MobileView.comentarios;
-                  _chatController.setActive(true);
+                  _chatController.setActive(true); // entrando em comentários
                   _chatController.markAllRead();
                 });
               }
@@ -225,6 +170,60 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         ],
       ),
     );
+  }
+
+  // =======================
+  // ALERTA PADRONIZADO
+  // =======================
+  void _mostrarAlerta(String mensagem, bool sucesso) {
+    _alertaTimer?.cancel();
+    setState(() {
+      _alertaMensagem = mensagem;
+      _alertaSucesso = sucesso;
+    });
+    _alertaTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) setState(() => _alertaMensagem = null);
+    });
+  }
+
+  Widget _buildAlertaOverlay() {
+    if (_alertaMensagem == null) return const SizedBox.shrink();
+    return IgnorePointer(
+      ignoring: true,
+      child: AlertaWidget(mensagem: _alertaMensagem!, sucesso: _alertaSucesso),
+    );
+  }
+
+  // Métodos para PDF
+  Future<bool> _isPdfValid(Uint8List bytes) async {
+    try {
+      if (bytes.length < 10) return false;
+      final header = String.fromCharCodes(bytes.sublist(0, 8));
+      final hasValidHeader = header.contains('%PDF');
+      print(
+        '=== DEBUG PDF Validation: Header=$hasValidHeader, Size=${bytes.length} ===',
+      );
+      return hasValidHeader;
+    } catch (e) {
+      print('=== DEBUG ERRO validar PDF: $e ===');
+      return false;
+    }
+  }
+
+  // Método universal para download
+  Future<void> _downloadFileMobile(
+    Uint8List bytes,
+    String fileName,
+    String mimeType,
+  ) async {
+    try {
+      if (Platform.isAndroid) {
+        await _downloadAndroid(bytes, fileName, mimeType);
+      }
+    } catch (e) {
+      print('=== DEBUG ERRO download mobile: $e ===');
+      _mostrarAlerta('Erro ao salvar arquivo: $e', false);
+    }
   }
 
   // Método específico para Android
@@ -240,8 +239,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
       final hasPermission = await PermissionService.requestStoragePermissions();
       if (!hasPermission) {
-        _showError(
+        _mostrarAlerta(
           'Permissão de armazenamento necessária para salvar o arquivo',
+          false,
         );
         return;
       }
@@ -262,12 +262,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
         print('=== DEBUG: Arquivo salvo em: ${file.path} ===');
 
-        // Alerta no topo em vez de SnackBar com ação
-        showTopAlert(
-          context,
-          'Download concluído! Arquivo salvo em: SistemaPoliedro/',
-          sucesso: true,
-        );
+        _mostrarAlerta('Download concluído! Salvo em: SistemaPoliedro/', true);
 
         final result = await OpenFile.open(file.path);
         if (result.type != ResultType.done) {
@@ -276,11 +271,14 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           );
         }
       } else {
-        _showError('Não foi possível acessar o armazenamento do dispositivo');
+        _mostrarAlerta(
+          'Não foi possível acessar o armazenamento do dispositivo',
+          false,
+        );
       }
     } catch (e) {
       print('=== DEBUG ERRO Android download: $e ===');
-      _showError('Erro ao salvar arquivo: $e');
+      _mostrarAlerta('Erro ao salvar arquivo: $e', false);
     }
   }
 
@@ -289,7 +287,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white, // remove qualquer tom roxo
         title: Text('Download Concluído', style: AppTextStyles.fonteUbuntu),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -347,11 +344,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       html.document.body?.append(anchor);
       anchor.click();
       anchor.remove();
-
-      showTopAlert(context, 'Download iniciado: $fileName', sucesso: true);
+      _mostrarAlerta('Download iniciado: $fileName', true);
     } catch (e) {
       print('=== DEBUG ERRO download web: $e ===');
-      _showError('Erro ao fazer download');
+      _mostrarAlerta('Erro ao fazer download', false);
     }
   }
 
@@ -392,7 +388,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white, // remove roxo
         title: Text('Abrir PDF', style: AppTextStyles.fonteUbuntu),
         content: Text(
           'O navegador bloqueou a abertura automática do PDF. Clique no botão abaixo para abrir manualmente.',
@@ -436,8 +431,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         anchor.remove();
       });
     } catch (e) {
-      _showError(
+      _mostrarAlerta(
         'Não foi possível abrir o PDF. Faça o download e abra manualmente.',
+        false,
       );
     }
   }
@@ -465,7 +461,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   }
 
   void _showError(String message) {
-    showTopAlert(context, message, sucesso: false);
+    _mostrarAlerta(message, false);
   }
 
   Widget _buildErrorWidget(String message) {
@@ -496,7 +492,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
       backgroundColor: AppColors.branco,
@@ -511,259 +506,274 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         backgroundColor: AppColors.azulClaro,
         foregroundColor: AppColors.branco,
       ),
-      body: Padding(
-        padding: EdgeInsets.all(isMobile ? 12 : 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Cabeçalho do material
-            Card(
-              color: Colors.blue[50],
-              child: Padding(
-                padding: EdgeInsets.all(isMobile ? 12 : 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tópico: ${widget.topicoTitulo}',
-                      style: AppTextStyles.fonteUbuntuSans.copyWith(
-                        color: Colors.grey,
-                        fontSize: isMobile ? 12 : 14,
-                      ),
-                    ),
-                    SizedBox(height: isMobile ? 6 : 8),
-                    Text(
-                      widget.material.titulo,
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: isMobile ? 20 : 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (widget.material.descricao != null) ...[
-                      SizedBox(height: isMobile ? 8 : 12),
-                      Text(
-                        widget.material.descricao!,
-                        style: AppTextStyles.fonteUbuntuSans.copyWith(
-                          fontSize: isMobile ? 14 : 16,
-                        ),
-                      ),
-                    ],
-                    if (widget.material.prazo != null) ...[
-                      SizedBox(height: isMobile ? 8 : 12),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.access_time,
-                            color:
-                                widget.material.prazo!.isBefore(DateTime.now())
-                                ? AppColors.vermelhoErro
-                                : AppColors.vermelho,
-                            size: isMobile ? 16 : 18,
+      body: Stack(
+        children: [
+          Padding(
+            padding: EdgeInsets.all(isMobile ? 12 : 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Cabeçalho do material
+                Card(
+                  color: Colors.blue[50],
+                  child: Padding(
+                    padding: EdgeInsets.all(isMobile ? 12 : 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tópico: ${widget.topicoTitulo}',
+                          style: AppTextStyles.fonteUbuntuSans.copyWith(
+                            color: Colors.grey,
+                            fontSize: isMobile ? 12 : 14,
                           ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              widget.material.prazo!.isBefore(DateTime.now())
-                                  ? 'Prazo Expirado: ${_formatarData(widget.material.prazo!)}'
-                                  : 'Prazo: ${_formatarData(widget.material.prazo!)}',
-                              style: AppTextStyles.fonteUbuntuSans.copyWith(
+                        ),
+                        SizedBox(height: isMobile ? 6 : 8),
+                        Text(
+                          widget.material.titulo,
+                          style: AppTextStyles.fonteUbuntu.copyWith(
+                            fontSize: isMobile ? 20 : 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (widget.material.descricao != null) ...[
+                          SizedBox(height: isMobile ? 8 : 12),
+                          Text(
+                            widget.material.descricao!,
+                            style: AppTextStyles.fonteUbuntuSans.copyWith(
+                              fontSize: isMobile ? 14 : 16,
+                            ),
+                          ),
+                        ],
+                        if (widget.material.prazo != null) ...[
+                          SizedBox(height: isMobile ? 8 : 12),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.access_time,
                                 color:
                                     widget.material.prazo!.isBefore(
                                       DateTime.now(),
                                     )
                                     ? AppColors.vermelhoErro
                                     : AppColors.vermelho,
-                                fontWeight: FontWeight.bold,
+                                size: isMobile ? 16 : 18,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  widget.material.prazo!.isBefore(
+                                        DateTime.now(),
+                                      )
+                                      ? 'Prazo Expirado: ${_formatarData(widget.material.prazo!)}'
+                                      : 'Prazo: ${_formatarData(widget.material.prazo!)}',
+                                  style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                    color:
+                                        widget.material.prazo!.isBefore(
+                                          DateTime.now(),
+                                        )
+                                        ? AppColors.vermelhoErro
+                                        : AppColors.vermelho,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: isMobile ? 14 : 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (widget.material.peso > 0) ...[
+                          SizedBox(height: isMobile ? 6 : 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.assessment,
+                                color: AppColors.azulClaro,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Peso: ${widget.material.peso}%',
+                                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                  color: AppColors.azulClaro,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: isMobile ? 14 : 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        SizedBox(height: isMobile ? 6 : 8),
+                        Row(
+                          children: [
+                            Icon(
+                              _getMaterialIconData(widget.material.tipo),
+                              color: _getMaterialColor(widget.material.tipo),
+                              size: isMobile ? 16 : 18,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _getTipoNome(widget.material.tipo),
+                              style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                color: Colors.grey[600],
                                 fontSize: isMobile ? 14 : 16,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (widget.material.peso > 0) ...[
-                      SizedBox(height: isMobile ? 6 : 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.assessment,
-                            color: AppColors.azulClaro,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Peso: ${widget.material.peso}%',
-                            style: AppTextStyles.fonteUbuntuSans.copyWith(
-                              color: AppColors.azulClaro,
-                              fontWeight: FontWeight.bold,
-                              fontSize: isMobile ? 14 : 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    SizedBox(height: isMobile ? 6 : 8),
-                    Row(
-                      children: [
-                        Icon(
-                          _getMaterialIconData(widget.material.tipo),
-                          color: _getMaterialColor(widget.material.tipo),
-                          size: isMobile ? 16 : 18,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _getTipoNome(widget.material.tipo),
-                          style: AppTextStyles.fonteUbuntuSans.copyWith(
-                            color: Colors.grey[600],
-                            fontSize: isMobile ? 14 : 16,
-                          ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            SizedBox(height: isMobile ? 12 : 16),
+                SizedBox(height: isMobile ? 12 : 16),
 
-            // Conteúdo principal com layout responsivo
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth >= 960;
-                  final availableHeight = constraints.maxHeight;
+                // Conteúdo principal com layout responsivo
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth >= 960;
 
-                  if (!isWide) {
-                    // Layout com abas (Material | Comentários) para mobile
-                    return Column(
-                      children: [
-                        _buildMobileTopButtons(),
-                        const SizedBox(height: 12),
-                        Expanded(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 200),
-                            switchInCurve: Curves.easeIn,
-                            switchOutCurve: Curves.easeOut,
-                            child: _mobileView == _MobileView.material
-                                ? FutureBuilder<Uint8List?>(
-                                    key: const ValueKey('mobile-material'),
-                                    future: _fileBytesFuture,
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return Center(
-                                          child: Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              const CircularProgressIndicator(
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                      Color
-                                                    >(AppColors.azulClaro),
+                      if (!isWide) {
+                        // Layout com abas (Material | Comentários) para mobile
+                        return Column(
+                          children: [
+                            _buildMobileTopButtons(),
+                            const SizedBox(height: 12),
+                            Expanded(
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                switchInCurve: Curves.easeIn,
+                                switchOutCurve: Curves.easeOut,
+                                child: _mobileView == _MobileView.material
+                                    ? FutureBuilder<Uint8List?>(
+                                        key: const ValueKey('mobile-material'),
+                                        future: _fileBytesFuture,
+                                        builder: (context, snapshot) {
+                                          if (snapshot.connectionState ==
+                                              ConnectionState.waiting) {
+                                            return Center(
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  const CircularProgressIndicator(
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(AppColors.azulClaro),
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  Text(
+                                                    'Carregando material...',
+                                                    style: AppTextStyles
+                                                        .fonteUbuntuSans
+                                                        .copyWith(
+                                                          fontSize: 14,
+                                                          color: AppColors
+                                                              .azulClaro,
+                                                        ),
+                                                  ),
+                                                ],
                                               ),
-                                              const SizedBox(height: 12),
-                                              Text(
-                                                'Carregando material...',
-                                                style: AppTextStyles
-                                                    .fonteUbuntuSans
-                                                    .copyWith(
-                                                      fontSize: 14,
-                                                      color:
-                                                          AppColors.azulClaro,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }
-                                      if (snapshot.hasError) {
-                                        return _buildErrorWidget(
-                                          'Erro ao carregar arquivo',
-                                        );
-                                      }
-                                      final bytes = snapshot.data;
-                                      return _buildConteudoMaterial(
-                                        context,
-                                        bytes,
-                                      );
-                                    },
-                                  )
-                                : CommentsPanel(
-                                    key: const ValueKey('mobile-comentarios'),
-                                    materialId: widget.material.id,
-                                    topicoId: widget.topicoId,
-                                    disciplinaId: widget.slug,
-                                    title: 'Comentários',
-                                    controller: _chatController,
-                                    showHeaderBadge: false,
-                                  ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }
-
-                  // Layout em colunas para telas maiores
-                  return Row(
-                    children: [
-                      Expanded(
-                        flex: 7,
-                        child: FutureBuilder<Uint8List?>(
-                          future: _fileBytesFuture,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        AppColors.azulClaro,
+                                            );
+                                          }
+                                          if (snapshot.hasError) {
+                                            return _buildErrorWidget(
+                                              'Erro ao carregar arquivo',
+                                            );
+                                          }
+                                          final bytes = snapshot.data;
+                                          return _buildConteudoMaterial(
+                                            context,
+                                            bytes,
+                                          );
+                                        },
+                                      )
+                                    : CommentsPanel(
+                                        key: const ValueKey(
+                                          'mobile-comentarios',
+                                        ),
+                                        materialId: widget.material.id,
+                                        topicoId: widget.topicoId,
+                                        disciplinaId: widget.slug,
+                                        title: 'Comentários',
+                                        controller: _chatController,
+                                        showHeaderBadge:
+                                            false, // header simplificado no mobile
+                                        onAlert: _mostrarAlerta,
                                       ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      // Layout em colunas para telas maiores
+                      return Row(
+                        children: [
+                          Expanded(
+                            flex: 7,
+                            child: FutureBuilder<Uint8List?>(
+                              future: _fileBytesFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const CircularProgressIndicator(
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                AppColors.azulClaro,
+                                              ),
+                                        ),
+                                        SizedBox(height: isMobile ? 12 : 16),
+                                        Text(
+                                          'Carregando material...',
+                                          style: AppTextStyles.fonteUbuntuSans
+                                              .copyWith(
+                                                fontSize: isMobile ? 14 : 16,
+                                                color: AppColors.azulClaro,
+                                              ),
+                                        ),
+                                      ],
                                     ),
-                                    SizedBox(height: isMobile ? 12 : 16),
-                                    Text(
-                                      'Carregando material...',
-                                      style: AppTextStyles.fonteUbuntuSans
-                                          .copyWith(
-                                            fontSize: isMobile ? 14 : 16,
-                                            color: AppColors.azulClaro,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
-                            if (snapshot.hasError) {
-                              return _buildErrorWidget(
-                                'Erro ao carregar arquivo',
-                              );
-                            }
-                            final bytes = snapshot.data;
-                            return _buildConteudoMaterial(context, bytes);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      SizedBox(
-                        width: 360,
-                        child: CommentsPanel(
-                          materialId: widget.material.id,
-                          topicoId: widget.topicoId,
-                          disciplinaId: widget.slug,
-                          title: 'Comentários',
-                          controller: _chatController,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                                  );
+                                }
+                                if (snapshot.hasError) {
+                                  return _buildErrorWidget(
+                                    'Erro ao carregar arquivo',
+                                  );
+                                }
+                                final bytes = snapshot.data;
+                                return _buildConteudoMaterial(context, bytes);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          SizedBox(
+                            width: 360,
+                            child: CommentsPanel(
+                              materialId: widget.material.id,
+                              topicoId: widget.topicoId,
+                              disciplinaId: widget.slug,
+                              title: 'Comentários',
+                              controller: _chatController,
+                              onAlert: _mostrarAlerta,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          _buildAlertaOverlay(), // <-- overlay no topo direito
+        ],
       ),
     );
   }
@@ -864,7 +874,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   Widget _buildImageContainer(Uint8List? bytes, String? url) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-    final screenHeight = MediaQuery.of(context).size.height;
 
     Widget imageWidget;
     if (url != null && url.isNotEmpty) {
@@ -872,9 +881,8 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         url,
         fit: BoxFit.contain,
         height: isMobile
-            ? screenHeight *
-                  0.25 // Reduzido para mobile
-            : screenHeight * 0.4,
+            ? MediaQuery.of(context).size.height * 0.3
+            : MediaQuery.of(context).size.height * 0.4,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return const Center(
@@ -900,9 +908,8 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         bytes,
         fit: BoxFit.contain,
         height: isMobile
-            ? screenHeight *
-                  0.25 // Reduzido para mobile
-            : screenHeight * 0.4,
+            ? MediaQuery.of(context).size.height * 0.3
+            : MediaQuery.of(context).size.height * 0.4,
         errorBuilder: (context, error, stackTrace) {
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -935,7 +942,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
 
     return Container(
-      // REMOVIDO height fixo - agora usa Expanded do pai
+      // sem height fixo (pai controla com Expanded)
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -974,12 +981,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           ),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                vertical: isMobile ? 12.0 : 24.0, // Reduzido no mobile
-                horizontal: isMobile
-                    ? 8.0
-                    : 16.0, // Padding horizontal reduzido
-              ),
+              padding: EdgeInsets.symmetric(vertical: isMobile ? 16.0 : 24.0),
               child: Material(
                 elevation: 4,
                 borderRadius: BorderRadius.circular(12),
@@ -991,33 +993,26 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.only(
-              bottom: isMobile ? 8.0 : 16.0, // Reduzido no mobile
-              left: isMobile ? 8.0 : 16.0,
-              right: isMobile ? 8.0 : 16.0,
-            ),
-            child: SizedBox(
-              width: double.infinity, // Botão ocupa toda largura no mobile
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.azulClaro,
-                  side: const BorderSide(color: AppColors.azulClaro),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 12 : 20, // Reduzido no mobile
-                    vertical: isMobile ? 8 : 12, // Reduzido no mobile
-                  ),
+            padding: EdgeInsets.only(bottom: isMobile ? 12.0 : 16.0),
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.azulClaro,
+                side: const BorderSide(color: AppColors.azulClaro),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 16 : 20,
+                  vertical: isMobile ? 10 : 12,
                 ),
-                onPressed: () => _downloadImage(bytes, url),
-                icon: const Icon(
-                  Icons.download,
-                  color: AppColors.azulClaro,
-                  size: 20,
-                ),
-                label: Text(
-                  'Fazer Download',
-                  style: AppTextStyles.fonteUbuntuSans.copyWith(
-                    fontSize: isMobile ? 14 : 16,
-                  ),
+              ),
+              onPressed: () => _downloadImage(bytes, url),
+              icon: const Icon(
+                Icons.download,
+                color: AppColors.azulClaro,
+                size: 20,
+              ),
+              label: Text(
+                'Fazer Download',
+                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                  fontSize: isMobile ? 14 : 16,
                 ),
               ),
             ),
@@ -1034,7 +1029,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     } else if (bytes != null) {
       _downloadFileMobile(bytes, fileName, 'image/jpeg');
     } else {
-      _showError('Imagem não disponível para download');
+      _mostrarAlerta('Imagem não disponível para download', false);
     }
   }
 
@@ -1058,20 +1053,15 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         anchor.click();
         anchor.remove();
       }
-      showTopAlert(
-        context,
-        'Download iniciado: ${widget.material.titulo}',
-        sucesso: true,
-      );
+      _mostrarAlerta('Download iniciado: ${widget.material.titulo}', true);
     } catch (e) {
       print('=== DEBUG ERRO download imagem web: $e ===');
-      _showError('Erro ao fazer download da imagem');
+      _mostrarAlerta('Erro ao fazer download da imagem', false);
     }
   }
 
   Widget _buildLinkContainer(String? url) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-
     if (url == null || url.isEmpty) {
       return _buildErrorWidget('URL não disponível');
     }
@@ -1079,7 +1069,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     final corIcone = _getMaterialColor(widget.material.tipo);
 
     return Container(
-      // REMOVIDO height fixo - agora usa Expanded do pai
+      // sem height fixo
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -1132,29 +1122,21 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           Expanded(
             child: Center(
               child: SingleChildScrollView(
-                padding: EdgeInsets.all(
-                  isMobile ? 12 : 24,
-                ), // Reduzido no mobile
+                padding: EdgeInsets.all(isMobile ? 16 : 24),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.link,
-                      size: isMobile ? 40 : 64, // Reduzido no mobile
-                      color: corIcone,
-                    ),
-                    SizedBox(height: isMobile ? 8 : 16), // Reduzido no mobile
+                    Icon(Icons.link, size: isMobile ? 48 : 64, color: corIcone),
+                    SizedBox(height: isMobile ? 12 : 16),
                     Text(
                       'Link Externo',
                       style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: isMobile ? 16 : 20, // Reduzido no mobile
+                        fontSize: isMobile ? 18 : 20,
                       ),
                     ),
-                    SizedBox(height: isMobile ? 8 : 16), // Reduzido no mobile
+                    SizedBox(height: isMobile ? 12 : 16),
                     Container(
-                      padding: EdgeInsets.all(
-                        isMobile ? 8 : 16,
-                      ), // Reduzido no mobile
+                      padding: EdgeInsets.all(isMobile ? 12 : 16),
                       decoration: BoxDecoration(
                         color: Colors.grey[100],
                         borderRadius: BorderRadius.circular(12),
@@ -1162,67 +1144,53 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                       child: SelectableText(
                         url,
                         style: AppTextStyles.fonteUbuntuSans.copyWith(
-                          fontSize: isMobile ? 11 : 14, // Reduzido no mobile
+                          fontSize: isMobile ? 12 : 14,
                         ),
                       ),
                     ),
-                    SizedBox(height: isMobile ? 16 : 24), // Reduzido no mobile
-                    SizedBox(
-                      width: isMobile
-                          ? double.infinity
-                          : null, // Largura total no mobile
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.azulClaro,
-                          foregroundColor: AppColors.branco,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isMobile
-                                ? 12
-                                : 20, // Reduzido no mobile
-                            vertical: isMobile ? 10 : 16, // Reduzido no mobile
-                          ),
+                    SizedBox(height: isMobile ? 20 : 24),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.azulClaro,
+                        foregroundColor: AppColors.branco,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 16 : 20,
+                          vertical: isMobile ? 12 : 16,
                         ),
-                        onPressed: () => _openLinkInNewTab(url),
-                        icon: const Icon(
-                          Icons.open_in_new,
-                          size: 20,
-                          color: AppColors.branco,
-                        ),
-                        label: Text(
-                          'Abrir Link',
-                          style: AppTextStyles.fonteUbuntuSans.copyWith(
-                            fontSize: isMobile ? 14 : 16,
-                          ),
+                      ),
+                      onPressed: () => _openLinkInNewTab(url),
+                      icon: const Icon(
+                        Icons.open_in_new,
+                        size: 20,
+                        color: AppColors.branco,
+                      ),
+                      label: Text(
+                        'Abrir Link',
+                        style: AppTextStyles.fonteUbuntuSans.copyWith(
+                          fontSize: isMobile ? 14 : 16,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: isMobile
-                          ? double.infinity
-                          : null, // Largura total no mobile
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.azulClaro,
-                          side: const BorderSide(color: AppColors.azulClaro),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isMobile
-                                ? 12
-                                : 20, // Reduzido no mobile
-                            vertical: isMobile ? 8 : 12, // Reduzido no mobile
-                          ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.azulClaro,
+                        side: const BorderSide(color: AppColors.azulClaro),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 16 : 20,
+                          vertical: isMobile ? 10 : 12,
                         ),
-                        onPressed: () => _copyLink(url),
-                        icon: const Icon(
-                          Icons.copy,
-                          size: 20,
-                          color: AppColors.azulClaro,
-                        ),
-                        label: Text(
-                          'Copiar Link',
-                          style: AppTextStyles.fonteUbuntuSans.copyWith(
-                            fontSize: isMobile ? 14 : 16,
-                          ),
+                      ),
+                      onPressed: () => _copyLink(url),
+                      icon: const Icon(
+                        Icons.copy,
+                        size: 20,
+                        color: AppColors.azulClaro,
+                      ),
+                      label: Text(
+                        'Copiar Link',
+                        style: AppTextStyles.fonteUbuntuSans.copyWith(
+                          fontSize: isMobile ? 14 : 16,
                         ),
                       ),
                     ),
@@ -1240,7 +1208,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     if (kIsWeb) {
       _openLinkInNewTabWeb(url);
     } else {
-      _showError('Funcionalidade disponível apenas na versão web');
+      _mostrarAlerta('Funcionalidade disponível apenas na versão web', false);
     }
   }
 
@@ -1251,11 +1219,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
 
   void _copyLink(String url) async {
     await Clipboard.setData(ClipboardData(text: url));
-    showTopAlert(
-      context,
-      'Link copiado para a área de transferência',
-      sucesso: true,
-    );
+    _mostrarAlerta('Link copiado para a área de transferência', true);
   }
 
   Widget _buildAtividadeContainer(Uint8List? bytes) {
@@ -1412,6 +1376,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
+  // =========================
+  // PDF (WEB) — RESPONSIVO
+  // =========================
   Widget _buildPdfIframe(Uint8List bytes) {
     try {
       final base64Pdf = base64.encode(bytes);
@@ -1427,7 +1394,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
           : 'Abrir PDF em Nova Aba';
 
       return Container(
-        // REMOVIDO height fixo - agora usa Expanded do pai
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey[300]!),
           borderRadius: BorderRadius.circular(8),
@@ -1554,13 +1520,18 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
     }
   }
 
+  // Alias para chamadas antigas com i minúsculo (evita erro de método não encontrado)
+  Widget _buildPdfiframe(Uint8List bytes) => _buildPdfIframe(bytes);
+
+  // =========================
+  // PDF (MOBILE) — RESPONSIVO
+  // =========================
   Widget _buildPdfMobile(Uint8List bytes) {
     final corIcone = _getMaterialColor(widget.material.tipo);
     final tipoDisplay = _getTipoNome(widget.material.tipo);
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Container(
-      // REMOVIDO height fixo - agora usa Expanded do pai
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -1579,7 +1550,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                       fontWeight: FontWeight.bold,
                       fontSize: isMobile ? 14 : 16,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1717,6 +1688,12 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
     );
   }
+
+  @override
+  void dispose() {
+    _alertaTimer?.cancel();
+    super.dispose();
+  }
 }
 
 /// =======================
@@ -1770,6 +1747,8 @@ class CommentsPanel extends StatefulWidget {
   final CommentsController? controller;
   final bool showHeaderBadge;
 
+  final void Function(String mensagem, bool sucesso)? onAlert;
+
   const CommentsPanel({
     super.key,
     required this.materialId,
@@ -1778,6 +1757,7 @@ class CommentsPanel extends StatefulWidget {
     this.title = 'Comentários',
     this.controller,
     this.showHeaderBadge = true,
+    this.onAlert,
   });
 
   @override
@@ -1858,18 +1838,14 @@ class _CommentsPanelState extends State<CommentsPanel> {
         _jumpToEnd();
       } else {
         if (response.message != null && mounted) {
-          showTopAlert(context, 'Erro: ${response.message}', sucesso: false);
+          widget.onAlert?.call('Erro: ${response.message}', false);
         }
         setState(() => _loading = false);
       }
     } catch (error) {
       print('Erro inesperado: $error');
       if (mounted) {
-        showTopAlert(
-          context,
-          'Erro ao carregar comentários: $error',
-          sucesso: false,
-        );
+        widget.onAlert?.call('Erro ao carregar comentários: $error', false);
       }
       setState(() => _loading = false);
     }
@@ -1887,23 +1863,19 @@ class _CommentsPanelState extends State<CommentsPanel> {
       );
 
       if (response.success && response.data != null) {
-        setState(() => _comments.add(response.data!));
+        setState(() => _comments.insert(0, response.data!));
         _controllerText.clear();
         _jumpToEnd();
-        showTopAlert(context, 'Comentário enviado com sucesso!', sucesso: true);
+        widget.onAlert?.call('Comentário enviado com sucesso!', true);
       } else {
         if (response.message != null && mounted) {
-          showTopAlert(context, 'Erro: ${response.message}', sucesso: false);
+          widget.onAlert?.call('Erro: ${response.message}', false);
         }
       }
     } catch (error) {
       print('Erro ao enviar comentário: $error');
       if (mounted) {
-        showTopAlert(
-          context,
-          'Erro ao enviar comentário: $error',
-          sucesso: false,
-        );
+        widget.onAlert?.call('Erro ao enviar comentário: $error', false);
       }
     } finally {
       _isSending.value = false;
@@ -1920,21 +1892,13 @@ class _CommentsPanelState extends State<CommentsPanel> {
         setState(() {
           _comments.removeWhere((c) => c.id == comentario.id);
         });
-        showTopAlert(
-          context,
-          'Comentário excluído com sucesso!',
-          sucesso: true,
-        );
+        widget.onAlert?.call('Comentário excluído com sucesso!', true);
       } else if (mounted) {
-        showTopAlert(context, 'Erro: ${response.message}', sucesso: false);
+        widget.onAlert?.call('Erro: ${response.message}', false);
       }
     } catch (error) {
       if (mounted) {
-        showTopAlert(
-          context,
-          'Erro ao excluir comentário: $error',
-          sucesso: false,
-        );
+        widget.onAlert?.call('Erro ao excluir comentário: $error', false);
       }
     }
   }
@@ -2044,13 +2008,13 @@ class _CommentsPanelState extends State<CommentsPanel> {
                           onDelete: () => _handleDeleteComment(comentario),
                           canEdit: _canEditComment(comentario),
                           canDelete: _canDeleteComment(comentario),
+                          onAlert: widget.onAlert,
                         );
                       },
                     ),
             ),
           ),
 
-          // Caixa de envio
           Container(
             color: AppColors.branco,
             child: Column(
@@ -2180,6 +2144,7 @@ class _CommentBubble extends StatefulWidget {
   final VoidCallback? onDelete;
   final bool canEdit;
   final bool canDelete;
+  final void Function(String mensagem, bool sucesso)? onAlert;
 
   const _CommentBubble({
     required this.comentario,
@@ -2187,6 +2152,7 @@ class _CommentBubble extends StatefulWidget {
     this.onDelete,
     required this.canEdit,
     required this.canDelete,
+    this.onAlert,
   });
 
   @override
@@ -2212,7 +2178,9 @@ class __CommentBubbleState extends State<_CommentBubble> {
   }
 
   void _startEditing() {
-    setState(() => _isEditing = true);
+    setState(() {
+      _isEditing = true;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _editFocusNode.requestFocus();
     });
@@ -2235,19 +2203,17 @@ class __CommentBubbleState extends State<_CommentBubble> {
       );
 
       if (response.success && mounted) {
-        setState(() => _isEditing = false);
+        setState(() {
+          _isEditing = false;
+        });
         widget.onEdit?.call();
-        showTopAlert(context, 'Comentário editado com sucesso!', sucesso: true);
+        widget.onAlert?.call('Comentário editado com sucesso!', true);
       } else if (mounted) {
-        showTopAlert(context, 'Erro: ${response.message}', sucesso: false);
+        widget.onAlert?.call('Erro: ${response.message}', false);
       }
     } catch (error) {
       if (mounted) {
-        showTopAlert(
-          context,
-          'Erro ao editar comentário: $error',
-          sucesso: false,
-        );
+        widget.onAlert?.call('Erro ao editar comentário: $error', false);
       }
     }
   }
@@ -2261,7 +2227,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
         title: const Text('Excluir Comentário'),
         content: const Text('Tem certeza que deseja excluir este comentário?'),
         actions: [
-          // Botão "Cancelar" azul turquesa/azul
           TextButton(
             onPressed: () => Navigator.pop(context),
             style: ButtonStyle(
@@ -2277,8 +2242,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
               style: TextStyle(color: Color(0xFF1E64D6)),
             ),
           ),
-
-          // Botão "Excluir" vermelho (igual você já tinha)
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -2327,7 +2290,9 @@ class __CommentBubbleState extends State<_CommentBubble> {
                     _buildCommentContent(),
                     if (widget.comentario.respostas.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      ...widget.comentario.respostas.map(_buildRespostaBubble),
+                      ...widget.comentario.respostas.map((resposta) {
+                        return _buildRespostaBubble(resposta);
+                      }),
                     ],
                   ],
                 ),
@@ -2338,8 +2303,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
       ),
     );
   }
-
-  // ---------- Avatar & helpers ----------
 
   Widget _buildUserAvatar(
     String? fotoUrl,
@@ -2356,9 +2319,12 @@ class __CommentBubbleState extends State<_CommentBubble> {
       autorTipo = autorData['ra'] != null ? 'aluno' : 'professor';
     }
 
+   
+
     final String tipoEndpoint = autorTipo == 'aluno' ? 'alunos' : 'professores';
     final String urlFinal =
         '${AuthService.baseUrl}/api/$tipoEndpoint/image/$autorId';
+
 
     return FutureBuilder<Map<String, String>>(
       future: _getImageHeaders(),
@@ -2366,10 +2332,13 @@ class __CommentBubbleState extends State<_CommentBubble> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildLoadingAvatar();
         }
+
         if (snapshot.hasError || !snapshot.hasData) {
           return _buildAvatarFallback(initials, autor);
         }
+
         final headers = snapshot.data!;
+
         return ClipOval(
           child: CachedNetworkImage(
             imageUrl: urlFinal,
@@ -2379,8 +2348,12 @@ class __CommentBubbleState extends State<_CommentBubble> {
             fit: BoxFit.cover,
             placeholder: (context, url) => _buildLoadingAvatar(),
             errorWidget: (context, url, error) {
+              print('=== IMAGE LOAD ERROR: $error ===');
+              print('=== TENTANDO THE URL ALTERNATIVA ===');
               final String altUrlFinal =
                   '${AuthService.baseUrl}/api/$tipoEndpoint/$autorId/foto';
+              print('=== URL Alternativa: $altUrlFinal ===');
+
               return CachedNetworkImage(
                 imageUrl: altUrlFinal,
                 httpHeaders: headers,
@@ -2388,8 +2361,10 @@ class __CommentBubbleState extends State<_CommentBubble> {
                 height: 32,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => _buildLoadingAvatar(),
-                errorWidget: (context, url, error2) =>
-                    _buildAvatarFallback(initials, autor),
+                errorWidget: (context, url, error2) {
+                  print('=== FALHA NA URL ALTERNATIVA TAMBÉM: $error2 ===');
+                  return _buildAvatarFallback(initials, autor);
+                },
               );
             },
           ),
@@ -2403,7 +2378,8 @@ class __CommentBubbleState extends State<_CommentBubble> {
       final token = await AuthService.getToken();
       if (token == null) return {};
       return {'Authorization': 'Bearer $token'};
-    } catch (_) {
+    } catch (e) {
+      print('=== ERRO ao obter token: $e ===');
       return {};
     }
   }
@@ -2442,6 +2418,7 @@ class __CommentBubbleState extends State<_CommentBubble> {
 
   Color _getColorFromName(String name) {
     if (name.isEmpty) return AppColors.azulClaro;
+
     final colors = [
       AppColors.azulClaro,
       AppColors.vermelho,
@@ -2453,6 +2430,7 @@ class __CommentBubbleState extends State<_CommentBubble> {
       Colors.brown,
       Colors.pink,
     ];
+
     final index = name.codeUnits.reduce((a, b) => a + b) % colors.length;
     return colors[index];
   }
@@ -2462,23 +2440,31 @@ class __CommentBubbleState extends State<_CommentBubble> {
       final String tipoEndpoint = user.tipo == 'aluno'
           ? 'alunos'
           : 'professores';
-      final String correctedUrl =
-          '${AuthService.baseUrl}/api/$tipoEndpoint/image/${user.id}';
+      final String imageEndpoint = '/$tipoEndpoint/image/${user.id}';
+      final String correctedUrl = AuthService.baseUrl + '/api' + imageEndpoint;
+      print('=== DEBUG: Gerando URL para imagem: $correctedUrl ===');
       return user.copyWith(fotoUrl: correctedUrl);
     }
+
     if (user.fotoUrl!.contains('localhost')) {
       final String tipoEndpoint = user.tipo == 'aluno'
           ? 'alunos'
           : 'professores';
-      final String correctedUrl =
-          '${AuthService.baseUrl}/api/$tipoEndpoint/image/${user.id}';
+      final String imageEndpoint = '/$tipoEndpoint/image/${user.id}';
+      final String correctedUrl = AuthService.baseUrl + '/api' + imageEndpoint;
+      print('=== DEBUG: Corrigindo URL localhost: $correctedUrl ===');
       return user.copyWith(fotoUrl: correctedUrl);
     }
-    if (user.fotoUrl!.startsWith('http')) return user;
+
+    if (user.fotoUrl!.startsWith('http')) {
+      print('=== DEBUG: URL já é válida: ${user.fotoUrl} ===');
+      return user;
+    }
 
     final String tipoEndpoint = user.tipo == 'aluno' ? 'alunos' : 'professores';
-    final String correctedUrl =
-        '${AuthService.baseUrl}/api/$tipoEndpoint/image/${user.id}';
+    final String imageEndpoint = '/$tipoEndpoint/image/${user.id}';
+    final String correctedUrl = AuthService.baseUrl + '/api' + imageEndpoint;
+    print('=== DEBUG: Fallback - gerando URL: $correctedUrl ===');
     return user.copyWith(fotoUrl: correctedUrl);
   }
 
@@ -2509,66 +2495,51 @@ class __CommentBubbleState extends State<_CommentBubble> {
           ),
         ),
         if (widget.canEdit || widget.canDelete)
-          Theme(
-            data: Theme.of(context).copyWith(
-              useMaterial3: true,
-              popupMenuTheme: const PopupMenuThemeData(
-                color: Colors.white, // Fundo branco puro (sem roxo)
-                elevation: 6,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                ),
-                textStyle: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              cardColor: Colors.white, // Força branco em qualquer tema
-            ),
-            child: PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
-              itemBuilder: (context) => [
-                if (widget.canEdit)
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 16, color: Colors.black87),
-                        SizedBox(width: 8),
-                        Text('Editar'),
-                      ],
-                    ),
+          PopupMenuButton<String>(
+            color: AppColors.branco,
+            surfaceTintColor: Colors.transparent,
+            icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
+            itemBuilder: (context) => [
+              if (widget.canEdit)
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 16),
+                      SizedBox(width: 8),
+                      Text('Editar'),
+                    ],
                   ),
-                if (widget.canDelete)
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.delete,
-                          size: 16,
-                          color: AppColors.vermelhoErro,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Excluir',
-                          style: TextStyle(color: AppColors.vermelhoErro),
-                        ),
-                      ],
-                    ),
+                ),
+              if (widget.canDelete)
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.delete,
+                        size: 16,
+                        color: AppColors.vermelhoErro,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Excluir',
+                        style: TextStyle(color: AppColors.vermelhoErro),
+                      ),
+                    ],
                   ),
-              ],
-              onSelected: (value) {
-                switch (value) {
-                  case 'edit':
-                    _startEditing();
-                    break;
-                  case 'delete':
-                    _confirmDelete();
-                    break;
-                }
-              },
-            ),
+                ),
+            ],
+            onSelected: (value) {
+              switch (value) {
+                case 'edit':
+                  _startEditing();
+                  break;
+                case 'delete':
+                  _confirmDelete();
+                  break;
+              }
+            },
           ),
       ],
     );
@@ -2593,21 +2564,21 @@ class __CommentBubbleState extends State<_CommentBubble> {
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: const BorderSide(
-                  color: Color(0xFF2CA3AC), // 💠 azul turquesa
+                  color: Color(0xFF2CA3AC),
                   width: 1.5,
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: const BorderSide(
-                  color: Color(0xFF2CA3AC), // borda quando não focado
+                  color: Color(0xFF2CA3AC),
                   width: 1.5,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: const BorderSide(
-                  color: Color(0xFF2CA3AC), // borda quando focado (clicado)
+                  color: Color(0xFF2CA3AC),
                   width: 2,
                 ),
               ),
