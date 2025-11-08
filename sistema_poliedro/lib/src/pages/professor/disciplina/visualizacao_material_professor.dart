@@ -1,9 +1,9 @@
 // pages/material/visualizacao_material_page.dart
-import 'dart:async'; // <-- para o timer do alerta
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:math' as math; // <-- para calcular altura dinâmica no mobile
+import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,18 +17,16 @@ import '../../../services/comentario_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../models/modelo_card_disciplina.dart';
 import '../../../models/modelo_comentario.dart';
-import '../../../models/modelo_usuario.dart'; // Import da classe Usuario
-import 'package:http/http.dart' as http; // Import para http
+import '../../../models/modelo_usuario.dart';
+import 'package:http/http.dart' as http;
 import '../../../styles/cores.dart';
 import '../../../styles/fontes.dart';
-import '../../../components/alerta.dart'; // <-- seu AlertaWidget
-
+import '../../../components/alerta.dart';
 class VisualizacaoMaterialPage extends StatefulWidget {
   final MaterialDisciplina material;
   final String topicoTitulo;
   final String topicoId;
   final String slug;
-
   const VisualizacaoMaterialPage({
     super.key,
     required this.material,
@@ -36,33 +34,24 @@ class VisualizacaoMaterialPage extends StatefulWidget {
     required this.topicoId,
     required this.slug,
   });
-
   @override
   State<VisualizacaoMaterialPage> createState() =>
       _VisualizacaoMaterialPageState();
 }
-
-// --- MOBILE TABS: Material | Comentários ---
 enum _MobileView { material, comentarios }
-
 _MobileView _mobileView = _MobileView.material;
-
 class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
   late Future<Uint8List?> _fileBytesFuture;
   final CommentsController _chatController = CommentsController();
-
-  // --- estado do alerta padronizado ---
   String? _alertaMensagem;
   bool _alertaSucesso = false;
   Timer? _alertaTimer;
-
   @override
   void initState() {
     super.initState();
     print(
       '=== DEBUG INIT: Material ID=${widget.material.id}, Tipo=${widget.material.tipo}, HasArquivo=${widget.material.hasArquivo} ===',
     );
-
     if (widget.material.hasArquivo) {
       _fileBytesFuture =
           MaterialService.getFileBytes(
@@ -77,12 +66,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       _fileBytesFuture = Future.value(null);
     }
   }
-
   Widget _buildMobileTopButtons() {
     final primary = AppColors.azulClaro;
     final isComentarios = _mobileView == _MobileView.comentarios;
     final isMaterial = _mobileView == _MobileView.material;
-
     Widget buildPill({
       required String text,
       required bool active,
@@ -125,7 +112,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         ),
       );
     }
-
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -148,7 +134,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
               if (!isMaterial) {
                 setState(() {
                   _mobileView = _MobileView.material;
-                  _chatController.setActive(false); // saindo dos comentários
+                  _chatController.setActive(false);
                 });
               }
             },
@@ -161,7 +147,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
               if (!isComentarios) {
                 setState(() {
                   _mobileView = _MobileView.comentarios;
-                  _chatController.setActive(true); // entrando em comentários
+                  _chatController.setActive(true);
                   _chatController.markAllRead();
                 });
               }
@@ -171,10 +157,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
     );
   }
-
-  // =======================
-  // ALERTA PADRONIZADO
-  // =======================
   void _mostrarAlerta(String mensagem, bool sucesso) {
     _alertaTimer?.cancel();
     setState(() {
@@ -185,7 +167,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       if (mounted) setState(() => _alertaMensagem = null);
     });
   }
-
   Widget _buildAlertaOverlay() {
     if (_alertaMensagem == null) return const SizedBox.shrink();
     return IgnorePointer(
@@ -193,8 +174,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       child: AlertaWidget(mensagem: _alertaMensagem!, sucesso: _alertaSucesso),
     );
   }
-
-  // Métodos para PDF
   Future<bool> _isPdfValid(Uint8List bytes) async {
     try {
       if (bytes.length < 10) return false;
@@ -209,8 +188,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       return false;
     }
   }
-
-  // Método universal para download
   Future<void> _downloadFileMobile(
     Uint8List bytes,
     String fileName,
@@ -225,8 +202,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       _mostrarAlerta('Erro ao salvar arquivo: $e', false);
     }
   }
-
-  // Método específico para Android
   Future<void> _downloadAndroid(
     Uint8List bytes,
     String fileName,
@@ -236,7 +211,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       print('=== DEBUG: Iniciando download no Android ===');
       print('=== DEBUG: Nome do arquivo: $fileName ===');
       print('=== DEBUG: Tamanho: ${bytes.length} bytes ===');
-
       final hasPermission = await PermissionService.requestStoragePermissions();
       if (!hasPermission) {
         _mostrarAlerta(
@@ -245,25 +219,19 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         );
         return;
       }
-
       Directory? directory = await getDownloadsDirectory();
       if (directory == null) directory = await getExternalStorageDirectory();
       if (directory == null)
         directory = await getApplicationDocumentsDirectory();
-
       if (directory != null) {
         final folder = Directory('${directory.path}/SistemaPoliedro');
         if (!await folder.exists()) {
           await folder.create(recursive: true);
         }
-
         final file = File('${folder.path}/$fileName');
         await file.writeAsBytes(bytes);
-
         print('=== DEBUG: Arquivo salvo em: ${file.path} ===');
-
         _mostrarAlerta('Download concluído! Salvo em: SistemaPoliedro/', true);
-
         final result = await OpenFile.open(file.path);
         if (result.type != ResultType.done) {
           print(
@@ -281,8 +249,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       _mostrarAlerta('Erro ao salvar arquivo: $e', false);
     }
   }
-
-  // Diálogo para mostrar local do arquivo
   void _showFileLocationDialog(String filePath) {
     showDialog(
       context: context,
@@ -331,8 +297,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
     );
   }
-
-  // Métodos para Web
   void _downloadPdfWeb(Uint8List bytes, String fileName) {
     if (!kIsWeb) return;
     try {
@@ -350,7 +314,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       _mostrarAlerta('Erro ao fazer download', false);
     }
   }
-
   void _openPdfInNewTabWeb(Uint8List bytes) {
     if (!kIsWeb) return;
     try {
@@ -371,7 +334,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       _tryAlternativePdfOpenWeb(bytes);
     }
   }
-
   void _tryAlternativePdfOpenWeb(Uint8List bytes) {
     if (!kIsWeb) return;
     try {
@@ -383,7 +345,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       _showOpenPdfDialogWeb(bytes);
     }
   }
-
   void _showOpenPdfDialogWeb(Uint8List bytes) {
     showDialog(
       context: context,
@@ -413,7 +374,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
     );
   }
-
   void _forceOpenPdfWeb(Uint8List bytes) {
     if (!kIsWeb) return;
     try {
@@ -437,8 +397,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       );
     }
   }
-
-  // Métodos principais que chamam as versões web/mobile
   void _downloadPdf(Uint8List bytes) {
     final fileName = '${_sanitizeFileName(widget.material.titulo)}.pdf';
     if (kIsWeb) {
@@ -447,7 +405,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       _downloadFileMobile(bytes, fileName, 'application/pdf');
     }
   }
-
   void _openPdfInNewTab(Uint8List bytes) {
     if (kIsWeb) {
       _openPdfInNewTabWeb(bytes);
@@ -455,15 +412,12 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       _downloadPdf(bytes);
     }
   }
-
   String _sanitizeFileName(String name) {
     return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
   }
-
   void _showError(String message) {
     _mostrarAlerta(message, false);
   }
-
   Widget _buildErrorWidget(String message) {
     final isMobile = MediaQuery.of(context).size.width < 600;
     return Center(
@@ -488,11 +442,9 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-
     return Scaffold(
       backgroundColor: AppColors.branco,
       appBar: AppBar(
@@ -508,7 +460,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
       body: Stack(
         children: [
-          Padding(
+          // CORREÇÃO: Container com constraints explícitas
+          Container(
+            width: double.infinity,
+            height: double.infinity,
             padding: EdgeInsets.all(isMobile ? 12 : 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -626,20 +581,19 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                   ),
                 ),
                 SizedBox(height: isMobile ? 12 : 16),
-
-                // Conteúdo principal com layout responsivo
+                // CORREÇÃO: Expanded com constraints seguras
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final isWide = constraints.maxWidth >= 960;
-
                       if (!isWide) {
-                        // Layout com abas (Material | Comentários) para mobile
+                        // Layout com abas para mobile
                         return Column(
                           children: [
                             _buildMobileTopButtons(),
                             const SizedBox(height: 12),
-                            Expanded(
+                            // CORREÇÃO: Flexible em vez de Expanded para evitar problemas
+                            Flexible(
                               child: AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 200),
                                 switchInCurve: Curves.easeIn,
@@ -698,8 +652,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                                         disciplinaId: widget.slug,
                                         title: 'Comentários',
                                         controller: _chatController,
-                                        showHeaderBadge:
-                                            false, // header simplificado no mobile
+                                        showHeaderBadge: false,
                                         onAlert: _mostrarAlerta,
                                       ),
                               ),
@@ -707,11 +660,11 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                           ],
                         );
                       }
-
                       // Layout em colunas para telas maiores
                       return Row(
                         children: [
-                          Expanded(
+                          // CORREÇÃO: Flexible com constraints seguras
+                          Flexible(
                             flex: 7,
                             child: FutureBuilder<Uint8List?>(
                               future: _fileBytesFuture,
@@ -753,7 +706,8 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                             ),
                           ),
                           const SizedBox(width: 16),
-                          SizedBox(
+                          // CORREÇÃO: Container com largura fixa
+                          Container(
                             width: 360,
                             child: CommentsPanel(
                               materialId: widget.material.id,
@@ -772,16 +726,14 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
               ],
             ),
           ),
-          _buildAlertaOverlay(), // <-- overlay no topo direito
+          _buildAlertaOverlay(),
         ],
       ),
     );
   }
-
   String _formatarData(DateTime data) {
     return '${data.day}/${data.month}/${data.year} às ${data.hour}:${data.minute.toString().padLeft(2, '0')}';
   }
-
   Color _getMaterialColor(String tipo) {
     switch (tipo) {
       case 'pdf':
@@ -796,7 +748,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         return Colors.grey;
     }
   }
-
   IconData _getMaterialIconData(String tipo) {
     switch (tipo) {
       case 'pdf':
@@ -811,7 +762,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         return Icons.insert_drive_file;
     }
   }
-
   String _getTipoNome(String tipo) {
     switch (tipo) {
       case 'pdf':
@@ -826,7 +776,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         return 'Material';
     }
   }
-
   Widget _buildConteudoMaterial(BuildContext context, Uint8List? bytes) {
     switch (widget.material.tipo) {
       case 'imagem':
@@ -851,7 +800,11 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       case 'link':
         return _buildLinkContainer(widget.material.url);
       case 'atividade':
-        return _buildAtividadeContainer(bytes);
+        // CORREÇÃO: Container com altura definida para atividades
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: _buildAtividadeContainer(bytes),
+        );
       default:
         return Center(
           child: Column(
@@ -871,10 +824,8 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         );
     }
   }
-
   Widget _buildImageContainer(Uint8List? bytes, String? url) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-
     Widget imageWidget;
     if (url != null && url.isNotEmpty) {
       imageWidget = Image.network(
@@ -940,9 +891,7 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
         ],
       );
     }
-
     return Container(
-      // sem height fixo (pai controla com Expanded)
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -1021,7 +970,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
     );
   }
-
   void _downloadImage(Uint8List? bytes, String? url) {
     final fileName = '${_sanitizeFileName(widget.material.titulo)}.jpg';
     if (kIsWeb) {
@@ -1032,7 +980,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       _mostrarAlerta('Imagem não disponível para download', false);
     }
   }
-
   void _downloadImageWeb(Uint8List? bytes, String? url, String fileName) {
     if (!kIsWeb) return;
     try {
@@ -1059,17 +1006,13 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       _mostrarAlerta('Erro ao fazer download da imagem', false);
     }
   }
-
   Widget _buildLinkContainer(String? url) {
     final isMobile = MediaQuery.of(context).size.width < 600;
     if (url == null || url.isEmpty) {
       return _buildErrorWidget('URL não disponível');
     }
-
     final corIcone = _getMaterialColor(widget.material.tipo);
-
     return Container(
-      // sem height fixo
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
@@ -1203,7 +1146,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
     );
   }
-
   void _openLinkInNewTab(String url) {
     if (kIsWeb) {
       _openLinkInNewTabWeb(url);
@@ -1211,23 +1153,20 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       _mostrarAlerta('Funcionalidade disponível apenas na versão web', false);
     }
   }
-
   void _openLinkInNewTabWeb(String url) {
     if (!kIsWeb) return;
     html.window.open(url, '_blank');
   }
-
   void _copyLink(String url) async {
     await Clipboard.setData(ClipboardData(text: url));
     _mostrarAlerta('Link copiado para a área de transferência', true);
   }
-
+  // CORREÇÃO PRINCIPAL: _buildAtividadeContainer completamente reformulado
   Widget _buildAtividadeContainer(Uint8List? bytes) {
     final isMobile = MediaQuery.of(context).size.width < 600;
     final isPastDue =
         widget.material.prazo != null &&
         widget.material.prazo!.isBefore(DateTime.now());
-
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
@@ -1235,130 +1174,217 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
       child: Column(
         children: [
+          // Header da atividade
           Container(
-            padding: EdgeInsets.all(isMobile ? 10 : 12),
+            padding: EdgeInsets.all(isMobile ? 12 : 16),
             color: Colors.grey[100],
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Icon(
+                  Icons.assignment,
+                  color: _getMaterialColor(widget.material.tipo),
+                  size: isMobile ? 20 : 24,
+                ),
+                SizedBox(width: isMobile ? 8 : 12),
                 Expanded(
                   child: Text(
                     'Atividade: ${widget.material.titulo}',
                     style: AppTextStyles.fonteUbuntu.copyWith(
                       fontWeight: FontWeight.bold,
-                      fontSize: isMobile ? 14 : 16,
+                      fontSize: isMobile ? 16 : 18,
                     ),
                   ),
                 ),
               ],
             ),
           ),
+         
+          // CORREÇÃO: Conteúdo com SingleChildScrollView e altura controlada
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.all(isMobile ? 12 : 16),
+              padding: EdgeInsets.all(isMobile ? 16 : 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Título: ${widget.material.titulo}',
-                    style: AppTextStyles.fonteUbuntu.copyWith(
-                      fontSize: isMobile ? 16 : 18,
-                    ),
+                  // Informações básicas da atividade
+                  _buildInfoItem(
+                    'Título',
+                    widget.material.titulo,
+                    Icons.title,
+                    isMobile,
                   ),
+                 
                   if (widget.material.descricao != null) ...[
-                    SizedBox(height: isMobile ? 12 : 16),
-                    Text(
-                      'Descrição:',
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: isMobile ? 14 : 16,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
+                    SizedBox(height: isMobile ? 16 : 20),
+                    _buildInfoItem(
+                      'Descrição',
                       widget.material.descricao!,
-                      style: AppTextStyles.fonteUbuntuSans.copyWith(
-                        fontSize: isMobile ? 14 : 16,
-                      ),
+                      Icons.description,
+                      isMobile,
                     ),
                   ],
+                 
                   if (widget.material.prazo != null) ...[
-                    SizedBox(height: isMobile ? 12 : 16),
+                    SizedBox(height: isMobile ? 16 : 20),
                     Row(
                       children: [
                         Icon(
                           Icons.access_time,
-                          size: isMobile ? 16 : 18,
+                          size: isMobile ? 20 : 24,
                           color: isPastDue
                               ? AppColors.vermelhoErro
                               : AppColors.azulClaro,
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(width: isMobile ? 8 : 12),
                         Expanded(
-                          child: Text(
-                            isPastDue
-                                ? 'Prazo Expirado: ${_formatarData(widget.material.prazo!)}'
-                                : 'Prazo: ${_formatarData(widget.material.prazo!)}',
-                            style: AppTextStyles.fonteUbuntuSans.copyWith(
-                              fontSize: isMobile ? 14 : 16,
-                              color: isPastDue
-                                  ? AppColors.vermelhoErro
-                                  : AppColors.azulClaro,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isPastDue ? 'Prazo Expirado' : 'Prazo de Entrega',
+                                style: AppTextStyles.fonteUbuntu.copyWith(
+                                  fontSize: isMobile ? 14 : 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                _formatarData(widget.material.prazo!),
+                                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                  fontSize: isMobile ? 14 : 16,
+                                  color: isPastDue
+                                      ? AppColors.vermelhoErro
+                                      : AppColors.azulClaro,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                 
+                  if (widget.material.peso > 0) ...[
+                    SizedBox(height: isMobile ? 16 : 20),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.assessment,
+                          size: isMobile ? 20 : 24,
+                          color: AppColors.azulClaro,
+                        ),
+                        SizedBox(width: isMobile ? 8 : 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Peso da Atividade',
+                                style: AppTextStyles.fonteUbuntu.copyWith(
+                                  fontSize: isMobile ? 14 : 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                '${widget.material.peso}% da nota',
+                                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                                  fontSize: isMobile ? 14 : 16,
+                                  color: AppColors.azulClaro,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                 
+                  // CORREÇÃO: Seção de arquivo anexado com tratamento seguro
+                  if (bytes != null && bytes.isNotEmpty) ...[
+                    SizedBox(height: isMobile ? 20 : 24),
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(isMobile ? 16 : 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Arquivo Anexado',
+                            style: AppTextStyles.fonteUbuntu.copyWith(
+                              fontSize: isMobile ? 16 : 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (widget.material.peso > 0) ...[
-                    SizedBox(height: isMobile ? 8 : 12),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.assessment,
-                          size: 18,
-                          color: AppColors.azulClaro,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Peso: ${widget.material.peso}%',
-                          style: AppTextStyles.fonteUbuntuSans.copyWith(
-                            fontSize: isMobile ? 14 : 16,
-                            color: AppColors.azulClaro,
-                            fontWeight: FontWeight.bold,
+                          SizedBox(height: isMobile ? 12 : 16),
+                         
+                          // CORREÇÃO: FutureBuilder para validar PDF
+                          FutureBuilder<bool>(
+                            future: _isPdfValid(bytes),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppColors.azulClaro,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                             
+                              final isValidPdf = snapshot.data ?? false;
+                             
+                              if (isValidPdf) {
+                                return _buildPdfPreview(bytes, isMobile);
+                              } else {
+                                return _buildFileFallback(bytes, isMobile);
+                              }
+                            },
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (bytes != null && bytes.isNotEmpty) ...[
-                    SizedBox(height: isMobile ? 16 : 24),
-                    Text(
-                      'Arquivo Anexado:',
-                      style: AppTextStyles.fonteUbuntu.copyWith(
-                        fontSize: isMobile ? 16 : 18,
-                        fontWeight: FontWeight.bold,
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    FutureBuilder<bool>(
-                      future: _isPdfValid(bytes),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        if (snapshot.hasData == true && snapshot.data!) {
-                          return _buildPdfWeb(bytes);
-                        } else {
-                          return _buildPdfFallback(bytes);
-                        }
-                      },
+                  ] else if (bytes == null || bytes.isEmpty) ...[
+                    SizedBox(height: isMobile ? 20 : 24),
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(isMobile ? 16 : 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.attach_file,
+                            size: isMobile ? 40 : 48,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Nenhum arquivo anexado',
+                            style: AppTextStyles.fonteUbuntuSans.copyWith(
+                              fontSize: isMobile ? 14 : 16,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
+                 
+                  SizedBox(height: isMobile ? 16 : 20),
                 ],
               ),
             ),
@@ -1367,7 +1393,156 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
     );
   }
-
+  Widget _buildInfoItem(String label, String value, IconData icon, bool isMobile) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: isMobile ? 20 : 24,
+          color: AppColors.azulClaro,
+        ),
+        SizedBox(width: isMobile ? 8 : 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: AppTextStyles.fonteUbuntu.copyWith(
+                  fontSize: isMobile ? 14 : 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                value,
+                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                  fontSize: isMobile ? 14 : 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  Widget _buildPdfPreview(Uint8List bytes, bool isMobile) {
+    return Column(
+      children: [
+        Icon(
+          Icons.picture_as_pdf,
+          size: isMobile ? 48 : 64,
+          color: AppColors.vermelho,
+        ),
+        SizedBox(height: isMobile ? 8 : 12),
+        Text(
+          'PDF da Atividade',
+          style: AppTextStyles.fonteUbuntu.copyWith(
+            fontSize: isMobile ? 16 : 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(height: isMobile ? 4 : 6),
+        Text(
+          'Tamanho: ${(bytes.length / 1024).toStringAsFixed(1)} KB',
+          style: AppTextStyles.fonteUbuntuSans.copyWith(
+            fontSize: isMobile ? 12 : 14,
+            color: Colors.grey,
+          ),
+        ),
+        SizedBox(height: isMobile ? 16 : 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.azulClaro,
+                foregroundColor: AppColors.branco,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 12 : 16,
+                  vertical: isMobile ? 10 : 12,
+                ),
+              ),
+              onPressed: () => _downloadPdf(bytes),
+              icon: Icon(Icons.download, size: isMobile ? 16 : 18),
+              label: Text(
+                'Baixar',
+                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                  fontSize: isMobile ? 14 : 16,
+                ),
+              ),
+            ),
+            SizedBox(width: isMobile ? 8 : 12),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.azulClaro,
+                side: BorderSide(color: AppColors.azulClaro),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 12 : 16,
+                  vertical: isMobile ? 10 : 12,
+                ),
+              ),
+              onPressed: () => _openPdfInNewTab(bytes),
+              icon: Icon(Icons.open_in_new, size: isMobile ? 16 : 18),
+              label: Text(
+                'Abrir',
+                style: AppTextStyles.fonteUbuntuSans.copyWith(
+                  fontSize: isMobile ? 14 : 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+  Widget _buildFileFallback(Uint8List bytes, bool isMobile) {
+    return Column(
+      children: [
+        Icon(
+          Icons.insert_drive_file,
+          size: isMobile ? 48 : 64,
+          color: Colors.grey,
+        ),
+        SizedBox(height: isMobile ? 8 : 12),
+        Text(
+          'Arquivo da Atividade',
+          style: AppTextStyles.fonteUbuntu.copyWith(
+            fontSize: isMobile ? 16 : 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(height: isMobile ? 4 : 6),
+        Text(
+          'Tamanho: ${(bytes.length / 1024).toStringAsFixed(1)} KB',
+          style: AppTextStyles.fonteUbuntuSans.copyWith(
+            fontSize: isMobile ? 12 : 14,
+            color: Colors.grey,
+          ),
+        ),
+        SizedBox(height: isMobile ? 16 : 20),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.azulClaro,
+            foregroundColor: AppColors.branco,
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 20,
+              vertical: isMobile ? 12 : 16,
+            ),
+          ),
+          onPressed: () => _downloadPdf(bytes),
+          icon: Icon(Icons.download, size: isMobile ? 16 : 18),
+          label: Text(
+            'Baixar Arquivo',
+            style: AppTextStyles.fonteUbuntuSans.copyWith(
+              fontSize: isMobile ? 14 : 16,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
   Widget _buildPdfWeb(Uint8List bytes) {
     if (kIsWeb) {
       return _buildPdfIframe(bytes);
@@ -1375,15 +1550,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       return _buildPdfMobile(bytes);
     }
   }
-
-  // =========================
-  // PDF (WEB) — RESPONSIVO
-  // =========================
   Widget _buildPdfIframe(Uint8List bytes) {
     try {
       final base64Pdf = base64.encode(bytes);
       final pdfDataUrl = 'data:application/pdf;base64,$base64Pdf';
-
       final corIcone = _getMaterialColor(widget.material.tipo);
       final tipoDisplay = _getTipoNome(widget.material.tipo);
       final downloadText = widget.material.tipo == 'atividade'
@@ -1392,7 +1562,6 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       final openText = widget.material.tipo == 'atividade'
           ? 'Abrir Atividade em Nova Aba'
           : 'Abrir PDF em Nova Aba';
-
       return Container(
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey[300]!),
@@ -1442,13 +1611,14 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
                 ],
               ),
             ),
+            // CORREÇÃO: Centralização vertical aprimorada para PDF (removido SingleChildScrollView desnecessário)
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 8,
-                ),
-                child: Center(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 8,
+                  ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -1519,18 +1689,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       return _buildPdfFallback(bytes, 'Erro: $e');
     }
   }
-
-  // Alias para chamadas antigas com i minúsculo (evita erro de método não encontrado)
-  Widget _buildPdfiframe(Uint8List bytes) => _buildPdfIframe(bytes);
-
-  // =========================
-  // PDF (MOBILE) — RESPONSIVO
-  // =========================
   Widget _buildPdfMobile(Uint8List bytes) {
     final corIcone = _getMaterialColor(widget.material.tipo);
     final tipoDisplay = _getTipoNome(widget.material.tipo);
     final isMobile = MediaQuery.of(context).size.width < 600;
-
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
@@ -1557,69 +1719,72 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
               ],
             ),
           ),
+          // CORREÇÃO: Centralização vertical aprimorada para PDF mobile
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _getMaterialIconData(widget.material.tipo),
-                    size: isMobile ? 48 : 64,
-                    color: corIcone,
-                  ),
-                  SizedBox(height: isMobile ? 12 : 16),
-                  Text(
-                    '$tipoDisplay disponível',
-                    style: AppTextStyles.fonteUbuntu.copyWith(
-                      fontSize: isMobile ? 16 : 18,
-                      fontWeight: FontWeight.bold,
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _getMaterialIconData(widget.material.tipo),
+                      size: isMobile ? 48 : 64,
+                      color: corIcone,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: isMobile ? 6 : 8),
-                  Text(
-                    'Tamanho: ${(bytes.length / 1024).toStringAsFixed(1)} KB',
-                    style: AppTextStyles.fonteUbuntuSans.copyWith(
-                      color: Colors.grey,
-                      fontSize: isMobile ? 12 : 14,
-                    ),
-                  ),
-                  SizedBox(height: isMobile ? 20 : 24),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.azulClaro,
-                      foregroundColor: AppColors.branco,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isMobile ? 16 : 20,
-                        vertical: isMobile ? 12 : 16,
-                      ),
-                    ),
-                    onPressed: () => _downloadPdf(bytes),
-                    icon: const Icon(
-                      Icons.download,
-                      size: 20,
-                      color: AppColors.branco,
-                    ),
-                    label: Text(
-                      'Baixar e Abrir',
-                      style: AppTextStyles.fonteUbuntuSans.copyWith(
-                        fontSize: isMobile ? 14 : 16,
-                      ),
-                    ),
-                  ),
-                  if (widget.material.tipo == 'atividade') ...[
-                    SizedBox(height: isMobile ? 10 : 12),
+                    SizedBox(height: isMobile ? 12 : 16),
                     Text(
-                      'A atividade será salva e aberta automaticamente',
+                      '$tipoDisplay disponível',
+                      style: AppTextStyles.fonteUbuntu.copyWith(
+                        fontSize: isMobile ? 16 : 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: isMobile ? 6 : 8),
+                    Text(
+                      'Tamanho: ${(bytes.length / 1024).toStringAsFixed(1)} KB',
                       style: AppTextStyles.fonteUbuntuSans.copyWith(
                         color: Colors.grey,
                         fontSize: isMobile ? 12 : 14,
                       ),
-                      textAlign: TextAlign.center,
                     ),
+                    SizedBox(height: isMobile ? 20 : 24),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.azulClaro,
+                        foregroundColor: AppColors.branco,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 16 : 20,
+                          vertical: isMobile ? 12 : 16,
+                        ),
+                      ),
+                      onPressed: () => _downloadPdf(bytes),
+                      icon: const Icon(
+                        Icons.download,
+                        size: 20,
+                        color: AppColors.branco,
+                      ),
+                      label: Text(
+                        'Baixar e Abrir',
+                        style: AppTextStyles.fonteUbuntuSans.copyWith(
+                          fontSize: isMobile ? 14 : 16,
+                        ),
+                      ),
+                    ),
+                    if (widget.material.tipo == 'atividade') ...[
+                      SizedBox(height: isMobile ? 10 : 12),
+                      Text(
+                        'A atividade será salva e aberta automaticamente',
+                        style: AppTextStyles.fonteUbuntuSans.copyWith(
+                          color: Colors.grey,
+                          fontSize: isMobile ? 12 : 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -1627,12 +1792,10 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
     );
   }
-
   Widget _buildPdfFallback(Uint8List bytes, [String? reason]) {
     final corIcone = _getMaterialColor(widget.material.tipo);
     final tipoDisplay = _getTipoNome(widget.material.tipo);
     final isMobile = MediaQuery.of(context).size.width < 600;
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1688,14 +1851,13 @@ class _VisualizacaoMaterialPageState extends State<VisualizacaoMaterialPage> {
       ),
     );
   }
-
   @override
   void dispose() {
     _alertaTimer?.cancel();
     super.dispose();
   }
 }
-
+// ... (o restante do código dos CommentsController, CommentsPanel, etc. permanece igual)
 /// =======================
 /// CONTROLLER DO COMENTÁRIOS
 /// =======================
@@ -1703,20 +1865,16 @@ class CommentsController {
   final ValueNotifier<int> unreadCount = ValueNotifier<int>(0);
   bool _isActive = false;
   void Function(_Comment c)? _insertIncoming;
-
   void _attach(void Function(_Comment c) insertIncoming) {
     _insertIncoming = insertIncoming;
   }
-
   void setActive(bool active) {
     _isActive = active;
     if (active) markAllRead();
   }
-
   void markAllRead() {
     unreadCount.value = 0;
   }
-
   void addIncomingMessage({required String author, required String message}) {
     final c = _Comment(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -1730,12 +1888,10 @@ class CommentsController {
       unreadCount.value = unreadCount.value + 1;
     }
   }
-
   void dispose() {
     unreadCount.dispose();
   }
 }
-
 /// =======================
 /// COMMENTS PANEL WIDGET
 /// =======================
@@ -1746,9 +1902,7 @@ class CommentsPanel extends StatefulWidget {
   final String title;
   final CommentsController? controller;
   final bool showHeaderBadge;
-
   final void Function(String mensagem, bool sucesso)? onAlert;
-
   const CommentsPanel({
     super.key,
     required this.materialId,
@@ -1759,21 +1913,17 @@ class CommentsPanel extends StatefulWidget {
     this.showHeaderBadge = true,
     this.onAlert,
   });
-
   @override
   State<CommentsPanel> createState() => _CommentsPanelState();
 }
-
 class _CommentsPanelState extends State<CommentsPanel> {
   final TextEditingController _controllerText = TextEditingController();
   final ScrollController _listController = ScrollController();
   final ValueNotifier<bool> _isSending = ValueNotifier(false);
-
   List<Comentario> _comments = [];
   bool _loading = true;
   String? _currentUserId;
   String? _currentUserRole;
-
   @override
   void initState() {
     super.initState();
@@ -1782,7 +1932,6 @@ class _CommentsPanelState extends State<CommentsPanel> {
     _loadCurrentUser();
     _fetchComments();
   }
-
   @override
   void dispose() {
     widget.controller?.setActive(false);
@@ -1791,7 +1940,6 @@ class _CommentsPanelState extends State<CommentsPanel> {
     _isSending.dispose();
     super.dispose();
   }
-
   Future<void> _loadCurrentUser() async {
     try {
       _currentUserId = await AuthService.getUserId();
@@ -1800,7 +1948,6 @@ class _CommentsPanelState extends State<CommentsPanel> {
       print('Erro ao carregar usuário atual: $e');
     }
   }
-
   bool _canEditComment(Comentario comentario) {
     if (_currentUserId == null) return false;
     final autorId = comentario.autor is Map
@@ -1808,13 +1955,11 @@ class _CommentsPanelState extends State<CommentsPanel> {
         : comentario.autor.toString();
     return autorId == _currentUserId;
   }
-
   bool _canDeleteComment(Comentario comentario) {
     if (_currentUserId == null) return false;
     final autorId = comentario.autor is Map
         ? comentario.autor['_id']?.toString()
         : comentario.autor.toString();
-
     if (_currentUserRole == 'aluno') {
       return autorId == _currentUserId;
     } else if (_currentUserRole == 'professor' || _currentUserRole == 'admin') {
@@ -1822,14 +1967,12 @@ class _CommentsPanelState extends State<CommentsPanel> {
     }
     return false;
   }
-
   Future<void> _fetchComments() async {
     try {
       setState(() => _loading = true);
       final response = await ComentarioService.buscarComentariosPorMaterial(
         widget.materialId,
       );
-
       if (response.success) {
         setState(() {
           _comments = response.data ?? [];
@@ -1850,7 +1993,6 @@ class _CommentsPanelState extends State<CommentsPanel> {
       setState(() => _loading = false);
     }
   }
-
   Future<void> _postComment(String text) async {
     if (text.trim().isEmpty) return;
     try {
@@ -1861,7 +2003,6 @@ class _CommentsPanelState extends State<CommentsPanel> {
         slug: widget.disciplinaId,
         texto: text.trim(),
       );
-
       if (response.success && response.data != null) {
         setState(() => _comments.insert(0, response.data!));
         _controllerText.clear();
@@ -1881,13 +2022,11 @@ class _CommentsPanelState extends State<CommentsPanel> {
       _isSending.value = false;
     }
   }
-
   Future<void> _handleDeleteComment(Comentario comentario) async {
     try {
       final response = await ComentarioService.excluirComentario(
         comentarioId: comentario.id,
       );
-
       if (response.success && mounted) {
         setState(() {
           _comments.removeWhere((c) => c.id == comentario.id);
@@ -1902,11 +2041,9 @@ class _CommentsPanelState extends State<CommentsPanel> {
       }
     }
   }
-
   Future<void> _handleEditComment() async {
     await _fetchComments();
   }
-
   void _insertIncomingFromController(_Comment c) {
     final newComment = Comentario(
       id: c.id,
@@ -1923,7 +2060,6 @@ class _CommentsPanelState extends State<CommentsPanel> {
     setState(() => _comments.add(newComment));
     _jumpToEnd();
   }
-
   void _jumpToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_listController.hasClients) {
@@ -1935,14 +2071,12 @@ class _CommentsPanelState extends State<CommentsPanel> {
       }
     });
   }
-
   void _trySend() {
     final text = _controllerText.text.trim();
     if (text.isEmpty) return;
     _postComment(text);
     widget.controller?.markAllRead();
   }
-
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -1979,7 +2113,6 @@ class _CommentsPanelState extends State<CommentsPanel> {
               ],
             ),
           ),
-
           Expanded(
             child: Container(
               color: AppColors.branco,
@@ -2014,7 +2147,6 @@ class _CommentsPanelState extends State<CommentsPanel> {
                     ),
             ),
           ),
-
           Container(
             color: AppColors.branco,
             child: Column(
@@ -2036,30 +2168,24 @@ class _CommentsPanelState extends State<CommentsPanel> {
                               horizontal: 12,
                               vertical: 10,
                             ),
-
-                            // borda "genérica" / fallback
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                               borderSide: const BorderSide(
-                                color: Color(0xFF2CA3AC), // turquesa
+                                color: Color(0xFF2CA3AC),
                                 width: 1.5,
                               ),
                             ),
-
-                            // borda quando o campo está habilitado mas não focado
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                               borderSide: const BorderSide(
-                                color: Color(0xFF2CA3AC), // turquesa
+                                color: Color(0xFF2CA3AC),
                                 width: 1.5,
                               ),
                             ),
-
-                            // borda quando o campo está focado
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                               borderSide: const BorderSide(
-                                color: Color(0xFF2CA3AC), // turquesa
+                                color: Color(0xFF2CA3AC),
                                 width: 2,
                               ),
                             ),
@@ -2067,7 +2193,6 @@ class _CommentsPanelState extends State<CommentsPanel> {
                           onSubmitted: (_) => _trySend(),
                         ),
                       ),
-
                       const SizedBox(width: 8),
                       ValueListenableBuilder<bool>(
                         valueListenable: _isSending,
@@ -2106,10 +2231,8 @@ class _CommentsPanelState extends State<CommentsPanel> {
     );
   }
 }
-
 class _EmptyComments extends StatelessWidget {
   const _EmptyComments();
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -2137,7 +2260,6 @@ class _EmptyComments extends StatelessWidget {
     );
   }
 }
-
 class _CommentBubble extends StatefulWidget {
   final Comentario comentario;
   final VoidCallback? onEdit;
@@ -2145,7 +2267,6 @@ class _CommentBubble extends StatefulWidget {
   final bool canEdit;
   final bool canDelete;
   final void Function(String mensagem, bool sucesso)? onAlert;
-
   const _CommentBubble({
     required this.comentario,
     this.onEdit,
@@ -2154,29 +2275,24 @@ class _CommentBubble extends StatefulWidget {
     required this.canDelete,
     this.onAlert,
   });
-
   @override
   State<_CommentBubble> createState() => __CommentBubbleState();
 }
-
 class __CommentBubbleState extends State<_CommentBubble> {
   bool _isEditing = false;
   final TextEditingController _editController = TextEditingController();
   final FocusNode _editFocusNode = FocusNode();
-
   @override
   void initState() {
     super.initState();
     _editController.text = widget.comentario.texto;
   }
-
   @override
   void dispose() {
     _editController.dispose();
     _editFocusNode.dispose();
     super.dispose();
   }
-
   void _startEditing() {
     setState(() {
       _isEditing = true;
@@ -2185,23 +2301,19 @@ class __CommentBubbleState extends State<_CommentBubble> {
       _editFocusNode.requestFocus();
     });
   }
-
   void _cancelEditing() {
     setState(() {
       _isEditing = false;
       _editController.text = widget.comentario.texto;
     });
   }
-
   Future<void> _saveEditing() async {
     if (_editController.text.trim().isEmpty) return;
-
     try {
       final response = await ComentarioService.editarComentario(
         comentarioId: widget.comentario.id,
         texto: _editController.text.trim(),
       );
-
       if (response.success && mounted) {
         setState(() {
           _isEditing = false;
@@ -2217,7 +2329,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
       }
     }
   }
-
   void _confirmDelete() {
     showDialog(
       context: context,
@@ -2256,7 +2367,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final autor = widget.comentario.autor['nome']?.toString() ?? 'Usuário';
@@ -2264,7 +2374,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
     final initials = autor.isNotEmpty
         ? autor.trim().split(' ').map((e) => e[0]).take(2).join()
         : '?';
-
     return Container(
       color: AppColors.branco,
       child: Padding(
@@ -2303,7 +2412,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
       ),
     );
   }
-
   Widget _buildUserAvatar(
     String? fotoUrl,
     String initials,
@@ -2311,34 +2419,26 @@ class __CommentBubbleState extends State<_CommentBubble> {
     Map<String, dynamic> autorData,
   ) {
     final autorId = autorData['_id']?.toString() ?? autorData['id']?.toString();
-
     String autorTipo = 'aluno';
     if (autorData['tipo'] != null) {
       autorTipo = autorData['tipo'].toString();
     } else {
       autorTipo = autorData['ra'] != null ? 'aluno' : 'professor';
     }
-
-   
-
+  
     final String tipoEndpoint = autorTipo == 'aluno' ? 'alunos' : 'professores';
     final String urlFinal =
         '${AuthService.baseUrl}/api/$tipoEndpoint/image/$autorId';
-
-
     return FutureBuilder<Map<String, String>>(
       future: _getImageHeaders(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildLoadingAvatar();
         }
-
         if (snapshot.hasError || !snapshot.hasData) {
           return _buildAvatarFallback(initials, autor);
         }
-
         final headers = snapshot.data!;
-
         return ClipOval(
           child: CachedNetworkImage(
             imageUrl: urlFinal,
@@ -2353,7 +2453,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
               final String altUrlFinal =
                   '${AuthService.baseUrl}/api/$tipoEndpoint/$autorId/foto';
               print('=== URL Alternativa: $altUrlFinal ===');
-
               return CachedNetworkImage(
                 imageUrl: altUrlFinal,
                 httpHeaders: headers,
@@ -2372,7 +2471,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
       },
     );
   }
-
   Future<Map<String, String>> _getImageHeaders() async {
     try {
       final token = await AuthService.getToken();
@@ -2383,7 +2481,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
       return {};
     }
   }
-
   Widget _buildLoadingAvatar() {
     return Container(
       width: 32,
@@ -2400,7 +2497,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
       ),
     );
   }
-
   Widget _buildAvatarFallback(String initials, String autor) {
     return CircleAvatar(
       backgroundColor: _getColorFromName(autor),
@@ -2415,10 +2511,8 @@ class __CommentBubbleState extends State<_CommentBubble> {
       ),
     );
   }
-
   Color _getColorFromName(String name) {
     if (name.isEmpty) return AppColors.azulClaro;
-
     final colors = [
       AppColors.azulClaro,
       AppColors.vermelho,
@@ -2430,11 +2524,9 @@ class __CommentBubbleState extends State<_CommentBubble> {
       Colors.brown,
       Colors.pink,
     ];
-
     final index = name.codeUnits.reduce((a, b) => a + b) % colors.length;
     return colors[index];
   }
-
   Usuario _corrigirFotoUrl(Usuario user) {
     if (user.fotoUrl == null || user.fotoUrl!.isEmpty) {
       final String tipoEndpoint = user.tipo == 'aluno'
@@ -2445,7 +2537,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
       print('=== DEBUG: Gerando URL para imagem: $correctedUrl ===');
       return user.copyWith(fotoUrl: correctedUrl);
     }
-
     if (user.fotoUrl!.contains('localhost')) {
       final String tipoEndpoint = user.tipo == 'aluno'
           ? 'alunos'
@@ -2455,19 +2546,16 @@ class __CommentBubbleState extends State<_CommentBubble> {
       print('=== DEBUG: Corrigindo URL localhost: $correctedUrl ===');
       return user.copyWith(fotoUrl: correctedUrl);
     }
-
     if (user.fotoUrl!.startsWith('http')) {
       print('=== DEBUG: URL já é válida: ${user.fotoUrl} ===');
       return user;
     }
-
     final String tipoEndpoint = user.tipo == 'aluno' ? 'alunos' : 'professores';
     final String imageEndpoint = '/$tipoEndpoint/image/${user.id}';
     final String correctedUrl = AuthService.baseUrl + '/api' + imageEndpoint;
     print('=== DEBUG: Fallback - gerando URL: $correctedUrl ===');
     return user.copyWith(fotoUrl: correctedUrl);
   }
-
   Widget _buildCommentHeader(String autor) {
     return Row(
       children: [
@@ -2544,7 +2632,6 @@ class __CommentBubbleState extends State<_CommentBubble> {
       ],
     );
   }
-
   Widget _buildCommentContent() {
     if (_isEditing) {
       return Column(
@@ -2640,14 +2727,12 @@ class __CommentBubbleState extends State<_CommentBubble> {
       );
     }
   }
-
   Widget _buildRespostaBubble(Comentario resposta) {
     final respostaAutor = resposta.autor['nome']?.toString() ?? 'Usuário';
     final respostaFotoUrl = resposta.autor['fotoUrl']?.toString();
     final respostaIniciais = respostaAutor.isNotEmpty
         ? respostaAutor.trim().split(' ').map((e) => e[0]).take(2).join()
         : '?';
-
     return Padding(
       padding: const EdgeInsets.only(top: 6.0),
       child: Row(
@@ -2694,27 +2779,22 @@ class __CommentBubbleState extends State<_CommentBubble> {
       ),
     );
   }
-
   String _formatTimestamp(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
-
     if (diff.inMinutes < 1) return 'agora';
     if (diff.inMinutes < 60) return '${diff.inMinutes} min';
     if (diff.inHours < 24) return '${diff.inHours} h';
     if (diff.inDays < 7) return '${diff.inDays} d';
-
     return '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
   }
 }
-
 class _Comment {
   final String id;
   final String author;
   final String message;
   final DateTime createdAt;
   final Map<String, int> reactions;
-
   _Comment({
     required this.id,
     required this.author,
