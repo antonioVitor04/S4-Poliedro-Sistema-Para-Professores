@@ -9,7 +9,7 @@
 
 <!--STATUS-->
 ## Status
-> ⏳ Em Desenvolvimento.
+> ✔ Concluído.
 
 
 <!--FUNCIONALIDADES-->
