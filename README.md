@@ -40,6 +40,7 @@ Professor:
 
 <!--PROTÓTIPO-->
 ## Protótipo
+[![](https://img.shields.io/badge/Figma--5C5C5C?logo=figma&logoColor=white)](https://www.figma.com/design/A38hkySKBNvDWGq5ktC5ja/S4-Sistema-Professores?node-id=1780-4&t=HvTRYiFBOmca62RD-1)
 
 
 <!--PARTICIPANTES-->
